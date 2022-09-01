@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -47,10 +47,18 @@
 namespace Test {
 
 TEST(default_exec, ViewResize_Rank8) {
+// FIXME_SYCL Avoid running out of resources on the CUDA GPU used in the CI
+#ifdef KOKKOS_ENABLE_SYCL
+  printf("Resize View Performance for LayoutLeft:\n");
+  run_resizeview_tests8<Kokkos::LayoutLeft>(9, 1);
+  printf("Resize View Performance for LayoutRight:\n");
+  run_resizeview_tests8<Kokkos::LayoutRight>(9, 1);
+#else
   printf("Resize View Performance for LayoutLeft:\n");
   run_resizeview_tests8<Kokkos::LayoutLeft>(10, 1);
   printf("Resize View Performance for LayoutRight:\n");
   run_resizeview_tests8<Kokkos::LayoutRight>(10, 1);
+#endif
 }
 
 }  // namespace Test

@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -296,7 +296,8 @@ struct TestReducers {
     Scalar reference_sum = 0;
 
     for (int i = 0; i < N; i++) {
-      h_values(i) = (Scalar)(rand() % 100);
+      int denom   = sizeof(Scalar) <= 2 ? 10 : 100;
+      h_values(i) = (Scalar)(rand() % denom);
       reference_sum += h_values(i);
     }
     Kokkos::deep_copy(values, h_values);
@@ -308,8 +309,12 @@ struct TestReducers {
     Scalar init  = 0;
 
     {
-      Scalar sum_scalar = init;
+      Scalar sum_scalar = Scalar(1);
       Kokkos::Sum<Scalar> reducer_scalar(sum_scalar);
+
+      Kokkos::parallel_reduce(Kokkos::RangePolicy<ExecSpace>(0, 0), f,
+                              reducer_scalar);
+      ASSERT_EQ(sum_scalar, init);
 
       Kokkos::parallel_reduce(Kokkos::RangePolicy<ExecSpace>(0, N), f,
                               reducer_scalar);
@@ -326,17 +331,41 @@ struct TestReducers {
 
     {
       Kokkos::View<Scalar, Kokkos::HostSpace> sum_view("View");
-      sum_view() = init;
+      sum_view() = Scalar(1);
       Kokkos::Sum<Scalar> reducer_view(sum_view);
+      Kokkos::parallel_reduce(Kokkos::RangePolicy<ExecSpace>(0, 0), f,
+                              reducer_view);
+      Kokkos::fence();
+      Scalar sum_view_scalar = sum_view();
+      ASSERT_EQ(sum_view_scalar, init);
+
       Kokkos::parallel_reduce(Kokkos::RangePolicy<ExecSpace>(0, N), f,
                               reducer_view);
       Kokkos::fence();
-
-      Scalar sum_view_scalar = sum_view();
+      sum_view_scalar = sum_view();
       ASSERT_EQ(sum_view_scalar, reference_sum);
 
       Scalar sum_view_view = reducer_view.reference();
       ASSERT_EQ(sum_view_view, reference_sum);
+    }
+
+    {
+      Kokkos::View<Scalar, typename ExecSpace::memory_space> sum_view("View");
+      Kokkos::deep_copy(sum_view, Scalar(1));
+      Kokkos::Sum<Scalar, typename ExecSpace::memory_space> reducer_view(
+          sum_view);
+      Kokkos::parallel_reduce(Kokkos::RangePolicy<ExecSpace>(0, 0), f,
+                              reducer_view);
+      Kokkos::fence();
+      Scalar sum_view_scalar;
+      Kokkos::deep_copy(sum_view_scalar, sum_view);
+      ASSERT_EQ(sum_view_scalar, init);
+
+      Kokkos::parallel_reduce(Kokkos::RangePolicy<ExecSpace>(0, N), f,
+                              reducer_view);
+      Kokkos::fence();
+      Kokkos::deep_copy(sum_view_scalar, sum_view);
+      ASSERT_EQ(sum_view_scalar, reference_sum);
     }
   }
 
@@ -358,8 +387,11 @@ struct TestReducers {
     Scalar init  = 1;
 
     {
-      Scalar prod_scalar = init;
+      Scalar prod_scalar = Scalar(0);
       Kokkos::Prod<Scalar> reducer_scalar(prod_scalar);
+      Kokkos::parallel_reduce(Kokkos::RangePolicy<ExecSpace>(0, 0), f,
+                              reducer_scalar);
+      ASSERT_EQ(prod_scalar, init);
 
       Kokkos::parallel_reduce(Kokkos::RangePolicy<ExecSpace>(0, N), f,
                               reducer_scalar);
@@ -376,17 +408,41 @@ struct TestReducers {
 
     {
       Kokkos::View<Scalar, Kokkos::HostSpace> prod_view("View");
-      prod_view() = init;
+      prod_view() = Scalar(0);
       Kokkos::Prod<Scalar> reducer_view(prod_view);
+      Kokkos::parallel_reduce(Kokkos::RangePolicy<ExecSpace>(0, 0), f,
+                              reducer_view);
+      Kokkos::fence();
+      Scalar prod_view_scalar = prod_view();
+      ASSERT_EQ(prod_view_scalar, init);
+
       Kokkos::parallel_reduce(Kokkos::RangePolicy<ExecSpace>(0, N), f,
                               reducer_view);
       Kokkos::fence();
-
-      Scalar prod_view_scalar = prod_view();
+      prod_view_scalar = prod_view();
       ASSERT_EQ(prod_view_scalar, reference_prod);
 
       Scalar prod_view_view = reducer_view.reference();
       ASSERT_EQ(prod_view_view, reference_prod);
+    }
+
+    {
+      Kokkos::View<Scalar, typename ExecSpace::memory_space> prod_view("View");
+      Kokkos::deep_copy(prod_view, Scalar(0));
+      Kokkos::Prod<Scalar, typename ExecSpace::memory_space> reducer_view(
+          prod_view);
+      Kokkos::parallel_reduce(Kokkos::RangePolicy<ExecSpace>(0, 0), f,
+                              reducer_view);
+      Kokkos::fence();
+      Scalar prod_view_scalar;
+      Kokkos::deep_copy(prod_view_scalar, prod_view);
+      ASSERT_EQ(prod_view_scalar, init);
+
+      Kokkos::parallel_reduce(Kokkos::RangePolicy<ExecSpace>(0, N), f,
+                              reducer_view);
+      Kokkos::fence();
+      Kokkos::deep_copy(prod_view_scalar, prod_view);
+      ASSERT_EQ(prod_view_scalar, reference_prod);
     }
   }
 
@@ -493,7 +549,7 @@ struct TestReducers {
   }
 
   static void test_minloc(int N) {
-    typedef typename Kokkos::MinLoc<Scalar, int>::value_type value_type;
+    using value_type = typename Kokkos::MinLoc<Scalar, int>::value_type;
 
     Kokkos::View<Scalar*, ExecSpace> values("Values", N);
     auto h_values        = Kokkos::create_mirror_view(values);
@@ -556,7 +612,7 @@ struct TestReducers {
   }
 
   static void test_maxloc(int N) {
-    typedef typename Kokkos::MaxLoc<Scalar, int>::value_type value_type;
+    using value_type = typename Kokkos::MaxLoc<Scalar, int>::value_type;
 
     Kokkos::View<Scalar*, ExecSpace> values("Values", N);
     auto h_values        = Kokkos::create_mirror_view(values);
@@ -619,7 +675,7 @@ struct TestReducers {
   }
 
   static void test_minmaxloc(int N) {
-    typedef typename Kokkos::MinMaxLoc<Scalar, int>::value_type value_type;
+    using value_type = typename Kokkos::MinMaxLoc<Scalar, int>::value_type;
 
     Kokkos::View<Scalar*, ExecSpace> values("Values", N);
     auto h_values        = Kokkos::create_mirror_view(values);
@@ -942,17 +998,30 @@ struct TestReducers {
     test_minloc(10003);
     test_max(10007);
     test_maxloc(10007);
+#if defined(KOKKOS_ENABLE_OPENMPTARGET) && defined(KOKKOS_COMPILER_CLANG) && \
+    (KOKKOS_COMPILER_CLANG < 1300)
+    // FIXME_OPENMPTARGET - The minmaxloc test fails llvm <= 13 version.
+#else
     test_minmaxloc(10007);
+#endif
   }
 
+  // NOTE test_prod generates N random numbers between 1 and 4.
+  // Although unlikely, the test below could still in principle overflow.
+  // For reference log(numeric_limits<int>)/log(4) is 15.5
   static void execute_integer() {
     test_sum(10001);
-    test_prod(35);
+    test_prod(sizeof(Scalar) > 4 ? 35 : 19);  // avoid int overflow (see above)
     test_min(10003);
     test_minloc(10003);
     test_max(10007);
     test_maxloc(10007);
+#if defined(KOKKOS_ENABLE_OPENMPTARGET) && defined(KOKKOS_COMPILER_CLANG) && \
+    (KOKKOS_COMPILER_CLANG < 1300)
+    // FIXME_OPENMPTARGET - The minmaxloc test fails llvm <= 13 version.
+#else
     test_minmaxloc(10007);
+#endif
     test_BAnd(35);
     test_BOr(35);
     test_LAnd(35);
@@ -962,6 +1031,11 @@ struct TestReducers {
   static void execute_basic() {
     test_sum(10001);
     test_prod(35);
+  }
+
+  static void execute_bool() {
+    test_LAnd(10001);
+    test_LOr(35);
   }
 };
 

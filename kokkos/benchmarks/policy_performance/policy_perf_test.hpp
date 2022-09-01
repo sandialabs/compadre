@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -68,8 +68,8 @@ void test_policy(int team_range, int thread_range, int vector_range,
                  int team_size, int vector_size, int test_type, ViewType1& v1,
                  ViewType2& v2, ViewType3& v3, double& result,
                  double& result_expect, double& time) {
-  typedef Kokkos::TeamPolicy<ScheduleType, IndexType> t_policy;
-  typedef typename t_policy::member_type t_team;
+  using t_policy = Kokkos::TeamPolicy<ScheduleType, IndexType>;
+  using t_team   = typename t_policy::member_type;
   Kokkos::Timer timer;
 
   for (int orep = 0; orep < outer_repeat; orep++) {

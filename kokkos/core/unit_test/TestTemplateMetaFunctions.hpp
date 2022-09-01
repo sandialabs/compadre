@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -50,22 +50,22 @@ namespace {
 
 template <class Scalar, class ExecutionSpace>
 struct SumPlain {
-  typedef ExecutionSpace execution_space;
-  typedef typename Kokkos::View<Scalar*, execution_space> type;
+  using execution_space = ExecutionSpace;
+  using type            = typename Kokkos::View<Scalar*, execution_space>;
 
   type view;
 
   SumPlain(type view_) : view(view_) {}
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(int i, Scalar& val) { val += Scalar(); }
+  void operator()(int /*i*/, Scalar& val) { val += Scalar(); }
 };
 
 template <class Scalar, class ExecutionSpace>
 struct SumInitJoinFinalValueType {
-  typedef ExecutionSpace execution_space;
-  typedef typename Kokkos::View<Scalar*, execution_space> type;
-  typedef Scalar value_type;
+  using execution_space = ExecutionSpace;
+  using type            = typename Kokkos::View<Scalar*, execution_space>;
+  using value_type      = Scalar;
 
   type view;
 
@@ -80,14 +80,14 @@ struct SumInitJoinFinalValueType {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(int i, value_type& val) const { val += value_type(); }
+  void operator()(int /*i*/, value_type& val) const { val += value_type(); }
 };
 
 template <class Scalar, class ExecutionSpace>
 struct SumInitJoinFinalValueType2 {
-  typedef ExecutionSpace execution_space;
-  typedef typename Kokkos::View<Scalar*, execution_space> type;
-  typedef Scalar value_type;
+  using execution_space = ExecutionSpace;
+  using type            = typename Kokkos::View<Scalar*, execution_space>;
+  using value_type      = Scalar;
 
   type view;
 
@@ -102,14 +102,14 @@ struct SumInitJoinFinalValueType2 {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void operator()(int i, value_type& val) const { val += value_type(); }
+  void operator()(int /*i*/, value_type& val) const { val += value_type(); }
 };
 
 template <class Scalar, class ExecutionSpace>
 struct SumInitJoinFinalValueTypeArray {
-  typedef ExecutionSpace execution_space;
-  typedef typename Kokkos::View<Scalar*, execution_space> type;
-  typedef Scalar value_type[];
+  using execution_space = ExecutionSpace;
+  using type            = typename Kokkos::View<Scalar*, execution_space>;
+  using value_type      = Scalar[];
 
   type view;
   int n;
@@ -139,71 +139,37 @@ struct SumInitJoinFinalValueTypeArray {
 };
 
 template <class Scalar, class ExecutionSpace>
-struct SumWrongInitJoinFinalValueType {
-  typedef ExecutionSpace execution_space;
-  typedef typename Kokkos::View<Scalar*, execution_space> type;
-  typedef Scalar value_type;
-
-  type view;
-
-  SumWrongInitJoinFinalValueType(type view_) : view(view_) {}
-
-  KOKKOS_INLINE_FUNCTION
-  void init(double& val) const { val = double(); }
-
-  KOKKOS_INLINE_FUNCTION
-  void join(volatile value_type& val, const value_type& src) const {
-    val += src;
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  void operator()(int i, value_type& val) const { val += value_type(); }
-};
-
-template <class Scalar, class ExecutionSpace>
 void TestTemplateMetaFunctions() {
-  typedef typename Kokkos::View<Scalar*, ExecutionSpace> type;
-  type a("A", 100);
-  /*
-    int sum_plain_has_init_arg = Kokkos::Impl::FunctorHasInit< SumPlain<Scalar,
-    ExecutionSpace>, Scalar & >::value; ASSERT_EQ( sum_plain_has_init_arg, 0 );
-    int sum_initjoinfinalvaluetype_has_init_arg = Kokkos::Impl::FunctorHasInit<
-    SumInitJoinFinalValueType<Scalar, ExecutionSpace>, Scalar >::value;
-    ASSERT_EQ( sum_initjoinfinalvaluetype_has_init_arg, 1 );
-    int sum_initjoinfinalvaluetype_has_init_arg2 = Kokkos::Impl::FunctorHasInit<
-    SumInitJoinFinalValueType2<Scalar,ExecutionSpace>, Scalar >::value;
-    ASSERT_EQ( sum_initjoinfinalvaluetype_has_init_arg2, 1 );
-    int sum_wronginitjoinfinalvaluetype_has_init_arg =
-    Kokkos::Impl::FunctorHasInit< SumWrongInitJoinFinalValueType<Scalar,
-    ExecutionSpace>, Scalar >::value; ASSERT_EQ(
-    sum_wronginitjoinfinalvaluetype_has_init_arg, 0 );
+  static_assert(
+      Kokkos::Impl::ReduceFunctorHasInit<SumPlain<Scalar, ExecutionSpace>,
+                                         Scalar&>::value == false,
+      "");
+  static_assert(
+      Kokkos::Impl::ReduceFunctorHasInit<
+          SumInitJoinFinalValueType<Scalar, ExecutionSpace>>::value == true,
+      "");
+  static_assert(
+      Kokkos::Impl::ReduceFunctorHasInit<
+          SumInitJoinFinalValueType2<Scalar, ExecutionSpace>>::value == true,
+      "");
 
-    //int sum_initjoinfinalvaluetypearray_has_init_arg =
-    Kokkos::Impl::FunctorHasInit< SumInitJoinFinalValueTypeArray<Scalar,
-    ExecutionSpace>, Scalar[] >::value;
-    //ASSERT_EQ( sum_initjoinfinalvaluetypearray_has_init_arg, 1 );
+  static_assert(
+      Kokkos::Impl::ReduceFunctorHasInit<
+          SumInitJoinFinalValueTypeArray<Scalar, ExecutionSpace>>::value ==
+          true,
+      "");
 
-    //printf( "Values Init: %i %i %i\n", sum_plain_has_init_arg,
-    sum_initjoinfinalvaluetype_has_init_arg,
-    sum_wronginitjoinfinalvaluetype_has_init_arg );
-
-    int sum_plain_has_join_arg = Kokkos::Impl::FunctorHasJoin< SumPlain<Scalar,
-    ExecutionSpace>, Scalar >::value; ASSERT_EQ( sum_plain_has_join_arg, 0 );
-    int sum_initjoinfinalvaluetype_has_join_arg = Kokkos::Impl::FunctorHasJoin<
-    SumInitJoinFinalValueType<Scalar, ExecutionSpace>, Scalar >::value;
-    ASSERT_EQ( sum_initjoinfinalvaluetype_has_join_arg, 1 );
-    int sum_initjoinfinalvaluetype_has_join_arg2 = Kokkos::Impl::FunctorHasJoin<
-    SumInitJoinFinalValueType2<Scalar, ExecutionSpace>, Scalar >::value;
-    ASSERT_EQ( sum_initjoinfinalvaluetype_has_join_arg2, 1 );
-    int sum_wronginitjoinfinalvaluetype_has_join_arg =
-    Kokkos::Impl::FunctorHasJoin< SumWrongInitJoinFinalValueType<Scalar,
-    ExecutionSpace>, Scalar >::value; ASSERT_EQ(
-    sum_wronginitjoinfinalvaluetype_has_join_arg, 0 );
-
-    //printf( "Values Join: %i %i %i\n", sum_plain_has_join_arg,
-    sum_initjoinfinalvaluetype_has_join_arg,
-    sum_wronginitjoinfinalvaluetype_has_join_arg );
-  */
+  static_assert(Kokkos::Impl::ReduceFunctorHasJoin<
+                    SumPlain<Scalar, ExecutionSpace>>::value == false,
+                "");
+  static_assert(
+      Kokkos::Impl::ReduceFunctorHasJoin<
+          SumInitJoinFinalValueType<Scalar, ExecutionSpace>>::value == true,
+      "");
+  static_assert(
+      Kokkos::Impl::ReduceFunctorHasJoin<
+          SumInitJoinFinalValueType2<Scalar, ExecutionSpace>>::value == true,
+      "");
 }
 
 }  // namespace

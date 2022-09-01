@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -53,23 +53,16 @@
 #include <immintrin.h>
 #endif
 
-#if defined(__HCC_ACCELERATOR__)
-#include <hc.hpp>
-#endif
-
 namespace Kokkos {
+namespace Impl {
 
 KOKKOS_FORCEINLINE_FUNCTION
-int log2(unsigned i) {
+int int_log2(unsigned i) {
   enum : int { shift = sizeof(unsigned) * CHAR_BIT - 1 };
-#if defined(__CUDA_ARCH__)
+#if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
   return shift - __clz(i);
-#elif defined(__HCC_ACCELERATOR__)
-  return (int)hc::__firstbit_u32_u32(i);
 #elif defined(KOKKOS_COMPILER_INTEL)
   return _bit_scan_reverse(i);
-#elif defined(KOKKOS_COMPILER_IBM)
-  return shift - __cntlz4(i);
 #elif defined(KOKKOS_COMPILER_CRAYC)
   return i ? shift - _leadz32(i) : 0;
 #elif defined(__GNUC__) || defined(__GNUG__)
@@ -84,8 +77,6 @@ int log2(unsigned i) {
 #endif
 }
 
-namespace Impl {
-
 /**\brief  Find first zero bit.
  *
  *  If none then return -1 ;
@@ -94,14 +85,10 @@ KOKKOS_FORCEINLINE_FUNCTION
 int bit_first_zero(unsigned i) noexcept {
   enum : unsigned { full = ~0u };
 
-#if defined(__CUDA_ARCH__)
+#if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
   return full != i ? __ffs(~i) - 1 : -1;
-#elif defined(__HCC_ACCELERATOR__)
-  return full != i ? (int)hc::__firstbit_u32_u32(~i) : -1;
 #elif defined(KOKKOS_COMPILER_INTEL)
   return full != i ? _bit_scan_forward(~i) : -1;
-#elif defined(KOKKOS_COMPILER_IBM)
-  return full != i ? __cnttz4(~i) : -1;
 #elif defined(KOKKOS_COMPILER_CRAYC)
   return full != i ? _popcnt(i ^ (i + 1)) - 1 : -1;
 #elif defined(KOKKOS_COMPILER_GNU) || defined(__GNUC__) || defined(__GNUG__)
@@ -118,14 +105,10 @@ int bit_first_zero(unsigned i) noexcept {
 
 KOKKOS_FORCEINLINE_FUNCTION
 int bit_scan_forward(unsigned i) {
-#if defined(__CUDA_ARCH__)
+#if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
   return __ffs(i) - 1;
-#elif defined(__HCC_ACCELERATOR__)
-  return (int)hc::__firstbit_u32_u32(i);
 #elif defined(KOKKOS_COMPILER_INTEL)
   return _bit_scan_forward(i);
-#elif defined(KOKKOS_COMPILER_IBM)
-  return __cnttz4(i);
 #elif defined(KOKKOS_COMPILER_CRAYC)
   return i ? _popcnt(~i & (i - 1)) : -1;
 #elif defined(KOKKOS_COMPILER_GNU) || defined(__GNUC__) || defined(__GNUG__)
@@ -143,14 +126,10 @@ int bit_scan_forward(unsigned i) {
 /// Count the number of bits set.
 KOKKOS_FORCEINLINE_FUNCTION
 int bit_count(unsigned i) {
-#if defined(__CUDA_ARCH__)
+#if defined(__CUDA_ARCH__) || defined(__HIP_DEVICE_COMPILE__)
   return __popc(i);
-#elif defined(__HCC_ACCELERATOR__)
-  return (int)hc::__popcount_u32_b32(i);
 #elif defined(__INTEL_COMPILER)
   return _popcnt32(i);
-#elif defined(KOKKOS_COMPILER_IBM)
-  return __popcnt4(i);
 #elif defined(KOKKOS_COMPILER_CRAYC)
   return _popcnt(i);
 #elif defined(__GNUC__) || defined(__GNUG__)
@@ -168,11 +147,20 @@ int bit_count(unsigned i) {
 
 KOKKOS_INLINE_FUNCTION
 unsigned integral_power_of_two_that_contains(const unsigned N) {
-  const unsigned i = Kokkos::log2(N);
+  const unsigned i = int_log2(N);
   return ((1u << i) < N) ? i + 1 : i;
 }
 
 }  // namespace Impl
+
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE_3
+
+KOKKOS_DEPRECATED KOKKOS_INLINE_FUNCTION int log2(unsigned i) {
+  return Impl::int_log2(i);
+}
+
+#endif
+
 }  // namespace Kokkos
 
 #endif  // KOKKOS_BITOPS_HPP

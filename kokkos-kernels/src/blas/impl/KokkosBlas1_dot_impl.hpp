@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//               KokkosKernels 0.9: Linear Algebra and Graph Kernels
-//                 Copyright 2017 Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -23,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -57,56 +58,47 @@ namespace Impl {
 /// \tparam YVector Type of the second vector y; 1-D View
 /// \tparam SizeType Type of the row index used in the dot product.
 ///   For best performance, use int instead of size_t here.
-template<class AV, class XVector, class YVector, typename SizeType>
-struct DotFunctor
-{
-  typedef typename XVector::execution_space        execution_space;
-  typedef SizeType                                 size_type;
-  typedef typename AV::non_const_value_type   avalue_type;
-  typedef Kokkos::Details::InnerProductSpaceTraits<avalue_type>  IPT;
-  typedef typename IPT::dot_type                   value_type;
+template <class AV, class XVector, class YVector, typename SizeType>
+struct DotFunctor {
+  typedef typename XVector::execution_space execution_space;
+  typedef SizeType size_type;
+  typedef typename AV::non_const_value_type avalue_type;
+  typedef Kokkos::Details::InnerProductSpaceTraits<avalue_type> IPT;
+  typedef typename IPT::dot_type value_type;
 
-  XVector  m_x;
-  YVector  m_y;
+  XVector m_x;
+  YVector m_y;
 
-  DotFunctor (const XVector& x, const YVector& y) : m_x (x), m_y (y) {}
+  DotFunctor(const XVector& x, const YVector& y) : m_x(x), m_y(y) {}
 
   void run(const char* label, AV result) {
-    Kokkos::RangePolicy<execution_space,size_type> policy(0,m_x.extent(0));
-    Kokkos::parallel_reduce(label,policy,*this,result);
+    Kokkos::RangePolicy<execution_space, size_type> policy(0, m_x.extent(0));
+    Kokkos::parallel_reduce(label, policy, *this, result);
   }
 
   // Prefer const size_type& to const size_type or size_type,
   // since the compiler has an easier time inlining the former.
-  KOKKOS_FORCEINLINE_FUNCTION void
-  operator() (const size_type &i, value_type& sum) const
-  {
-    Kokkos::Details::updateDot(sum, m_x(i), m_y(i)); // sum += m_x(i) * m_y(i)
+  KOKKOS_FORCEINLINE_FUNCTION void operator()(const size_type& i,
+                                              value_type& sum) const {
+    Kokkos::Details::updateDot(sum, m_x(i), m_y(i));  // sum += m_x(i) * m_y(i)
   }
 
-  KOKKOS_INLINE_FUNCTION void
-  init (volatile value_type& update) const
-  {
-    update = Kokkos::Details::ArithTraits<value_type>::zero ();
+  KOKKOS_INLINE_FUNCTION void init(volatile value_type& update) const {
+    update = Kokkos::Details::ArithTraits<value_type>::zero();
   }
 
-  KOKKOS_INLINE_FUNCTION void
-  join (value_type& update,
-        const value_type& source) const
-  {
-    update += source ;
+  KOKKOS_INLINE_FUNCTION void join(value_type& update,
+                                   const value_type& source) const {
+    update += source;
   }
 
-  KOKKOS_INLINE_FUNCTION void
-  join (volatile value_type& update,
-        const volatile value_type& source) const
-  {
-    update += source ;
+  KOKKOS_INLINE_FUNCTION void join(volatile value_type& update,
+                                   const volatile value_type& source) const {
+    update += source;
   }
 };
 
+}  // namespace Impl
+}  // namespace KokkosBlas
 
-} // namespace Impl
-} // namespace KokkosBlas
-
-#endif // KOKKOSBLAS1_IMPL_DOT_IMPL_HPP_
+#endif  // KOKKOSBLAS1_IMPL_DOT_IMPL_HPP_

@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//               KokkosKernels 0.9: Linear Algebra and Graph Kernels
-//                 Copyright 2017 Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -23,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -52,24 +53,22 @@
 
 namespace KokkosSparse {
 
-template<class DiagType,
-         class OffsetsType,
-         class CrsMatrixType>
-void
-getDiagCopy (const DiagType& D,
-             const OffsetsType& offsets,
-             const CrsMatrixType& A)
-{
-  static_assert (Kokkos::Impl::is_view<DiagType>::value,
-                 "The DiagType template parameter must be a Kokkos::View.");
-  static_assert (static_cast<int> (DiagType::rank) == 1,
-                 "The DiagType template parameter must be a 1-D Kokkos::View.");
-  static_assert (std::is_same<DiagType, typename DiagType::non_const_type>::value,
-                 "The DiagType template parameter must be a nonconst Kokkos::View.");
-  static_assert (Kokkos::Impl::is_view<OffsetsType>::value,
-                 "The OffsetsType template parameter must be a Kokkos::View.");
-  static_assert (static_cast<int> (OffsetsType::rank) == 1,
-                 "The OffsetsType template parameter must be a 1-D Kokkos::View.");
+template <class DiagType, class OffsetsType, class CrsMatrixType>
+void getDiagCopy(const DiagType& D, const OffsetsType& offsets,
+                 const CrsMatrixType& A) {
+  static_assert(Kokkos::is_view<DiagType>::value,
+                "The DiagType template parameter must be a Kokkos::View.");
+  static_assert(static_cast<int>(DiagType::rank) == 1,
+                "The DiagType template parameter must be a 1-D Kokkos::View.");
+  static_assert(
+      std::is_same<typename DiagType::value_type,
+                   typename DiagType::non_const_value_type>::value,
+      "The DiagType template parameter must be a nonconst Kokkos::View.");
+  static_assert(Kokkos::is_view<OffsetsType>::value,
+                "The OffsetsType template parameter must be a Kokkos::View.");
+  static_assert(
+      static_cast<int>(OffsetsType::rank) == 1,
+      "The OffsetsType template parameter must be a 1-D Kokkos::View.");
 
   typedef typename CrsMatrixType::value_type scalar_type;
   typedef typename CrsMatrixType::ordinal_type ordinal_type;
@@ -79,20 +78,20 @@ getDiagCopy (const DiagType& D,
   // Standardize on unmanaged Views, in order to avoid proliferation
   // of instantiations of the implementation type.
   Kokkos::View<typename DiagType::non_const_value_type*,
-    typename DiagType::array_layout,
-    typename DiagType::device_type,
-    Kokkos::MemoryUnmanaged> D_internal = D;
+               typename DiagType::array_layout, typename DiagType::device_type,
+               Kokkos::MemoryUnmanaged>
+      D_internal = D;
   Kokkos::View<typename OffsetsType::const_value_type*,
-    typename OffsetsType::array_layout,
-    typename OffsetsType::device_type,
-    Kokkos::MemoryUnmanaged> offsets_internal = offsets;
+               typename OffsetsType::array_layout,
+               typename OffsetsType::device_type, Kokkos::MemoryUnmanaged>
+      offsets_internal = offsets;
 
-  typedef Impl::CrsMatrixGetDiagCopyWithOffsets<scalar_type,
-    ordinal_type, device_type, offset_type> impl_type;
-  impl_type::getDiagCopy (D_internal, offsets_internal, A);
+  typedef Impl::CrsMatrixGetDiagCopyWithOffsets<scalar_type, ordinal_type,
+                                                device_type, offset_type>
+      impl_type;
+  impl_type::getDiagCopy(D_internal, offsets_internal, A);
 }
 
-} // namespace KokkosSparse
+}  // namespace KokkosSparse
 
-#endif // KOKKOS_SPARSE_GETDIAGCOPY_HPP_
-
+#endif  // KOKKOS_SPARSE_GETDIAGCOPY_HPP_

@@ -2,6 +2,8 @@
 
 KOKKOS_DEVICES=""
 
+KOKKOS_DO_EXAMPLES="1"
+
 while [[ $# > 0 ]]
 do
   key="$1"
@@ -79,9 +81,12 @@ do
       echo "Warning: ${key} is deprecated"
       echo "Call make with appropriate -j flag"
       ;;
+    --no-examples)
+      KOKKOS_DO_EXAMPLES="0"
+      ;;
     --compiler*)
       COMPILER="${key#*=}"
-      CNUM=$(command -v ${COMPILER} 2>&1 >/dev/null | grep "no ${COMPILER}" | wc -l)
+      CNUM=$(command -v ${COMPILER} 2>&1 >/dev/null | grep -c "no ${COMPILER}")
       if [ ${CNUM} -gt 0 ]; then
         echo "Invalid compiler by --compiler command: '${COMPILER}'"
         exit
@@ -90,7 +95,7 @@ do
         echo "Empty compiler specified by --compiler command."
         exit
       fi
-      CNUM=$(command -v ${COMPILER} | grep ${COMPILER} | wc -l)
+      CNUM=$(command -v ${COMPILER} | grep -c ${COMPILER})
       if [ ${CNUM} -eq 0 ]; then
         echo "Invalid compiler by --compiler command: '${COMPILER}'"
         exit
@@ -122,7 +127,9 @@ do
       echo "--arch=[OPT]:  Set target architectures. Options are:"
       echo "               [AMD]"
       echo "                 AMDAVX          = AMD CPU"
-      echo "                 EPYC            = AMD EPYC Zen-Core CPU"
+      echo "                 ZEN             = AMD Zen-Core CPU"
+      echo "                 ZEN2            = AMD Zen2-Core CPU"
+      echo "                 ZEN3            = AMD Zen3-Core CPU"
       echo "               [ARM]"
       echo "                 ARMv80          = ARMv8.0 Compatible CPU"
       echo "                 ARMv81          = ARMv8.1 Compatible CPU"
@@ -160,9 +167,9 @@ do
       echo "--cxxflags=[FLAGS]            Overwrite CXXFLAGS for library build and test"
       echo "                                build.  This will still set certain required"
       echo "                                flags via KOKKOS_CXXFLAGS (such as -fopenmp,"
-      echo "                                --std=c++11, etc.)."
+      echo "                                -std=c++14, etc.)."
       echo "--cxxstandard=[FLAGS]         Overwrite KOKKOS_CXX_STANDARD for library build and test"
-      echo "                                c++11 (default), c++14, c++17, c++1y, c++1z, c++2a"
+      echo "                                c++14 (default), c++17, c++1y, c++1z, c++2a"
       echo "--ldflags=[FLAGS]             Overwrite LDFLAGS for library build and test"
       echo "                                build. This will still set certain required"
       echo "                                flags via KOKKOS_LDFLAGS (such as -fopenmp,"
@@ -269,10 +276,6 @@ fi
 
 if [ ${#KOKKOS_USE_TPLS} -gt 0 ]; then
   KOKKOS_SETTINGS="${KOKKOS_SETTINGS} KOKKOS_USE_TPLS=${KOKKOS_USE_TPLS}"
-fi
-
-if [ ${#QTHREADS_PATH} -gt 0 ]; then
-  KOKKOS_SETTINGS="${KOKKOS_SETTINGS} QTHREADS_PATH=${QTHREADS_PATH}"
 fi
 
 if [ ${#HPX_PATH} -gt 0 ]; then
@@ -441,6 +444,14 @@ echo -e "\t\$(MAKE) -C core/perf_test" >> Makefile
 echo -e "\t\$(MAKE) -C containers/unit_tests" >> Makefile
 echo -e "\t\$(MAKE) -C containers/performance_tests" >> Makefile
 echo -e "\t\$(MAKE) -C algorithms/unit_tests" >> Makefile
+if [ ${KOKKOS_DO_EXAMPLES} -gt 0 ]; then
+$()
+echo -e "\t\$(MAKE) -C example/fixture" >> Makefile
+echo -e "\t\$(MAKE) -C example/feint" >> Makefile
+echo -e "\t\$(MAKE) -C example/fenl" >> Makefile
+echo -e "\t\$(MAKE) -C example/make_buildlink build" >> Makefile
+echo -e "\t\$(MAKE) -C example/tutorial build" >> Makefile
+fi
 echo "" >> Makefile
 echo "test: build-test" >> Makefile
 echo -e "\t\$(MAKE) -C core/unit_test test" >> Makefile
@@ -448,6 +459,13 @@ echo -e "\t\$(MAKE) -C core/perf_test test" >> Makefile
 echo -e "\t\$(MAKE) -C containers/unit_tests test" >> Makefile
 echo -e "\t\$(MAKE) -C containers/performance_tests test" >> Makefile
 echo -e "\t\$(MAKE) -C algorithms/unit_tests test" >> Makefile
+if [ ${KOKKOS_DO_EXAMPLES} -gt 0 ]; then
+echo -e "\t\$(MAKE) -C example/fixture test" >> Makefile
+echo -e "\t\$(MAKE) -C example/feint test" >> Makefile
+echo -e "\t\$(MAKE) -C example/fenl test" >> Makefile
+echo -e "\t\$(MAKE) -C example/make_buildlink test" >> Makefile
+echo -e "\t\$(MAKE) -C example/tutorial test" >> Makefile
+fi
 echo "" >> Makefile
 echo "unit-tests-only:" >> Makefile
 echo -e "\t\$(MAKE) -C core/unit_test test" >> Makefile
@@ -461,4 +479,11 @@ echo -e "\t\$(MAKE) -C core/perf_test clean" >> Makefile
 echo -e "\t\$(MAKE) -C containers/unit_tests clean" >> Makefile
 echo -e "\t\$(MAKE) -C containers/performance_tests clean" >> Makefile
 echo -e "\t\$(MAKE) -C algorithms/unit_tests clean" >> Makefile
+if [ ${KOKKOS_DO_EXAMPLES} -gt 0 ]; then
+echo -e "\t\$(MAKE) -C example/fixture clean" >> Makefile
+echo -e "\t\$(MAKE) -C example/feint clean" >> Makefile
+echo -e "\t\$(MAKE) -C example/fenl clean" >> Makefile
+echo -e "\t\$(MAKE) -C example/make_buildlink clean" >> Makefile
+echo -e "\t\$(MAKE) -C example/tutorial clean" >> Makefile
+fi
 

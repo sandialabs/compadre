@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -55,7 +55,6 @@
 //----------------------------------------------------------------------------
 
 #include <Kokkos_MemoryPool.hpp>
-#include <impl/Kokkos_Tags.hpp>
 
 #include <Kokkos_Future.hpp>
 #include <impl/Kokkos_TaskQueue.hpp>
@@ -143,7 +142,7 @@ class BasicTaskScheduler : public Impl::TaskSchedulerBase {
       Kokkos::BasicFuture<typename FunctorType::value_type, scheduler_type>
       _spawn_impl(DepTaskType* arg_predecessor_task, TaskPriority arg_priority,
                   typename task_base::function_type arg_function,
-                  typename task_base::destroy_type arg_destroy,
+                  typename task_base::destroy_type /*arg_destroy*/,
                   FunctorType&& arg_functor) {
     using functor_future_type =
         future_type_for_functor<typename std::decay<FunctorType>::type>;
@@ -203,7 +202,7 @@ class BasicTaskScheduler : public Impl::TaskSchedulerBase {
 
  public:
   KOKKOS_INLINE_FUNCTION
-  BasicTaskScheduler() : m_track(), m_queue(0) {}
+  BasicTaskScheduler() : m_track(), m_queue(nullptr) {}
 
   KOKKOS_INLINE_FUNCTION
   BasicTaskScheduler(BasicTaskScheduler&& rhs) noexcept
@@ -231,13 +230,13 @@ class BasicTaskScheduler : public Impl::TaskSchedulerBase {
   }
 
   explicit BasicTaskScheduler(memory_pool const& arg_memory_pool) noexcept
-      : m_track(), m_queue(0) {
-    typedef Kokkos::Impl::SharedAllocationRecord<memory_space,
-                                                 typename queue_type::Destroy>
-        record_type;
+      : m_track(), m_queue(nullptr) {
+    using record_type =
+        Kokkos::Impl::SharedAllocationRecord<memory_space,
+                                             typename queue_type::Destroy>;
 
-    record_type* record =
-        record_type::allocate(memory_space(), "TaskQueue", sizeof(queue_type));
+    record_type* record = record_type::allocate(
+        memory_space(), "Kokkos::TaskQueue", sizeof(queue_type));
 
     m_queue = new (record->data()) queue_type(arg_memory_pool);
 
@@ -349,7 +348,7 @@ class BasicTaskScheduler : public Impl::TaskSchedulerBase {
 
     task->m_priority = static_cast<int>(arg_priority);
 
-    task->add_dependence((task_base*)0);
+    task->add_dependence(nullptr);
 
     // Postcondition: task is in Executing-Respawn state
   }
@@ -372,7 +371,10 @@ class BasicTaskScheduler : public Impl::TaskSchedulerBase {
         task_base* const t = arg[i].m_task;
         if (nullptr != t) {
           // Increment reference count to track subsequent assignment.
-          Kokkos::atomic_increment(&(t->m_ref_count));
+          // This likely has to be SeqCst
+          Kokkos::Impl::desul_atomic_inc(&(t->m_ref_count),
+                                         Kokkos::Impl::MemoryOrderSeqCst(),
+                                         Kokkos::Impl::MemoryScopeDevice());
           if (q != static_cast<queue_type const*>(t->m_queue)) {
             Kokkos::abort(
                 "Kokkos when_all Futures must be in the same scheduler");
@@ -380,8 +382,8 @@ class BasicTaskScheduler : public Impl::TaskSchedulerBase {
         }
       }
 
-      if (q != 0) {  // this should probably handle the queue == 0 case, but
-                     // this is deprecated code anyway
+      if (q != nullptr) {  // this should probably handle the queue == 0 case,
+                           // but this is deprecated code anyway
 
         size_t const alloc_size = q->when_all_allocation_size(narg);
 
@@ -459,7 +461,7 @@ class BasicTaskScheduler : public Impl::TaskSchedulerBase {
 
       for (int i = 0; i < narg; ++i) {
         const input_type arg_f = func(i);
-        if (0 != arg_f.m_task) {
+        if (nullptr != arg_f.m_task) {
           // Not scheduled, so task scheduler is not yet set
           // if ( m_queue != static_cast< BasicTaskScheduler const * >(
           // arg_f.m_task->m_scheduler )->m_queue ) {
@@ -467,7 +469,10 @@ class BasicTaskScheduler : public Impl::TaskSchedulerBase {
           //  scheduler" );
           //}
           // Increment reference count to track subsequent assignment.
-          Kokkos::atomic_increment(&(arg_f.m_task->m_ref_count));
+          // This increment likely has to be SeqCst
+          Kokkos::Impl::desul_atomic_inc(&(arg_f.m_task->m_ref_count),
+                                         Kokkos::Impl::MemoryOrderSeqCst(),
+                                         Kokkos::Impl::MemoryScopeDevice());
           dep[i] = arg_f.m_task;
         }
       }
@@ -640,16 +645,6 @@ typename Scheduler::template future_type_for_functor<
 
   using task_type =
       typename scheduler_type::template runnable_task_type<FunctorType>;
-
-#if defined(KOKKOS_ACTIVE_EXECUTION_MEMORY_SPACE_HOST) && \
-    defined(KOKKOS_ENABLE_CUDA)
-
-  // This doesn't work with clang cuda
-  // static_assert(
-  //    !std::is_same<Kokkos::Cuda, typename Scheduler::execution_space>::value,
-  //    "Error calling Kokkos::task_spawn for Cuda space within Host code");
-
-#endif
 
   static_assert(TaskEnum == Impl::TaskType::TaskTeam ||
                     TaskEnum == Impl::TaskType::TaskSingle,

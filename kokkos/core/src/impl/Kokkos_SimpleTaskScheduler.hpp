@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -55,7 +55,6 @@
 //----------------------------------------------------------------------------
 
 #include <Kokkos_MemoryPool.hpp>
-#include <impl/Kokkos_Tags.hpp>
 
 #include <Kokkos_Future.hpp>
 #include <impl/Kokkos_TaskQueue.hpp>
@@ -81,79 +80,7 @@ struct DefaultDestroy {
   void destroy_shared_allocation() { managed_object->~T(); }
 };
 
-template <class ExecutionSpace>
-class ExecutionSpaceInstanceStorage
-    : private NoUniqueAddressMemberEmulation<ExecutionSpace,
-                                             DefaultCtorNotOnDevice> {
- private:
-  using base_t =
-      NoUniqueAddressMemberEmulation<ExecutionSpace, DefaultCtorNotOnDevice>;
-
- protected:
-  constexpr explicit ExecutionSpaceInstanceStorage() : base_t() {}
-
-  KOKKOS_INLINE_FUNCTION
-  constexpr explicit ExecutionSpaceInstanceStorage(
-      ExecutionSpace const& arg_execution_space)
-      : base_t(arg_execution_space) {}
-
-  KOKKOS_INLINE_FUNCTION
-  constexpr explicit ExecutionSpaceInstanceStorage(
-      ExecutionSpace&& arg_execution_space)
-      : base_t(std::move(arg_execution_space)) {}
-
-  KOKKOS_INLINE_FUNCTION
-  ExecutionSpace& execution_space_instance() & {
-    return this->no_unique_address_data_member();
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  ExecutionSpace const& execution_space_instance() const& {
-    return this->no_unique_address_data_member();
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  ExecutionSpace&& execution_space_instance() && {
-    return std::move(*this).no_unique_address_data_member();
-  }
-};
-
-template <class MemorySpace>
-class MemorySpaceInstanceStorage
-    : private NoUniqueAddressMemberEmulation<MemorySpace,
-                                             DefaultCtorNotOnDevice> {
- private:
-  using base_t =
-      NoUniqueAddressMemberEmulation<MemorySpace, DefaultCtorNotOnDevice>;
-
- protected:
-  MemorySpaceInstanceStorage() : base_t() {}
-
-  KOKKOS_INLINE_FUNCTION
-  MemorySpaceInstanceStorage(MemorySpace const& arg_memory_space)
-      : base_t(arg_memory_space) {}
-
-  KOKKOS_INLINE_FUNCTION
-  constexpr explicit MemorySpaceInstanceStorage(MemorySpace&& arg_memory_space)
-      : base_t(arg_memory_space) {}
-
-  KOKKOS_INLINE_FUNCTION
-  MemorySpace& memory_space_instance() & {
-    return this->no_unique_address_data_member();
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  MemorySpace const& memory_space_instance() const& {
-    return this->no_unique_address_data_member();
-  }
-
-  KOKKOS_INLINE_FUNCTION
-  MemorySpace&& memory_space_instance() && {
-    return std::move(*this).no_unique_address_data_member();
-  }
-};
-
-}  // end namespace Impl
+}  // namespace Impl
 
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
@@ -226,13 +153,13 @@ class SimpleTaskScheduler
   }
 
   template <int TaskEnum, class DepTaskType, class FunctorType>
-  KOKKOS_FUNCTION
-      future_type_for_functor<typename std::decay<FunctorType>::type>
-      _spawn_impl(
-          DepTaskType arg_predecessor_task, TaskPriority arg_priority,
-          typename runnable_task_base_type::function_type apply_function_ptr,
-          typename runnable_task_base_type::destroy_type destroy_function_ptr,
-          FunctorType&& functor) {
+  KOKKOS_FUNCTION future_type_for_functor<
+      typename std::decay<FunctorType>::type>
+  _spawn_impl(
+      DepTaskType arg_predecessor_task, TaskPriority arg_priority,
+      typename runnable_task_base_type::function_type apply_function_ptr,
+      typename runnable_task_base_type::destroy_type /*destroy_function_ptr*/,
+      FunctorType&& functor) {
     KOKKOS_EXPECTS(m_queue != nullptr);
 
     using functor_future_type =
@@ -297,9 +224,9 @@ class SimpleTaskScheduler
                                      Impl::DefaultDestroy<task_queue_type> >;
 
     // Allocate space for the task queue
-    auto* record =
-        record_type::allocate(memory_space(), "TaskQueue", allocation_size);
-    m_queue = new (record->data())
+    auto* record = record_type::allocate(memory_space(), "Kokkos::TaskQueue",
+                                         allocation_size);
+    m_queue      = new (record->data())
         task_queue_type(arg_execution_space, arg_memory_space, arg_memory_pool);
     record->m_destroy.managed_object = m_queue;
     m_track.assign_allocated_record_to_uninitialized(record);
@@ -363,20 +290,6 @@ class SimpleTaskScheduler
   team_scheduler_info_type const& team_scheduler_info() const& {
     return this->team_scheduler_info_storage::no_unique_address_data_member();
   }
-
-  //----------------------------------------------------------------------------
-
-#ifdef KOKKOS_ENABLE_DEPRECATED_CODE
-  // For backwards compatibility purposes only
-  KOKKOS_DEPRECATED
-  KOKKOS_INLINE_FUNCTION
-  memory_pool* memory() const noexcept KOKKOS_DEPRECATED_TRAILING_ATTRIBUTE {
-    if (m_queue != nullptr)
-      return &(m_queue->get_memory_pool());
-    else
-      return nullptr;
-  }
-#endif
 
   //----------------------------------------------------------------------------
 
@@ -445,7 +358,7 @@ class SimpleTaskScheduler
     KOKKOS_EXPECTS(!task.get_respawn_flag());
 
     task.set_priority(priority);
-    KOKKOS_ASSERT(not task.has_predecessor());
+    KOKKOS_ASSERT(!task.has_predecessor());
     task.set_respawn_flag(true);
   }
 

@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -45,13 +45,17 @@
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
-#elif !defined(__APPLE__)
+#elif defined(__APPLE__)
+#include <sys/types.h>
+#include <sys/sysctl.h>
+#else
 #include <unistd.h>
 #endif
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
 #include <cerrno>
+#include <string>
 
 namespace Kokkos {
 namespace Impl {
@@ -64,6 +68,16 @@ int processors_per_node() {
     return -1;
   }
   return num_procs;
+#elif defined(__APPLE__)
+  int ncpu;
+  int activecpu;
+  size_t size = sizeof(int);
+  sysctlbyname("hw.ncpu", &ncpu, &size, nullptr, 0);
+  sysctlbyname("hw.activecpu", &activecpu, &size, nullptr, 0);
+  if (ncpu < 1 || activecpu < 1)
+    return -1;
+  else
+    return activecpu;
 #else
   return -1;
 #endif
@@ -73,15 +87,15 @@ int mpi_ranks_per_node() {
   char *str;
   int ppn = 1;
   // if ((str = getenv("SLURM_TASKS_PER_NODE"))) {
-  //  ppn = atoi(str);
+  //  ppn = std::stoi(str);
   //  if(ppn<=0) ppn = 1;
   //}
   if ((str = getenv("MV2_COMM_WORLD_LOCAL_SIZE"))) {
-    ppn = atoi(str);
+    ppn = std::stoi(str);
     if (ppn <= 0) ppn = 1;
   }
   if ((str = getenv("OMPI_COMM_WORLD_LOCAL_SIZE"))) {
-    ppn = atoi(str);
+    ppn = std::stoi(str);
     if (ppn <= 0) ppn = 1;
   }
   return ppn;
@@ -91,13 +105,13 @@ int mpi_local_rank_on_node() {
   char *str;
   int local_rank = 0;
   // if ((str = getenv("SLURM_LOCALID"))) {
-  //  local_rank = atoi(str);
+  //  local_rank = std::stoi(str);
   //}
   if ((str = getenv("MV2_COMM_WORLD_LOCAL_RANK"))) {
-    local_rank = atoi(str);
+    local_rank = std::stoi(str);
   }
   if ((str = getenv("OMPI_COMM_WORLD_LOCAL_RANK"))) {
-    local_rank = atoi(str);
+    local_rank = std::stoi(str);
   }
   return local_rank;
 }

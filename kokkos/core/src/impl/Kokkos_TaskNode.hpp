@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -151,6 +151,7 @@ class ReferenceCountedBase {
   bool decrement_and_check_reference_count() {
     // TODO @tasking @memory_order DSH memory order
     auto old_count = Kokkos::atomic_fetch_add(&m_ref_count, -1);
+    Kokkos::memory_fence();
 
     KOKKOS_ASSERT(old_count > 0 && "reference count greater less than zero!");
 
@@ -158,7 +159,11 @@ class ReferenceCountedBase {
   }
 
   KOKKOS_INLINE_FUNCTION
-  void increment_reference_count() { Kokkos::atomic_increment(&m_ref_count); }
+  void increment_reference_count() {
+    Kokkos::Impl::desul_atomic_inc(&m_ref_count,
+                                   Kokkos::Impl::MemoryOrderSeqCst(),
+                                   Kokkos::Impl::MemoryScopeDevice());
+  }
 };
 
 template <class TaskQueueTraits, class SchedulingInfo>
@@ -308,7 +313,7 @@ class TaskNode
 
   template <class Function>
   KOKKOS_INLINE_FUNCTION void consume_wait_queue(Function&& f) {
-    KOKKOS_EXPECTS(not m_wait_queue.is_consumed());
+    KOKKOS_EXPECTS(!m_wait_queue.is_consumed());
     m_wait_queue.consume(std::forward<Function>(f));
   }
 
@@ -499,7 +504,7 @@ class RunnableTaskBase
   void acquire_predecessor_from(runnable_task_type& other) {
     KOKKOS_EXPECTS(m_predecessor == nullptr ||
                    other.m_predecessor == m_predecessor);
-    // since we're transfering, no need to modify the reference count
+    // since we're transferring, no need to modify the reference count
     m_predecessor       = other.m_predecessor;
     other.m_predecessor = nullptr;
   }
@@ -508,7 +513,7 @@ class RunnableTaskBase
   void acquire_predecessor_from(runnable_task_type& other) volatile {
     KOKKOS_EXPECTS(m_predecessor == nullptr ||
                    other.m_predecessor == m_predecessor);
-    // since we're transfering, no need to modify the reference count
+    // since we're transferring, no need to modify the reference count
     m_predecessor       = other.m_predecessor;
     other.m_predecessor = nullptr;
   }
@@ -620,7 +625,7 @@ class alignas(16) RunnableTask
   ~RunnableTask() = delete;
 
   KOKKOS_INLINE_FUNCTION
-  void update_scheduling_info(member_type& member) {
+  void update_scheduling_info(member_type& /*member*/) {
     // TODO @tasking @generalization DSH call a queue-specific hook here; for
     // now, this info is already updated elsewhere this->scheduling_info() =
     // member.scheduler().scheduling_info();
@@ -639,7 +644,7 @@ class alignas(16) RunnableTask
     this->functor_type::operator()(*member, *val);
   }
 
-  KOKKOS_FUNCTION static void destroy(task_base_type* root) {
+  KOKKOS_FUNCTION static void destroy(task_base_type* /*root*/) {
     // TaskResult<result_type>::destroy(root);
   }
 
@@ -664,7 +669,7 @@ class alignas(16) RunnableTask
     // If team then only one thread calls destructor.
 
     const bool only_one_thread =
-#if defined(KOKKOS_ACTIVE_EXECUTION_MEMORY_SPACE_CUDA)
+#ifdef __CUDA_ARCH__  // FIXME_CUDA
         0 == threadIdx.x && 0 == threadIdx.y;
 #else
         0 == member->team_rank();

@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -47,10 +47,10 @@
 
 namespace Test {
 
-template <class Device, class WorkSpec = size_t>
+template <class Device>
 struct TestScan {
-  typedef Device execution_space;
-  typedef long int value_type;
+  using execution_space = Device;
+  using value_type      = int64_t;
 
   Kokkos::View<int, Device, Kokkos::MemoryTraits<Kokkos::Atomic> > errors;
 
@@ -76,7 +76,9 @@ struct TestScan {
         int fail = errors()++;
 
         if (fail < 20) {
-          printf("TestScan(%d,%ld) != %ld\n", iwork, update, answer);
+          KOKKOS_IMPL_DO_NOT_USE_PRINTF("TestScan(%d,%ld) != %ld\n", iwork,
+                                        static_cast<long>(update),
+                                        static_cast<long>(answer));
         }
       }
     }
@@ -91,22 +93,24 @@ struct TestScan {
     update += input;
   }
 
-  TestScan(const WorkSpec& N) {
+  TestScan(const size_t N) {
     Kokkos::View<int, Device> errors_a("Errors");
     Kokkos::deep_copy(errors_a, 0);
     errors = errors_a;
 
     Kokkos::parallel_scan(N, *this);
 
-    long long int total = 0;
+    value_type total = 0;
     Kokkos::parallel_scan(N, *this, total);
 
-    run_check(size_t((N + 1) * N / 2), size_t(total));
+    // We can't return a value in a constructor so use a lambda as wrapper to
+    // ignore it.
+    [&] { ASSERT_EQ(size_t((N + 1) * N / 2), size_t(total)); }();
     check_error();
   }
 
-  TestScan(const WorkSpec& Start, const WorkSpec& N) {
-    typedef Kokkos::RangePolicy<execution_space> exec_policy;
+  TestScan(const size_t Start, const size_t N) {
+    using exec_policy = Kokkos::RangePolicy<execution_space>;
 
     Kokkos::View<int, Device> errors_a("Errors");
     Kokkos::deep_copy(errors_a, 0);
@@ -124,14 +128,10 @@ struct TestScan {
     ASSERT_EQ(total_errors, 0);
   }
 
-  static void test_range(const WorkSpec& begin, const WorkSpec& end) {
-    for (WorkSpec i = begin; i < end; ++i) {
+  static void test_range(const size_t begin, const size_t end) {
+    for (auto i = begin; i < end; ++i) {
       (void)TestScan(i);
     }
-  }
-
-  void run_check(const size_t& expected, const size_t& actual) {
-    ASSERT_EQ(expected, actual);
   }
 };
 
@@ -142,20 +142,4 @@ TEST(TEST_CATEGORY, scan) {
   TestScan<TEST_EXECSPACE>(10000000);
   TEST_EXECSPACE().fence();
 }
-
-/*TEST( TEST_CATEGORY, scan_small )
-{
-  typedef TestScan< TEST_EXECSPACE, Kokkos::Impl::ThreadsExecUseScanSmall >
-TestScanFunctor;
-
-  for ( int i = 0; i < 1000; ++i ) {
-    TestScanFunctor( 10 );
-    TestScanFunctor( 10000 );
-  }
-  TestScanFunctor( 1000000 );
-  TestScanFunctor( 10000000 );
-
-  TEST_EXECSPACE().fence();
-}*/
-
 }  // namespace Test

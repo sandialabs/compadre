@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -44,23 +44,23 @@
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_DualView.hpp>
-#include <impl/Kokkos_Timer.hpp>
+#include <Kokkos_Timer.hpp>
 #include <cstdio>
 #include <cstdlib>
 
 #ifdef KOKKOS_ENABLE_CUDA
-typedef Kokkos::View<double*, Kokkos::CudaUVMSpace> view_type;
-typedef Kokkos::View<int**, Kokkos::CudaUVMSpace> idx_type;
+using view_type = Kokkos::View<double*, Kokkos::CudaUVMSpace>;
+using idx_type  = Kokkos::View<int**, Kokkos::CudaUVMSpace>;
 #else
-typedef Kokkos::View<double*, Kokkos::HostSpace> view_type;
-typedef Kokkos::View<int**, Kokkos::HostSpace> idx_type;
+using view_type = Kokkos::View<double*, Kokkos::HostSpace>;
+using idx_type  = Kokkos::View<int**, Kokkos::HostSpace>;
 #endif
 
 template <class Device>
 struct localsum {
   // Define the execution space for the functor (overrides the
   // DefaultExecutionSpace)
-  typedef Device execution_space;
+  using execution_space = Device;
 
   // Get the view types on the particular device the functor is instantiated for
   idx_type::const_type idx;

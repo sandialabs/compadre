@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -42,9 +42,10 @@
 //@HEADER
 */
 
+#include <impl/Kokkos_Error.hpp>
+
 #include <ostream>
 #include <sstream>
-#include <impl/Kokkos_Error.hpp>
 
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
@@ -103,6 +104,30 @@ void memory_pool_bounds_verification(size_t min_block_alloc_size,
     }
 
     Kokkos::Impl::throw_runtime_exception(msg.str());
+  }
+}
+
+// This has way too many parameters, but it is entirely for moving the iostream
+// inclusion out of the header file with as few changes as possible
+void _print_memory_pool_state(std::ostream& s, uint32_t const* sb_state_ptr,
+                              int32_t sb_count, uint32_t sb_size_lg2,
+                              uint32_t sb_state_size, uint32_t state_shift,
+                              uint32_t state_used_mask) {
+  s << "pool_size(" << (size_t(sb_count) << sb_size_lg2) << ")"
+    << " superblock_size(" << (1LU << sb_size_lg2) << ")" << std::endl;
+
+  for (int32_t i = 0; i < sb_count; ++i, sb_state_ptr += sb_state_size) {
+    if (*sb_state_ptr) {
+      const uint32_t block_count_lg2 = (*sb_state_ptr) >> state_shift;
+      const uint32_t block_size_lg2  = sb_size_lg2 - block_count_lg2;
+      const uint32_t block_count     = 1u << block_count_lg2;
+      const uint32_t block_used      = (*sb_state_ptr) & state_used_mask;
+
+      s << "Superblock[ " << i << " / " << sb_count << " ] {"
+        << " block_size(" << (1 << block_size_lg2) << ")"
+        << " block_count( " << block_used << " / " << block_count << " )"
+        << std::endl;
+    }
   }
 }
 

@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//               KokkosKernels 0.9: Linear Algebra and Graph Kernels
-//                 Copyright 2017 Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -23,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -44,8 +45,9 @@
 #ifndef KOKKOSBLAS1_AXPBY_HPP_
 #define KOKKOSBLAS1_AXPBY_HPP_
 
-#include<KokkosBlas1_axpby_spec.hpp>
-#include<KokkosKernels_helpers.hpp>
+#include <KokkosBlas1_axpby_spec.hpp>
+#include <KokkosKernels_helpers.hpp>
+#include <KokkosKernels_Error.hpp>
 
 // axpby() accepts both scalar coefficients a and b, and vector
 // coefficients (apply one for each column of the input multivectors).
@@ -55,75 +57,73 @@
 
 namespace KokkosBlas {
 
-
-template<class AV, class XMV, class BV, class YMV>
-void
-axpby (const AV& a, const XMV& X, const BV& b, const YMV& Y)
-{
-  static_assert (Kokkos::Impl::is_view<XMV>::value, "KokkosBlas::axpby: "
-                 "X is not a Kokkos::View.");
-  static_assert (Kokkos::Impl::is_view<YMV>::value, "KokkosBlas::axpby: "
-                 "Y is not a Kokkos::View.");
-  static_assert (Kokkos::Impl::is_same<typename YMV::value_type,
-                 typename YMV::non_const_value_type>::value,
-                 "KokkosBlas::axpby: Y is const.  It must be nonconst, "
-                 "because it is an output argument "
-                 "(we must be able to write to its entries).");
-  static_assert (int(YMV::Rank) == int(XMV::Rank), "KokkosBlas::axpby: "
-                 "X and Y must have the same rank.");
-  static_assert (YMV::Rank == 1 || YMV::Rank == 2, "KokkosBlas::axpby: "
-                 "XMV and YMV must either have rank 1 or rank 2.");
+template <class AV, class XMV, class BV, class YMV>
+void axpby(const AV& a, const XMV& X, const BV& b, const YMV& Y) {
+  static_assert(Kokkos::is_view<XMV>::value,
+                "KokkosBlas::axpby: "
+                "X is not a Kokkos::View.");
+  static_assert(Kokkos::is_view<YMV>::value,
+                "KokkosBlas::axpby: "
+                "Y is not a Kokkos::View.");
+  static_assert(std::is_same<typename YMV::value_type,
+                             typename YMV::non_const_value_type>::value,
+                "KokkosBlas::axpby: Y is const.  It must be nonconst, "
+                "because it is an output argument "
+                "(we must be able to write to its entries).");
+  static_assert(int(YMV::Rank) == int(XMV::Rank),
+                "KokkosBlas::axpby: "
+                "X and Y must have the same rank.");
+  static_assert(YMV::Rank == 1 || YMV::Rank == 2,
+                "KokkosBlas::axpby: "
+                "XMV and YMV must either have rank 1 or rank 2.");
 
   // Check compatibility of dimensions at run time.
-  if (X.extent(0) != Y.extent(0) ||
-      X.extent(1) != Y.extent(1)) {
+  if (X.extent(0) != Y.extent(0) || X.extent(1) != Y.extent(1)) {
     std::ostringstream os;
     os << "KokkosBlas::axpby: Dimensions of X and Y do not match: "
-       << "X: " << X.extent(0) << " x " << X.extent(1)
-       << ", Y: " << Y.extent(0) << " x " << Y.extent(1);
-    Kokkos::Impl::throw_runtime_exception (os.str ());
+       << "X: " << X.extent(0) << " x " << X.extent(1) << ", Y: " << Y.extent(0)
+       << " x " << Y.extent(1);
+    KokkosKernels::Impl::throw_runtime_exception(os.str());
   }
+
+  using UnifiedXLayout =
+      typename KokkosKernels::Impl::GetUnifiedLayout<XMV>::array_layout;
+  using UnifiedYLayout =
+      typename KokkosKernels::Impl::GetUnifiedLayoutPreferring<
+          YMV, UnifiedXLayout>::array_layout;
 
   // Create unmanaged versions of the input Views.  XMV and YMV may be
   // rank 1 or rank 2.  AV and BV may be either rank-1 Views, or
   // scalar values.
+  typedef Kokkos::View<typename XMV::const_data_type, UnifiedXLayout,
+                       typename XMV::device_type,
+                       Kokkos::MemoryTraits<Kokkos::Unmanaged> >
+      XMV_Internal;
+  typedef Kokkos::View<typename YMV::non_const_data_type, UnifiedYLayout,
+                       typename YMV::device_type,
+                       Kokkos::MemoryTraits<Kokkos::Unmanaged> >
+      YMV_Internal;
   typedef typename KokkosKernels::Impl::GetUnifiedScalarViewType<
-    AV, XMV, true>::type AV_Internal;
-  typedef Kokkos::View<
-    typename Kokkos::Impl::if_c<
-      XMV::Rank == 1,
-      typename XMV::const_value_type*,
-      typename XMV::const_value_type** >::type,
-    typename KokkosKernels::Impl::GetUnifiedLayout<XMV>::array_layout,
-    typename XMV::device_type,
-    Kokkos::MemoryTraits<Kokkos::Unmanaged> > XMV_Internal;
+      AV, XMV_Internal, true>::type AV_Internal;
   typedef typename KokkosKernels::Impl::GetUnifiedScalarViewType<
-    BV, YMV, true>::type BV_Internal;
-  typedef Kokkos::View<
-    typename Kokkos::Impl::if_c<
-      YMV::Rank == 1,
-      typename YMV::non_const_value_type*,
-      typename YMV::non_const_value_type** >::type,
-    typename KokkosKernels::Impl::GetUnifiedLayout<YMV>::array_layout,
-    typename YMV::device_type,
-    Kokkos::MemoryTraits<Kokkos::Unmanaged> > YMV_Internal;
+      BV, YMV_Internal, true>::type BV_Internal;
 
-  AV_Internal  a_internal = a;
+  AV_Internal a_internal  = a;
   XMV_Internal X_internal = X;
-  BV_Internal  b_internal = b;
+  BV_Internal b_internal  = b;
   YMV_Internal Y_internal = Y;
 
-  Impl::Axpby<AV_Internal, XMV_Internal, BV_Internal,
-    YMV_Internal>::axpby (a_internal, X_internal, b_internal, Y_internal);
+  Impl::Axpby<AV_Internal, XMV_Internal, BV_Internal, YMV_Internal>::axpby(
+      a_internal, X_internal, b_internal, Y_internal);
 }
 
-template<class AV, class XMV, class YMV>
-void
-axpy (const AV& a, const XMV& X, const YMV& Y)
-{
-  axpby(a,X,Kokkos::Details::ArithTraits<typename YMV::non_const_value_type>::one(),Y);
+template <class AV, class XMV, class YMV>
+void axpy(const AV& a, const XMV& X, const YMV& Y) {
+  axpby(a, X,
+        Kokkos::Details::ArithTraits<typename YMV::non_const_value_type>::one(),
+        Y);
 }
 
-} // KokkosBlas
+}  // namespace KokkosBlas
 
 #endif

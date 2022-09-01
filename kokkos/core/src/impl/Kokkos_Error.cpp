@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -42,33 +42,40 @@
 //@HEADER
 */
 
-#include <cstdio>
 #include <cstring>
 #include <cstdlib>
 
-#include <ostream>
+#include <iostream>
 #include <sstream>
 #include <iomanip>
 #include <stdexcept>
 #include <impl/Kokkos_Error.hpp>
+#include <impl/Kokkos_Stacktrace.hpp>
+#include <Cuda/Kokkos_Cuda_Error.hpp>
 
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
 namespace Kokkos {
 namespace Impl {
-
-void host_abort(const char *const message) {
-  fwrite(message, 1, strlen(message), stderr);
-  fflush(stderr);
-  ::abort();
+void traceback_callstack(std::ostream &msg) {
+#ifdef KOKKOS_IMPL_ENABLE_STACKTRACE
+  msg << "\nBacktrace:\n";
+  save_stacktrace();
+  print_demangled_saved_stacktrace(msg);
+#else
+  msg << "\nTraceback functionality not available\n";
+#endif
 }
 
 void throw_runtime_exception(const std::string &msg) {
-  std::ostringstream o;
-  o << msg;
-  traceback_callstack(o);
-  throw std::runtime_error(o.str());
+  throw std::runtime_error(msg);
+}
+
+void host_abort(const char *const message) {
+  std::cerr << message;
+  traceback_callstack(std::cerr);
+  ::abort();
 }
 
 std::string human_memory_size(size_t arg_bytes) {
@@ -129,6 +136,17 @@ void Experimental::RawMemoryAllocationFailure::print_error_message(
       o << "cudaMallocManaged().";
       break;
     case AllocationMechanism::CudaHostAlloc: o << "cudaHostAlloc()."; break;
+    case AllocationMechanism::HIPMalloc: o << "hipMalloc()."; break;
+    case AllocationMechanism::HIPHostMalloc: o << "hipHostMalloc()."; break;
+    case AllocationMechanism::SYCLMallocDevice:
+      o << "sycl::malloc_device().";
+      break;
+    case AllocationMechanism::SYCLMallocShared:
+      o << "sycl::malloc_shared().";
+      break;
+    case AllocationMechanism::SYCLMallocHost:
+      o << "sycl::malloc_host().";
+      break;
   }
   append_additional_error_information(o);
   o << ")" << std::endl;
@@ -147,11 +165,19 @@ std::string Experimental::RawMemoryAllocationFailure::get_error_message()
 //----------------------------------------------------------------------------
 
 namespace Kokkos {
-namespace Impl {
 
-void traceback_callstack(std::ostream &msg) {
-  msg << std::endl << "Traceback functionality not available" << std::endl;
+#ifdef KOKKOS_ENABLE_CUDA
+namespace Experimental {
+
+void CudaRawMemoryAllocationFailure::append_additional_error_information(
+    std::ostream &o) const {
+  if (m_error_code != cudaSuccess) {
+    o << "  The Cuda allocation returned the error code \"\""
+      << cudaGetErrorName(m_error_code) << "\".";
+  }
 }
 
-}  // namespace Impl
+}  // end namespace Experimental
+#endif
+
 }  // namespace Kokkos

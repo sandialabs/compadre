@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -78,6 +78,24 @@ __inline__ __device__ unsigned long long int atomic_fetch_or(
 #endif
 #endif
 #endif
+
+// 08/05/20 Overload to work around https://bugs.llvm.org/show_bug.cgi?id=46922
+
+#if (defined(KOKKOS_ENABLE_CUDA) &&                   \
+     (defined(__CUDA_ARCH__) ||                       \
+      defined(KOKKOS_IMPL_CUDA_CLANG_WORKAROUND))) || \
+    (defined(KOKKOS_ENABLE_HIP))
+__inline__ __device__ unsigned long atomic_fetch_or(
+    volatile unsigned long* const dest, const unsigned long val) {
+  return atomic_fetch_or<unsigned long>(dest, val);
+}
+
+__inline__ __device__ long atomic_fetch_or(volatile long* const dest,
+                                           long val) {
+  return atomic_fetch_or<long>(dest, val);
+}
+#endif
+
 //----------------------------------------------------------------------------
 #if !defined(__CUDA_ARCH__) || defined(KOKKOS_IMPL_CUDA_CLANG_WORKAROUND)
 #if defined(KOKKOS_ENABLE_GNU_ATOMICS) || defined(KOKKOS_ENABLE_INTEL_ATOMICS)
@@ -109,6 +127,15 @@ inline unsigned int atomic_fetch_or(volatile unsigned int* const dest,
 
 inline unsigned long int atomic_fetch_or(volatile unsigned long int* const dest,
                                          const unsigned long int val) {
+#if defined(KOKKOS_ENABLE_RFO_PREFETCH)
+  _mm_prefetch((const char*)dest, _MM_HINT_ET0);
+#endif
+  return __sync_fetch_and_or(dest, val);
+}
+
+inline unsigned long long int atomic_fetch_or(
+    volatile unsigned long long int* const dest,
+    const unsigned long long int val) {
 #if defined(KOKKOS_ENABLE_RFO_PREFETCH)
   _mm_prefetch((const char*)dest, _MM_HINT_ET0);
 #endif

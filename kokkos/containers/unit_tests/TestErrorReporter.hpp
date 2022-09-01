@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -52,7 +52,7 @@
 
 namespace Test {
 
-// Just save the data in the report.  Informative text goies in the
+// Just save the data in the report.  Informative text goes in the
 // operator<<(..).
 template <typename DataType1, typename DataType2, typename DataType3>
 struct ThreeValReport {
@@ -80,12 +80,12 @@ void checkReportersAndReportsAgree(const std::vector<int> &reporters,
 
 template <typename DeviceType>
 struct ErrorReporterDriverBase {
-  typedef ThreeValReport<int, int, double> report_type;
-  typedef Kokkos::Experimental::ErrorReporter<report_type, DeviceType>
-      error_reporter_type;
+  using report_type = ThreeValReport<int, int, double>;
+  using error_reporter_type =
+      Kokkos::Experimental::ErrorReporter<report_type, DeviceType>;
   error_reporter_type m_errorReporter;
 
-  ErrorReporterDriverBase(int reporter_capacity, int test_size)
+  ErrorReporterDriverBase(int reporter_capacity, int /*test_size*/)
       : m_errorReporter(reporter_capacity) {}
 
   KOKKOS_INLINE_FUNCTION bool error_condition(const int work_idx) const {
@@ -93,10 +93,11 @@ struct ErrorReporterDriverBase {
   }
 
   void check_expectations(int reporter_capacity, int test_size) {
+    using namespace std;
     int num_reported = m_errorReporter.getNumReports();
     int num_attempts = m_errorReporter.getNumReportAttempts();
 
-    int expected_num_reports = std::min(reporter_capacity, test_size / 2);
+    int expected_num_reports = min(reporter_capacity, test_size / 2);
     EXPECT_EQ(expected_num_reports, num_reported);
     EXPECT_EQ(test_size / 2, num_attempts);
 
@@ -108,7 +109,7 @@ struct ErrorReporterDriverBase {
 
 template <typename ErrorReporterDriverType>
 void TestErrorReporter() {
-  typedef ErrorReporterDriverType tester_type;
+  using tester_type = ErrorReporterDriverType;
   std::vector<int> reporters;
   std::vector<typename tester_type::report_type> reports;
 
@@ -143,9 +144,9 @@ void TestErrorReporter() {
 
 template <typename DeviceType>
 struct ErrorReporterDriver : public ErrorReporterDriverBase<DeviceType> {
-  typedef ErrorReporterDriverBase<DeviceType> driver_base;
-  typedef typename driver_base::error_reporter_type::execution_space
-      execution_space;
+  using driver_base = ErrorReporterDriverBase<DeviceType>;
+  using execution_space =
+      typename driver_base::error_reporter_type::execution_space;
 
   ErrorReporterDriver(int reporter_capacity, int test_size)
       : driver_base(reporter_capacity, test_size) {
@@ -169,28 +170,35 @@ struct ErrorReporterDriver : public ErrorReporterDriverBase<DeviceType> {
   KOKKOS_INLINE_FUNCTION
   void operator()(const int work_idx) const {
     if (driver_base::error_condition(work_idx)) {
-      double val = M_PI * static_cast<double>(work_idx);
+      double val =
+          Kokkos::Experimental::pi_v<double> * static_cast<double>(work_idx);
       typename driver_base::report_type report = {work_idx, -2 * work_idx, val};
       driver_base::m_errorReporter.add_report(work_idx, report);
     }
   }
 };
 
-#if defined(KOKKOS_CLASS_LAMBDA)
+#if defined(KOKKOS_CLASS_LAMBDA) && \
+    (!defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_CUDA_LAMBDA))
 template <typename DeviceType>
 struct ErrorReporterDriverUseLambda
     : public ErrorReporterDriverBase<DeviceType> {
-  typedef ErrorReporterDriverBase<DeviceType> driver_base;
-  typedef typename driver_base::error_reporter_type::execution_space
-      execution_space;
+  using driver_base = ErrorReporterDriverBase<DeviceType>;
+  using execution_space =
+      typename driver_base::error_reporter_type::execution_space;
 
   ErrorReporterDriverUseLambda(int reporter_capacity, int test_size)
       : driver_base(reporter_capacity, test_size) {
+    execute(reporter_capacity, test_size);
+  }
+
+  void execute(int reporter_capacity, int test_size) {
     Kokkos::parallel_for(
         Kokkos::RangePolicy<execution_space>(0, test_size),
         KOKKOS_CLASS_LAMBDA(const int work_idx) {
           if (driver_base::error_condition(work_idx)) {
-            double val = M_PI * static_cast<double>(work_idx);
+            double val = Kokkos::Experimental::pi_v<double> *
+                         static_cast<double>(work_idx);
             typename driver_base::report_type report = {work_idx, -2 * work_idx,
                                                         val};
             driver_base::m_errorReporter.add_report(work_idx, report);
@@ -205,16 +213,17 @@ struct ErrorReporterDriverUseLambda
 #ifdef KOKKOS_ENABLE_OPENMP
 struct ErrorReporterDriverNativeOpenMP
     : public ErrorReporterDriverBase<Kokkos::OpenMP> {
-  typedef ErrorReporterDriverBase<Kokkos::OpenMP> driver_base;
-  typedef typename driver_base::error_reporter_type::execution_space
-      execution_space;
+  using driver_base = ErrorReporterDriverBase<Kokkos::OpenMP>;
+  using execution_space =
+      typename driver_base::error_reporter_type::execution_space;
 
   ErrorReporterDriverNativeOpenMP(int reporter_capacity, int test_size)
       : driver_base(reporter_capacity, test_size) {
 #pragma omp parallel for
     for (int work_idx = 0; work_idx < test_size; ++work_idx) {
       if (driver_base::error_condition(work_idx)) {
-        double val = M_PI * static_cast<double>(work_idx);
+        double val =
+            Kokkos::Experimental::pi_v<double> * static_cast<double>(work_idx);
         typename driver_base::report_type report = {work_idx, -2 * work_idx,
                                                     val};
         driver_base::m_errorReporter.add_report(work_idx, report);
@@ -225,7 +234,8 @@ struct ErrorReporterDriverNativeOpenMP
 };
 #endif
 
-#if defined(KOKKOS_CLASS_LAMBDA)
+#if defined(KOKKOS_CLASS_LAMBDA) && \
+    (!defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_CUDA_LAMBDA))
 TEST(TEST_CATEGORY, ErrorReporterViaLambda) {
   TestErrorReporter<ErrorReporterDriverUseLambda<TEST_EXECSPACE>>();
 }

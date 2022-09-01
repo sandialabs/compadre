@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -41,6 +41,10 @@
 // ************************************************************************
 //@HEADER
 */
+
+#ifndef KOKKOS_IMPL_HOSTSPACE_DEEPCOPY_HPP
+#define KOKKOS_IMPL_HOSTSPACE_DEEPCOPY_HPP
+
 #include <cstdint>
 
 namespace Kokkos {
@@ -48,7 +52,13 @@ namespace Kokkos {
 namespace Impl {
 
 void hostspace_parallel_deepcopy(void* dst, const void* src, ptrdiff_t n);
+// DeepCopy called with an execution space that can't access HostSpace
+void hostspace_parallel_deepcopy_async(void* dst, const void* src, ptrdiff_t n);
+void hostspace_parallel_deepcopy_async(const DefaultHostExecutionSpace& exec,
+                                       void* dst, const void* src, ptrdiff_t n);
 
 }  // namespace Impl
 
 }  // namespace Kokkos
+
+#endif  // KOKKOS_IMPL_HOSTSPACE_DEEPCOPY_HPP

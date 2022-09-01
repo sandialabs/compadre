@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -130,20 +130,20 @@ struct ObjectWithVLAEmulation {
   // CRTP boilerplate
 
   KOKKOS_FORCEINLINE_FUNCTION
-  /* KOKKOS_CONSTEXPR_14 */
+  /* constexpr */
   Derived* _this() noexcept {
     return VLAEmulationAccess::_cast_to_derived(this);
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
-  /* KOKKOS_CONSTEXPR_14 */
+  /* constexpr */
   Derived const* _this() const noexcept {
     return VLAEmulationAccess::_cast_to_derived(this);
   }
 
   // Note: can't be constexpr because of reinterpret_cast
   KOKKOS_FORCEINLINE_FUNCTION
-  /* KOKKOS_CONSTEXPR_14 */
+  /* constexpr */
   vla_value_type* _vla_pointer() noexcept {
     // The data starts right after the aligned storage of Derived
     return reinterpret_cast<vla_value_type*>(_this() + 1);
@@ -151,7 +151,7 @@ struct ObjectWithVLAEmulation {
 
   // Note: can't be constexpr because of reinterpret_cast
   KOKKOS_FORCEINLINE_FUNCTION
-  /* KOKKOS_CONSTEXPR_14 */
+  /* constexpr */
   vla_value_type const* _vla_pointer() const noexcept {
     // The data starts right after the aligned storage of Derived
     return reinterpret_cast<vla_value_type const*>(_this() + 1);
@@ -159,7 +159,7 @@ struct ObjectWithVLAEmulation {
 
  public:
   KOKKOS_INLINE_FUNCTION
-  static /* KOKKOS_CONSTEXPR_14 */ size_t required_allocation_size(
+  static /* constexpr */ size_t required_allocation_size(
       vla_entry_count_type num_vla_entries) {
     KOKKOS_EXPECTS(num_vla_entries >= 0);
     return sizeof(Derived) + num_vla_entries * sizeof(VLAValueType);
@@ -185,7 +185,7 @@ struct ObjectWithVLAEmulation {
 
     // Note: We can't do this at class scope because it unnecessarily requires
     // vla_value_type to be a complete type
-    static_assert(not std::is_abstract<vla_value_type>::value,
+    static_assert(!std::is_abstract<vla_value_type>::value,
                   "Can't use abstract type with VLA emulation");
 
     KOKKOS_EXPECTS(num_entries >= 0);
@@ -195,8 +195,7 @@ struct ObjectWithVLAEmulation {
   }
 
   KOKKOS_INLINE_FUNCTION
-  ~ObjectWithVLAEmulation() noexcept(
-      noexcept(std::declval<vla_value_type>().~vla_value_type())) {
+  ~ObjectWithVLAEmulation() {
     for (auto&& value : *this) {
       value.~vla_value_type();
     }

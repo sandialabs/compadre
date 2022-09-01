@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -62,7 +62,8 @@ void HostThreadTeamData::organize_pool(HostThreadTeamData *members[],
 
   // Verify not already a member of a pool:
   for (int rank = 0; rank < size && ok; ++rank) {
-    ok = (nullptr != members[rank]) && (0 == members[rank]->m_pool_scratch);
+    ok = (nullptr != members[rank]) &&
+         (nullptr == members[rank]->m_pool_scratch);
   }
 
   if (ok) {
@@ -73,8 +74,8 @@ void HostThreadTeamData::organize_pool(HostThreadTeamData *members[],
     }
 
     {
-      HostThreadTeamData **const pool =
-          (HostThreadTeamData **)(root_scratch + m_pool_members);
+      HostThreadTeamData **const pool = reinterpret_cast<HostThreadTeamData **>(
+          root_scratch + m_pool_members);
 
       // team size == 1, league size == pool_size
 
@@ -106,8 +107,8 @@ void HostThreadTeamData::organize_pool(HostThreadTeamData *members[],
 void HostThreadTeamData::disband_pool() {
   m_work_range.first     = -1;
   m_work_range.second    = -1;
-  m_pool_scratch         = 0;
-  m_team_scratch         = 0;
+  m_pool_scratch         = nullptr;
+  m_team_scratch         = nullptr;
   m_pool_rank            = 0;
   m_pool_size            = 1;
   m_team_base            = 0;
@@ -121,7 +122,7 @@ void HostThreadTeamData::disband_pool() {
 
 int HostThreadTeamData::organize_team(const int team_size) {
   // Pool is initialized
-  const bool ok_pool = 0 != m_pool_scratch;
+  const bool ok_pool = nullptr != m_pool_scratch;
 
   // Team is not set
   const bool ok_team =
@@ -135,7 +136,8 @@ int HostThreadTeamData::organize_team(const int team_size) {
     if (team_size == 1) return 1;  // Already organized in teams of one
 
     HostThreadTeamData *const *const pool =
-        (HostThreadTeamData **)(m_pool_scratch + m_pool_members);
+        reinterpret_cast<HostThreadTeamData **>(m_pool_scratch +
+                                                m_pool_members);
 
     // "league_size" in this context is the number of concurrent teams
     // that the pool can accommodate.  Excess threads are idle.
@@ -238,9 +240,10 @@ int HostThreadTeamData::get_work_stealing() noexcept {
 
     if (w.first == -1 && m_steal_rank != m_pool_rank) {
       HostThreadTeamData *const *const pool =
-          (HostThreadTeamData **)(m_pool_scratch + m_pool_members);
+          reinterpret_cast<HostThreadTeamData **>(m_pool_scratch +
+                                                  m_pool_members);
 
-      // Attempt from begining failed, try to steal from end of neighbor
+      // Attempt from beginning failed, try to steal from end of neighbor
 
       pair_int_t volatile *steal_range = &(pool[m_steal_rank]->m_work_range);
 
@@ -286,22 +289,16 @@ int HostThreadTeamData::get_work_stealing() noexcept {
 
     if (1 < m_team_size) {
       // Must share the work index
-      *((int volatile *)team_reduce()) = w.first;
+      *reinterpret_cast<int volatile *>(team_reduce()) = w.first;
 
       team_rendezvous_release();
     }
   } else if (1 < m_team_size) {
-    w.first = *((int volatile *)team_reduce());
+    w.first = *reinterpret_cast<int volatile *>(team_reduce());
   }
 
   // May exit because successfully stole work and w is good.
   // May exit because no work left to steal and w = (-1,-1).
-
-#if 0
-fprintf(stdout,"HostThreadTeamData::get_work_stealing() pool(%d of %d) %d\n"
-       , m_pool_rank , m_pool_size , w.first );
-fflush(stdout);
-#endif
 
   return w.first;
 }

@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -47,7 +47,8 @@
 
 #include <Kokkos_Macros.hpp>
 
-#if defined(KOKKOS_ENABLE_MPI)
+//#define USE_MPI
+#if defined(USE_MPI)
 #include <mpi.h>
 #endif
 
@@ -59,7 +60,9 @@
 int main(int argc, char** argv) {
   std::ostringstream msg;
 
-#if defined(KOKKOS_ENABLE_MPI)
+  (void)argc;
+  (void)argv;
+#if defined(USE_MPI)
 
   MPI_Init(&argc, &argv);
 
@@ -70,7 +73,7 @@ int main(int argc, char** argv) {
   msg << "MPI rank(" << mpi_rank << ") ";
 
 #endif
-
+  Kokkos::initialize(argc, argv);
   msg << "{" << std::endl;
 
   if (Kokkos::hwloc::available()) {
@@ -80,15 +83,13 @@ int main(int argc, char** argv) {
         << std::endl;
   }
 
-#if defined(KOKKOS_ENABLE_CUDA)
-  Kokkos::Cuda::print_configuration(msg);
-#endif
+  Kokkos::print_configuration(msg);
 
   msg << "}" << std::endl;
 
   std::cout << msg.str();
-
-#if defined(KOKKOS_ENABLE_MPI)
+  Kokkos::finalize();
+#if defined(USE_MPI)
 
   MPI_Finalize();
 

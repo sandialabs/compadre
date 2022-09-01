@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -51,6 +51,12 @@
 #ifdef KOKKOS_ENABLE_CUDA
 #include <Cuda/Kokkos_Cuda_abort.hpp>
 #endif
+#ifdef KOKKOS_ENABLE_HIP
+#include <HIP/Kokkos_HIP_Abort.hpp>
+#endif
+#ifdef KOKKOS_ENABLE_SYCL
+#include <SYCL/Kokkos_SYCL_Abort.hpp>
+#endif
 
 #ifndef KOKKOS_ABORT_MESSAGE_BUFFER_SIZE
 #define KOKKOS_ABORT_MESSAGE_BUFFER_SIZE 2048
@@ -59,13 +65,14 @@
 namespace Kokkos {
 namespace Impl {
 
-void host_abort(const char *const);
+[[noreturn]] void host_abort(const char *const);
 
 void throw_runtime_exception(const std::string &);
 
 void traceback_callstack(std::ostream &);
 
 std::string human_memory_size(size_t arg_bytes);
+void throw_runtime_exception(const std::string &msg);
 
 }  // namespace Impl
 
@@ -87,7 +94,12 @@ class RawMemoryAllocationFailure : public std::bad_alloc {
     IntelMMAlloc,
     CudaMalloc,
     CudaMallocManaged,
-    CudaHostAlloc
+    CudaHostAlloc,
+    HIPMalloc,
+    HIPHostMalloc,
+    SYCLMallocDevice,
+    SYCLMallocShared,
+    SYCLMallocHost
   };
 
  private:
@@ -124,7 +136,7 @@ class RawMemoryAllocationFailure : public std::bad_alloc {
   const char *what() const noexcept override {
     if (m_failure_mode == FailureMode::OutOfMemoryError) {
       return "Memory allocation error: out of memory";
-    } else if (m_failure_mode == FailureMode::OutOfMemoryError) {
+    } else if (m_failure_mode == FailureMode::AllocationNotAligned) {
       return "Memory allocation error: allocation result was under-aligned";
     }
 
@@ -159,15 +171,45 @@ class RawMemoryAllocationFailure : public std::bad_alloc {
 //----------------------------------------------------------------------------
 //----------------------------------------------------------------------------
 
+#if defined(KOKKOS_ENABLE_CUDA) && defined(__CUDA_ARCH__)
+
+#if defined(__APPLE__) || defined(KOKKOS_ENABLE_DEBUG_BOUNDS_CHECK)
+// cuda_abort does not abort when building for macOS.
+// required to workaround failures in random number generator unit tests with
+// pre-volta architectures
+#define KOKKOS_IMPL_ABORT_NORETURN
+#else
+// cuda_abort aborts when building for other platforms than macOS
+#define KOKKOS_IMPL_ABORT_NORETURN [[noreturn]]
+#endif
+
+#elif defined(KOKKOS_ENABLE_HIP) && defined(__HIP_DEVICE_COMPILE__)
+// HIP aborts
+#define KOKKOS_IMPL_ABORT_NORETURN [[noreturn]]
+#elif defined(KOKKOS_ENABLE_SYCL) && defined(__SYCL_DEVICE_ONLY__)
+// FIXME_SYCL SYCL doesn't abort
+#define KOKKOS_IMPL_ABORT_NORETURN
+#elif !defined(KOKKOS_ENABLE_OPENMPTARGET)
+// Host aborts
+#define KOKKOS_IMPL_ABORT_NORETURN [[noreturn]]
+#else
+// Everything else does not abort
+#define KOKKOS_IMPL_ABORT_NORETURN
+#endif
+
 namespace Kokkos {
-KOKKOS_INLINE_FUNCTION
-void abort(const char *const message) {
+KOKKOS_IMPL_ABORT_NORETURN KOKKOS_INLINE_FUNCTION void abort(
+    const char *const message) {
 #if defined(KOKKOS_ENABLE_CUDA) && defined(__CUDA_ARCH__)
   Kokkos::Impl::cuda_abort(message);
-#else
-#if !defined(KOKKOS_ENABLE_OPENMPTARGET) && !defined(__HCC_ACCELERATOR__)
+#elif defined(KOKKOS_ENABLE_HIP) && defined(__HIP_DEVICE_COMPILE__)
+  Kokkos::Impl::hip_abort(message);
+#elif defined(KOKKOS_ENABLE_SYCL) && defined(__SYCL_DEVICE_ONLY__)
+  Kokkos::Impl::sycl_abort(message);
+#elif !defined(KOKKOS_ENABLE_OPENMPTARGET)
   Kokkos::Impl::host_abort(message);
-#endif
+#else
+  (void)message;  // FIXME_OPENMPTARGET
 #endif
 }
 
@@ -177,32 +219,42 @@ void abort(const char *const message) {
 //----------------------------------------------------------------------------
 
 #if !defined(NDEBUG) || defined(KOKKOS_ENFORCE_CONTRACTS) || \
-    defined(KOKKOS_DEBUG)
-#define KOKKOS_EXPECTS(...)                                               \
-  {                                                                       \
-    if (!bool(__VA_ARGS__)) {                                             \
-      ::Kokkos::abort(                                                    \
-          "Kokkos contract violation:\n  "                                \
-          "  Expected precondition `" #__VA_ARGS__ "` evaluated false."); \
-    }                                                                     \
+    defined(KOKKOS_ENABLE_DEBUG)
+#define KOKKOS_EXPECTS(...)                                                    \
+  {                                                                            \
+    if (!bool(__VA_ARGS__)) {                                                  \
+      ::Kokkos::abort(                                                         \
+          "Kokkos contract violation:\n  "                                     \
+          "  Expected precondition `" #__VA_ARGS__                             \
+          "` evaluated false.\n"                                               \
+          "Error at " KOKKOS_IMPL_TOSTRING(__FILE__) ":" KOKKOS_IMPL_TOSTRING( \
+              __LINE__) " \n");                                                \
+    }                                                                          \
   }
-#define KOKKOS_ENSURES(...)                                               \
-  {                                                                       \
-    if (!bool(__VA_ARGS__)) {                                             \
-      ::Kokkos::abort(                                                    \
-          "Kokkos contract violation:\n  "                                \
-          "  Ensured postcondition `" #__VA_ARGS__ "` evaluated false."); \
-    }                                                                     \
+#define KOKKOS_ENSURES(...)                                                    \
+  {                                                                            \
+    if (!bool(__VA_ARGS__)) {                                                  \
+      ::Kokkos::abort(                                                         \
+          "Kokkos contract violation:\n  "                                     \
+          "  Ensured postcondition `" #__VA_ARGS__                             \
+          "` evaluated false.\n"                                               \
+          "Error at " KOKKOS_IMPL_TOSTRING(__FILE__) ":" KOKKOS_IMPL_TOSTRING( \
+              __LINE__) " \n");                                                \
+    }                                                                          \
   }
-// some projects already define this for themselves, so don't mess them up
+// some projects already define this for themselves, so don't mess
+// them up
 #ifndef KOKKOS_ASSERT
-#define KOKKOS_ASSERT(...)                                             \
-  {                                                                    \
-    if (!bool(__VA_ARGS__)) {                                          \
-      ::Kokkos::abort(                                                 \
-          "Kokkos contract violation:\n  "                             \
-          "  Asserted condition `" #__VA_ARGS__ "` evaluated false."); \
-    }                                                                  \
+#define KOKKOS_ASSERT(...)                                                     \
+  {                                                                            \
+    if (!bool(__VA_ARGS__)) {                                                  \
+      ::Kokkos::abort(                                                         \
+          "Kokkos contract violation:\n  "                                     \
+          "  Asserted condition `" #__VA_ARGS__                                \
+          "` evaluated false.\n"                                               \
+          "Error at " KOKKOS_IMPL_TOSTRING(__FILE__) ":" KOKKOS_IMPL_TOSTRING( \
+              __LINE__) " \n");                                                \
+    }                                                                          \
   }
 #endif  // ifndef KOKKOS_ASSERT
 #else   // not debug mode

@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -43,7 +43,7 @@
 */
 
 #include <Kokkos_Core.hpp>
-#include <impl/Kokkos_Timer.hpp>
+#include <Kokkos_Timer.hpp>
 #include <gather.hpp>
 #include <cstdlib>
 
@@ -72,13 +72,13 @@ int main(int argc, char* argv[]) {
     return 0;
   }
 
-  int S = atoi(argv[1]);
-  int N = atoi(argv[2]);
-  int K = atoi(argv[3]);
-  int D = atoi(argv[4]);
-  int R = atoi(argv[5]);
-  int U = atoi(argv[6]);
-  int F = atoi(argv[7]);
+  int S = std::stoi(argv[1]);
+  int N = std::stoi(argv[2]);
+  int K = std::stoi(argv[3]);
+  int D = std::stoi(argv[4]);
+  int R = std::stoi(argv[5]);
+  int U = std::stoi(argv[6]);
+  int F = std::stoi(argv[7]);
 
   if ((S != 1) && (S != 2) && (S != 4)) {
     printf("S must be one of 1,2,4\n");

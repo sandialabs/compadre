@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -120,7 +120,8 @@ void run_allocateview_tests(int N, int R) {
   {
     Kokkos::Timer timer;
     for (int r = 0; r < R; r++) {
-      double* a_ptr = (double*)Kokkos::kokkos_malloc("A", sizeof(double) * N8);
+      double* a_ptr =
+          static_cast<double*>(Kokkos::kokkos_malloc("A", sizeof(double) * N8));
       Kokkos::parallel_for(
           N8, KOKKOS_LAMBDA(const int& i) { a_ptr[i] = 0.0; });
       Kokkos::fence();

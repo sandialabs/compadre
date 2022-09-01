@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -47,6 +47,12 @@
 
 extern "C" void print_fortran_();
 
+struct CountFunctor {
+  KOKKOS_FUNCTION void operator()(const long i, long& lcount) const {
+    lcount += (i % 2) == 0;
+  }
+};
+
 int main(int argc, char* argv[]) {
   Kokkos::initialize(argc, argv);
   Kokkos::DefaultExecutionSpace::print_configuration(std::cout);
@@ -57,7 +63,7 @@ int main(int argc, char* argv[]) {
     exit(1);
   }
 
-  const long n = strtol(argv[1], NULL, 10);
+  const long n = strtol(argv[1], nullptr, 10);
 
   printf("Number of even integers from 0 to %ld\n", n - 1);
 
@@ -66,9 +72,8 @@ int main(int argc, char* argv[]) {
 
   // Compute the number of even integers from 0 to n-1, in parallel.
   long count = 0;
-  Kokkos::parallel_reduce(
-      n, KOKKOS_LAMBDA(const long i, long& lcount) { lcount += (i % 2) == 0; },
-      count);
+  CountFunctor functor;
+  Kokkos::parallel_reduce(n, functor, count);
 
   double count_time = timer.seconds();
   printf("  Parallel: %ld    %10.6f\n", count, count_time);

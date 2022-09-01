@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -44,6 +44,9 @@
 
 #ifndef KOKKOS_CRS_HPP
 #define KOKKOS_CRS_HPP
+
+#include <Kokkos_View.hpp>
+#include <Kokkos_CopyViews.hpp>
 
 namespace Kokkos {
 
@@ -82,22 +85,21 @@ template <class DataType, class Arg1Type, class Arg2Type = void,
                                                   void>::size_type>
 class Crs {
  protected:
-  typedef ViewTraits<DataType*, Arg1Type, Arg2Type, void> traits;
+  using traits = ViewTraits<DataType*, Arg1Type, Arg2Type, void>;
 
  public:
-  typedef DataType data_type;
-  typedef typename traits::array_layout array_layout;
-  typedef typename traits::execution_space execution_space;
-  typedef typename traits::memory_space memory_space;
-  typedef typename traits::device_type device_type;
-  typedef SizeType size_type;
+  using data_type       = DataType;
+  using array_layout    = typename traits::array_layout;
+  using execution_space = typename traits::execution_space;
+  using memory_space    = typename traits::memory_space;
+  using device_type     = typename traits::device_type;
+  using size_type       = SizeType;
 
-  typedef Crs<DataType, Arg1Type, Arg2Type, SizeType> staticcrsgraph_type;
-  typedef Crs<DataType, array_layout, typename traits::host_mirror_space,
-              SizeType>
-      HostMirror;
-  typedef View<size_type*, array_layout, device_type> row_map_type;
-  typedef View<DataType*, array_layout, device_type> entries_type;
+  using staticcrsgraph_type = Crs<DataType, Arg1Type, Arg2Type, SizeType>;
+  using HostMirror =
+      Crs<DataType, array_layout, typename traits::host_mirror_space, SizeType>;
+  using row_map_type = View<size_type*, array_layout, device_type>;
+  using entries_type = View<DataType*, array_layout, device_type>;
 
   row_map_type row_map;
   entries_type entries;
@@ -105,12 +107,12 @@ class Crs {
   /*
    * Default Constructors, operators and destructor
    */
-  KOKKOS_FUNCTION Crs()           = default;
-  KOKKOS_FUNCTION Crs(Crs const&) = default;
-  KOKKOS_FUNCTION Crs(Crs&&)      = default;
-  KOKKOS_FUNCTION Crs& operator=(Crs const&) = default;
-  KOKKOS_FUNCTION Crs& operator=(Crs&&) = default;
-  KOKKOS_FUNCTION ~Crs()                = default;
+  KOKKOS_DEFAULTED_FUNCTION Crs()           = default;
+  KOKKOS_DEFAULTED_FUNCTION Crs(Crs const&) = default;
+  KOKKOS_DEFAULTED_FUNCTION Crs(Crs&&)      = default;
+  KOKKOS_DEFAULTED_FUNCTION Crs& operator=(Crs const&) = default;
+  KOKKOS_DEFAULTED_FUNCTION Crs& operator=(Crs&&) = default;
+  KOKKOS_DEFAULTED_FUNCTION ~Crs()                = default;
 
   /** \brief Assign to a view of the rhs array.
    *         If the old view is the last view
@@ -177,7 +179,9 @@ class GetCrsTransposeCounts {
     const closure_type closure(*this,
                                policy_type(0, index_type(in.entries.size())));
     closure.execute();
-    execution_space().fence();
+    execution_space().fence(
+        "Kokkos::Impl::GetCrsTransposeCounts::GetCrsTransposeCounts: fence "
+        "after functor execution");
   }
 };
 
@@ -187,7 +191,8 @@ class CrsRowMapFromCounts {
   using execution_space = typename InCounts::execution_space;
   using value_type      = typename OutRowMap::value_type;
   using index_type      = typename InCounts::size_type;
-  using last_value_type = Kokkos::View<value_type, execution_space>;
+  using last_value_type =
+      Kokkos::View<value_type, typename InCounts::device_type>;
 
  private:
   InCounts m_in;
@@ -197,7 +202,7 @@ class CrsRowMapFromCounts {
  public:
   KOKKOS_INLINE_FUNCTION
   void operator()(index_type i, value_type& update, bool final_pass) const {
-    if (i < m_in.size()) {
+    if (i < static_cast<index_type>(m_in.size())) {
       update += m_in(i);
       if (final_pass) m_out(i + 1) = update;
     } else if (final_pass) {
@@ -220,8 +225,8 @@ class CrsRowMapFromCounts {
     using closure_type = Kokkos::Impl::ParallelScan<self_type, policy_type>;
     closure_type closure(*this, policy_type(0, m_in.size() + 1));
     closure.execute();
-    auto last_value = Kokkos::create_mirror_view(m_last_value);
-    Kokkos::deep_copy(last_value, m_last_value);
+    auto last_value =
+        Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, m_last_value);
     return last_value();
   }
 };
@@ -259,7 +264,9 @@ class FillCrsTransposeEntries {
     using closure_type = Kokkos::Impl::ParallelFor<self_type, policy_type>;
     const closure_type closure(*this, policy_type(0, index_type(in.numRows())));
     closure.execute();
-    execution_space().fence();
+    execution_space().fence(
+        "Kokkos::Impl::FillCrsTransposeEntries::FillCrsTransposeEntries: fence "
+        "after functor execution");
   }
 };
 
@@ -285,7 +292,7 @@ void get_crs_transpose_counts(
 template <class OutRowMap, class InCounts>
 typename OutRowMap::value_type get_crs_row_map_from_counts(
     OutRowMap& out, InCounts const& in, std::string const& name) {
-  out = OutRowMap(ViewAllocateWithoutInitializing(name), in.size() + 1);
+  out = OutRowMap(view_alloc(WithoutInitializing, name), in.size() + 1);
   Kokkos::Impl::CrsRowMapFromCounts<InCounts, OutRowMap> functor(in, out);
   return functor.execute();
 }
@@ -293,9 +300,9 @@ typename OutRowMap::value_type get_crs_row_map_from_counts(
 template <class DataType, class Arg1Type, class Arg2Type, class SizeType>
 void transpose_crs(Crs<DataType, Arg1Type, Arg2Type, SizeType>& out,
                    Crs<DataType, Arg1Type, Arg2Type, SizeType> const& in) {
-  typedef Crs<DataType, Arg1Type, Arg2Type, SizeType> crs_type;
-  typedef typename crs_type::memory_space memory_space;
-  typedef View<SizeType*, memory_space> counts_type;
+  using crs_type     = Crs<DataType, Arg1Type, Arg2Type, SizeType>;
+  using memory_space = typename crs_type::memory_space;
+  using counts_type  = View<SizeType*, memory_space>;
   {
     counts_type counts;
     Kokkos::get_crs_transpose_counts(counts, in);
@@ -313,7 +320,7 @@ struct CountAndFillBase;
 
 template <class CrsType, class Functor, class ExecutionSpace>
 struct CountAndFillBase {
-  using data_type    = typename CrsType::size_type;
+  using data_type    = typename CrsType::data_type;
   using size_type    = typename CrsType::size_type;
   using row_map_type = typename CrsType::row_map_type;
   using counts_type  = row_map_type;
@@ -340,10 +347,15 @@ struct CountAndFillBase {
   CountAndFillBase(CrsType& crs, Functor const& f) : m_crs(crs), m_functor(f) {}
 };
 
+#if defined(KOKKOS_ENABLE_CUDA) || defined(KOKKOS_ENABLE_HIP)
 #if defined(KOKKOS_ENABLE_CUDA)
+#define EXEC_SPACE Kokkos::Cuda
+#elif defined(KOKKOS_ENABLE_HIP)
+#define EXEC_SPACE Kokkos::Experimental::HIP
+#endif
 template <class CrsType, class Functor>
-struct CountAndFillBase<CrsType, Functor, Kokkos::Cuda> {
-  using data_type    = typename CrsType::size_type;
+struct CountAndFillBase<CrsType, Functor, EXEC_SPACE> {
+  using data_type    = typename CrsType::data_type;
   using size_type    = typename CrsType::size_type;
   using row_map_type = typename CrsType::row_map_type;
   using counts_type  = row_map_type;

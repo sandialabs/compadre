@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -43,18 +43,13 @@
 */
 
 #include <Kokkos_Macros.hpp>
-#if defined(KOKKOS_ACTIVE_EXECUTION_MEMORY_SPACE_HOST)
 
 #include <Kokkos_Atomic.hpp>
 #include <impl/Kokkos_Spinwait.hpp>
 #include <impl/Kokkos_BitOps.hpp>
 
-#if defined(KOKKOS_ENABLE_STDTHREAD) || defined(_WIN32)
 #include <thread>
-#elif !defined(_WIN32)
-#include <sched.h>
-#include <time.h>
-#else
+#if defined(_WIN32)
 #include <process.h>
 #include <winsock2.h>
 #include <windows.h>
@@ -69,32 +64,18 @@ void host_thread_yield(const uint32_t i, const WaitMode mode) {
   static constexpr uint32_t sleep_limit = 1 << 13;
   static constexpr uint32_t yield_limit = 1 << 12;
 
-  const int c = Kokkos::log2(i);
+  const int c = int_log2(i);
 
   if (WaitMode::ROOT != mode) {
     if (sleep_limit < i) {
-      // Attempt to put the thread to sleep for 'c' milliseconds
-
-#if defined(KOKKOS_ENABLE_STDTHREAD) || defined(_WIN32)
-      auto start = std::chrono::high_resolution_clock::now();
+      // Attempt to put the thread to sleep for 'c' microseconds
       std::this_thread::yield();
-      std::this_thread::sleep_until(start + std::chrono::nanoseconds(c * 1000));
-#else
-      timespec req;
-      req.tv_sec  = 0;
-      req.tv_nsec = 1000 * c;
-      nanosleep(&req, nullptr);
-#endif
+      std::this_thread::sleep_for(std::chrono::microseconds(c));
     }
 
     else if (mode == WaitMode::PASSIVE || yield_limit < i) {
       // Attempt to yield thread resources to runtime
-
-#if defined(KOKKOS_ENABLE_STDTHREAD) || defined(_WIN32)
       std::this_thread::yield();
-#else
-      sched_yield();
-#endif
     }
 #if defined(KOKKOS_ENABLE_ASM)
 
@@ -153,7 +134,3 @@ void host_thread_yield(const uint32_t i, const WaitMode mode) {
 
 }  // namespace Impl
 }  // namespace Kokkos
-
-#else
-void KOKKOS_CORE_SRC_IMPL_SPINWAIT_PREVENT_LINK_ERROR() {}
-#endif

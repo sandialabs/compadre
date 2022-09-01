@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//               KokkosKernels 0.9: Linear Algebra and Graph Kernels
-//                 Copyright 2017 Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -23,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -53,42 +54,53 @@ namespace KokkosBlas {
 namespace Experimental {
 namespace Impl {
 
-
-template<class XV>
+template <class XV>
 struct team_nrm2_tpl_spec_avail {
   constexpr static bool value = false;
 };
 
 // Unification and Specialization layer
-template<class TeamType, class XV, bool tpl_spec_avail = team_nrm2_tpl_spec_avail<XV>::value>
+template <class TeamType, class XV,
+          bool tpl_spec_avail = team_nrm2_tpl_spec_avail<XV>::value>
 struct TeamNrm2 {
-  typedef typename Kokkos::Details::InnerProductSpaceTraits<typename XV::non_const_value_type>::mag_type mag_type;
-  typedef Kokkos::Details::InnerProductSpaceTraits<typename XV::non_const_value_type> IPT;
-  typedef Kokkos::Details::ArithTraits<typename IPT::mag_type>   AT;
-  
-  static KOKKOS_INLINE_FUNCTION mag_type team_nrm2 (const TeamType& team, const XV& X);
+  typedef typename Kokkos::Details::InnerProductSpaceTraits<
+      typename XV::non_const_value_type>::mag_type mag_type;
+  typedef Kokkos::Details::InnerProductSpaceTraits<
+      typename XV::non_const_value_type>
+      IPT;
+  typedef Kokkos::Details::ArithTraits<typename IPT::mag_type> AT;
+
+  static KOKKOS_INLINE_FUNCTION mag_type team_nrm2(const TeamType& team,
+                                                   const XV& X);
 };
 
-template<class TeamType, class XV>
+template <class TeamType, class XV>
 struct TeamNrm2<TeamType, XV, false> {
-  typedef typename Kokkos::Details::InnerProductSpaceTraits<typename XV::non_const_value_type>::mag_type mag_type;
-  typedef Kokkos::Details::InnerProductSpaceTraits<typename XV::non_const_value_type> IPT;
-  typedef Kokkos::Details::ArithTraits<typename IPT::mag_type>   AT;
+  typedef typename Kokkos::Details::InnerProductSpaceTraits<
+      typename XV::non_const_value_type>::mag_type mag_type;
+  typedef Kokkos::Details::InnerProductSpaceTraits<
+      typename XV::non_const_value_type>
+      IPT;
+  typedef Kokkos::Details::ArithTraits<typename IPT::mag_type> AT;
 
-  static KOKKOS_INLINE_FUNCTION mag_type team_nrm2 (const TeamType& team, const XV& X) {
-    mag_type result = 0.0; //Kokkos::Details::ArithTraits<mag_type>zero();
-    int N = X.extent(0);
-    Kokkos::parallel_reduce(Kokkos::TeamThreadRange(team,N), [&] (const int& i, mag_type& val) {
-      const typename IPT::mag_type tmp = IPT::norm (X(i));
-      val += tmp * tmp;
-    },result);
+  static KOKKOS_INLINE_FUNCTION mag_type team_nrm2(const TeamType& team,
+                                                   const XV& X) {
+    mag_type result = 0.0;  // Kokkos::Details::ArithTraits<mag_type>zero();
+    int N           = X.extent(0);
+    Kokkos::parallel_reduce(
+        Kokkos::TeamThreadRange(team, N),
+        [&](const int& i, mag_type& val) {
+          const typename IPT::mag_type tmp = IPT::norm(X(i));
+          val += tmp * tmp;
+        },
+        result);
     result = AT::sqrt(result);
     return result;
   }
 };
 
-}
-}
-}
+}  // namespace Impl
+}  // namespace Experimental
+}  // namespace KokkosBlas
 
 #endif

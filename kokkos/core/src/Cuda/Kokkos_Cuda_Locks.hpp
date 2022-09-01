@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -53,12 +53,15 @@
 
 #include <Cuda/Kokkos_Cuda_Error.hpp>
 
+#ifdef KOKKOS_ENABLE_IMPL_DESUL_ATOMICS
+#include <desul/atomics/Lock_Array_Cuda.hpp>
+#endif
+
 namespace Kokkos {
 namespace Impl {
 
 struct CudaLockArrays {
   std::int32_t* atomic;
-  std::int32_t* scratch;
   std::int32_t n;
 };
 
@@ -80,8 +83,6 @@ void finalize_host_cuda_lock_arrays();
 
 }  // namespace Impl
 }  // namespace Kokkos
-
-#if defined(__CUDACC__)
 
 namespace Kokkos {
 namespace Impl {
@@ -113,10 +114,10 @@ __device__
 
 #define CUDA_SPACE_ATOMIC_MASK 0x1FFFF
 
-/// \brief Aquire a lock for the address
+/// \brief Acquire a lock for the address
 ///
-/// This function tries to aquire the lock for the hash value derived
-/// from the provided ptr. If the lock is successfully aquired the
+/// This function tries to acquire the lock for the hash value derived
+/// from the provided ptr. If the lock is successfully acquired the
 /// function returns true. Otherwise it returns false.
 __device__ inline bool lock_address_cuda_space(void* ptr) {
   size_t offset = size_t(ptr);
@@ -131,7 +132,7 @@ __device__ inline bool lock_address_cuda_space(void* ptr) {
 ///
 /// This function releases the lock for the hash value derived
 /// from the provided ptr. This function should only be called
-/// after previously successfully aquiring a lock with
+/// after previously successfully acquiring a lock with
 /// lock_address.
 __device__ inline void unlock_address_cuda_space(void* ptr) {
   size_t offset = size_t(ptr);
@@ -152,19 +153,22 @@ inline int eliminate_warning_for_lock_array() { return lock_array_copied; }
 }  // namespace
 }  // namespace Impl
 }  // namespace Kokkos
+
 /* Dan Ibanez: it is critical that this code be a macro, so that it will
    capture the right address for Kokkos::Impl::g_device_cuda_lock_arrays!
    putting this in an inline function will NOT do the right thing! */
 #define KOKKOS_COPY_CUDA_LOCK_ARRAYS_TO_DEVICE()                      \
   {                                                                   \
     if (::Kokkos::Impl::lock_array_copied == 0) {                     \
-      CUDA_SAFE_CALL(                                                 \
+      KOKKOS_IMPL_CUDA_SAFE_CALL(                                     \
           cudaMemcpyToSymbol(Kokkos::Impl::g_device_cuda_lock_arrays, \
                              &Kokkos::Impl::g_host_cuda_lock_arrays,  \
                              sizeof(Kokkos::Impl::CudaLockArrays)));  \
     }                                                                 \
     lock_array_copied = 1;                                            \
   }
+
+#ifndef KOKKOS_ENABLE_IMPL_DESUL_ATOMICS
 
 #ifdef KOKKOS_ENABLE_CUDA_RELOCATABLE_DEVICE_CODE
 #define KOKKOS_ENSURE_CUDA_LOCK_ARRAYS_ON_DEVICE()
@@ -173,7 +177,18 @@ inline int eliminate_warning_for_lock_array() { return lock_array_copied; }
   KOKKOS_COPY_CUDA_LOCK_ARRAYS_TO_DEVICE()
 #endif
 
-#endif /* defined( __CUDACC__ ) */
+#else
+
+#ifdef KOKKOS_ENABLE_CUDA_RELOCATABLE_DEVICE_CODE
+#define KOKKOS_ENSURE_CUDA_LOCK_ARRAYS_ON_DEVICE()
+#else
+// Still Need COPY_CUDA_LOCK_ARRAYS for team scratch etc.
+#define KOKKOS_ENSURE_CUDA_LOCK_ARRAYS_ON_DEVICE() \
+  KOKKOS_COPY_CUDA_LOCK_ARRAYS_TO_DEVICE()         \
+  DESUL_ENSURE_CUDA_LOCK_ARRAYS_ON_DEVICE()
+#endif
+
+#endif /* defined( KOKKOS_ENABLE_IMPL_DESUL_ATOMICS ) */
 
 #endif /* defined( KOKKOS_ENABLE_CUDA ) */
 

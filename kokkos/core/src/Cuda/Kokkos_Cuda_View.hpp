@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -84,8 +84,8 @@ struct CudaTextureFetch {
   KOKKOS_INLINE_FUNCTION
   CudaTextureFetch() : m_obj(), m_ptr(), m_offset() {}
 
-  KOKKOS_INLINE_FUNCTION
-  ~CudaTextureFetch() {}
+  KOKKOS_DEFAULTED_FUNCTION
+  ~CudaTextureFetch() = default;
 
   KOKKOS_INLINE_FUNCTION
   CudaTextureFetch(const CudaTextureFetch& rhs)
@@ -139,7 +139,7 @@ struct CudaLDGFetch {
 
   template <typename iType>
   KOKKOS_INLINE_FUNCTION ValueType operator[](const iType& i) const {
-#ifdef __CUDA_ARCH__
+#if defined(__CUDA_ARCH__) && (350 <= __CUDA_ARCH__)
     AliasType v = __ldg(reinterpret_cast<const AliasType*>(&m_ptr[i]));
     return *(reinterpret_cast<ValueType*>(&v));
 #else
@@ -153,8 +153,8 @@ struct CudaLDGFetch {
   KOKKOS_INLINE_FUNCTION
   CudaLDGFetch() : m_ptr() {}
 
-  KOKKOS_INLINE_FUNCTION
-  ~CudaLDGFetch() {}
+  KOKKOS_DEFAULTED_FUNCTION
+  ~CudaLDGFetch() = default;
 
   KOKKOS_INLINE_FUNCTION
   CudaLDGFetch(const CudaLDGFetch& rhs) : m_ptr(rhs.m_ptr) {}
@@ -250,33 +250,47 @@ class ViewDataHandle<
   KOKKOS_INLINE_FUNCTION
   static handle_type assign(value_type* arg_data_ptr,
                             track_type const& arg_tracker) {
-    if (arg_data_ptr == NULL) return handle_type();
-
-#if defined(KOKKOS_ACTIVE_EXECUTION_MEMORY_SPACE_HOST)
-    // Assignment of texture = non-texture requires creation of a texture object
-    // which can only occur on the host.  In addition, 'get_record' is only
-    // valid if called in a host execution space
-
-    typedef typename Traits::memory_space memory_space;
-    typedef typename Impl::SharedAllocationRecord<memory_space, void> record;
-
-    record* const r = arg_tracker.template get_record<memory_space>();
+    if (arg_data_ptr == nullptr) return handle_type();
 
 #if !defined(KOKKOS_ENABLE_CUDA_LDG_INTRINSIC)
-    if (0 == r) {
-      Kokkos::abort(
-          "Cuda const random access View using Cuda texture memory requires "
-          "Kokkos to allocate the View's memory");
-    }
-#endif
+    KOKKOS_IF_ON_HOST((
+        // Assignment of texture = non-texture requires creation of a texture
+        // object which can only occur on the host.  In addition, 'get_record'
+        // is only valid if called in a host execution space
 
-    return handle_type(arg_data_ptr, r);
+        using memory_space = typename Traits::memory_space;
+        using record =
+            typename Impl::SharedAllocationRecord<memory_space, void>;
 
+        record* const r = arg_tracker.template get_record<memory_space>();
+
+        if (0 == r) {
+          Kokkos::abort(
+              "Cuda const random access View using Cuda texture memory "
+              "requires "
+              "Kokkos to allocate the View's memory");
+        }
+
+        return handle_type(arg_data_ptr, r);))
 #else
-    Kokkos::Impl::cuda_abort(
-        "Cannot create Cuda texture object from within a Cuda kernel");
-    return handle_type();
+    KOKKOS_IF_ON_HOST((
+        // Assignment of texture = non-texture requires creation of a texture
+        // object which can only occur on the host.  In addition, 'get_record'
+        // is only valid if called in a host execution space
+
+        using memory_space = typename Traits::memory_space;
+        using record =
+            typename Impl::SharedAllocationRecord<memory_space, void>;
+
+        record* const r = arg_tracker.template get_record<memory_space>();
+
+        return handle_type(arg_data_ptr, r);))
 #endif
+
+    KOKKOS_IF_ON_DEVICE(
+        ((void)arg_tracker; Kokkos::Impl::cuda_abort(
+             "Cannot create Cuda texture object from within a Cuda kernel");
+         return handle_type();))
   }
 };
 

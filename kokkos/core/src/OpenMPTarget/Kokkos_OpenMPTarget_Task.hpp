@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -111,27 +111,27 @@ class TaskExec<Kokkos::Experimental::OpenMPTarget> {
   void team_barrier_impl() const;
 
  public:
-#if defined(KOKKOS_ACTIVE_EXECUTION_MEMORY_SPACE_HOST)
-  void* team_shared() const {
-    return m_team_exec ? m_team_exec->scratch_thread() : (void*)0;
+  KOKKOS_FUNCTION void* team_shared() const {
+    KOKKOS_IF_ON_HOST(
+        (return m_team_exec ? m_team_exec->scratch_thread() : nullptr;))
+
+    KOKKOS_IF_ON_DEVICE((return nullptr;))
   }
 
-  int team_shared_size() const {
-    return m_team_exec ? m_team_exec->scratch_thread_size() : 0;
+  KOKKOS_FUNCTION int team_shared_size() const {
+    KOKKOS_IF_ON_HOST(
+        (return m_team_exec ? m_team_exec->scratch_thread_size() : 0;))
+
+    KOKKOS_IF_ON_DEVICE((return 0;))
   }
 
   /**\brief  Whole team enters this function call
    *         before any teeam member returns from
    *         this function call.
    */
-  void team_barrier() const {
-    if (1 < m_team_size) team_barrier_impl();
+  KOKKOS_FUNCTION void team_barrier() const {
+    KOKKOS_IF_ON_HOST((if (1 < m_team_size) { team_barrier_impl(); }))
   }
-#else
-  KOKKOS_INLINE_FUNCTION void team_barrier() const {}
-  KOKKOS_INLINE_FUNCTION void* team_shared() const { return 0; }
-  KOKKOS_INLINE_FUNCTION int team_shared_size() const { return 0; }
-#endif
 
   KOKKOS_INLINE_FUNCTION
   int team_rank() const { return m_team_rank; }
@@ -172,7 +172,6 @@ TeamThreadRange(Impl::TaskExec<Kokkos::Experimental::OpenMPTarget>& thread,
  * i=0..N-1.
  *
  * The range i=0..N-1 is mapped to all threads of the the calling thread team.
- * This functionality requires C++11 support.
  */
 template <typename iType, class Lambda>
 KOKKOS_INLINE_FUNCTION void parallel_for(

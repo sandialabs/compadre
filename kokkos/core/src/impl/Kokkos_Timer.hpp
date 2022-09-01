@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -45,8 +45,13 @@
 #ifndef KOKKOS_IMPLWALLTIME_HPP
 #define KOKKOS_IMPLWALLTIME_HPP
 
+#include <Kokkos_Macros.hpp>
+
+KOKKOS_IMPL_WARNING("This file is deprecated. Use <Kokkos_Timer.hpp> instead.")
+
 #include <Kokkos_Timer.hpp>
 
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE_3
 namespace Kokkos {
 namespace Impl {
 
@@ -54,10 +59,11 @@ namespace Impl {
  *   Timer promoted from Impl to Kokkos ns
  *   This file included for backwards compatibility
  */
-
-using Kokkos::Timer;
+using Timer KOKKOS_DEPRECATED_WITH_COMMENT("Use Kokkos::Timer instead!") =
+    Kokkos::Timer;
 
 }  // namespace Impl
 }  // namespace Kokkos
+#endif
 
 #endif /* #ifndef KOKKOS_IMPLWALLTIME_HPP */

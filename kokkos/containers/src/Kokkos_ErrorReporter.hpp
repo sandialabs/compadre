@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -56,9 +56,9 @@ namespace Experimental {
 template <typename ReportType, typename DeviceType>
 class ErrorReporter {
  public:
-  typedef ReportType report_type;
-  typedef DeviceType device_type;
-  typedef typename device_type::execution_space execution_space;
+  using report_type     = ReportType;
+  using device_type     = DeviceType;
+  using execution_space = typename device_type::execution_space;
 
   ErrorReporter(int max_results)
       : m_numReportsAttempted(""),
@@ -103,13 +103,13 @@ class ErrorReporter {
   }
 
  private:
-  typedef Kokkos::View<report_type *, execution_space> reports_view_t;
-  typedef Kokkos::DualView<report_type *, execution_space> reports_dualview_t;
+  using reports_view_t     = Kokkos::View<report_type *, device_type>;
+  using reports_dualview_t = Kokkos::DualView<report_type *, device_type>;
 
-  typedef typename reports_dualview_t::host_mirror_space host_mirror_space;
-  Kokkos::View<int, execution_space> m_numReportsAttempted;
+  using host_mirror_space = typename reports_dualview_t::host_mirror_space;
+  Kokkos::View<int, device_type> m_numReportsAttempted;
   reports_dualview_t m_reports;
-  Kokkos::DualView<int *, execution_space> m_reporters;
+  Kokkos::DualView<int *, device_type> m_reporters;
 };
 
 template <typename ReportType, typename DeviceType>
@@ -157,12 +157,10 @@ void ErrorReporter<ReportType, DeviceType>::getReports(
                           typename DeviceType::execution_space>::HostMirror
         &reports_out) {
   int num_reports = getNumReports();
-  reporters_out =
-      typename Kokkos::View<int *, typename DeviceType::execution_space>::
-          HostMirror("ErrorReport::reporters_out", num_reports);
-  reports_out = typename Kokkos::
-      View<report_type *, typename DeviceType::execution_space>::HostMirror(
-          "ErrorReport::reports_out", num_reports);
+  reporters_out   = typename Kokkos::View<int *, DeviceType>::HostMirror(
+      "ErrorReport::reporters_out", num_reports);
+  reports_out = typename Kokkos::View<report_type *, DeviceType>::HostMirror(
+      "ErrorReport::reports_out", num_reports);
 
   if (num_reports > 0) {
     m_reports.template sync<host_mirror_space>();
@@ -187,7 +185,8 @@ template <typename ReportType, typename DeviceType>
 void ErrorReporter<ReportType, DeviceType>::resize(const size_t new_size) {
   m_reports.resize(new_size);
   m_reporters.resize(new_size);
-  Kokkos::fence();
+  typename DeviceType::execution_space().fence(
+      "Kokkos::Experimental::ErrorReporter::resize: fence after resizing");
 }
 
 }  // namespace Experimental

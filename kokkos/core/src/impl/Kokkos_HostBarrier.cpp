@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -49,10 +49,8 @@
 
 #include <impl/Kokkos_HostBarrier.hpp>
 
-#if !defined(_WIN32)
-#include <sched.h>
-#include <time.h>
-#else
+#include <thread>
+#if defined(_WIN32)
 #include <process.h>
 #include <winsock2.h>
 #include <windows.h>
@@ -63,18 +61,15 @@ namespace Impl {
 
 void HostBarrier::impl_backoff_wait_until_equal(
     int* ptr, const int v, const bool active_wait) noexcept {
-#if !defined(_WIN32)
-  timespec req;
-  req.tv_sec     = 0;
   unsigned count = 0u;
 
   while (!test_equal(ptr, v)) {
-    const int c = ::Kokkos::log2(++count);
+    const int c = int_log2(++count);
     if (!active_wait || c > log2_iterations_till_sleep) {
-      req.tv_nsec = c < 16 ? 256 * c : 4096;
-      nanosleep(&req, nullptr);
+      std::this_thread::sleep_for(
+          std::chrono::nanoseconds(c < 16 ? 256 * c : 4096));
     } else if (c > log2_iterations_till_yield) {
-      sched_yield();
+      std::this_thread::yield();
     }
 #if defined(KOKKOS_ENABLE_ASM)
 #if defined(__PPC64__)
@@ -91,18 +86,6 @@ void HostBarrier::impl_backoff_wait_until_equal(
 #endif
 #endif
   }
-#else  // _WIN32
-  while (!try_wait()) {
-#if defined(KOKKOS_ENABLE_ASM)
-    for (int j = 0; j < num_nops; ++j) {
-      __asm__ __volatile__("nop\n");
-    }
-    __asm__ __volatile__("pause\n" ::: "memory");
-#endif
-  }
-#endif
-  // printf("W: %d\n", count);
 }
-
 }  // namespace Impl
 }  // namespace Kokkos

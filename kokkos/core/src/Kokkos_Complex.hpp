@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -45,9 +45,12 @@
 #define KOKKOS_COMPLEX_HPP
 
 #include <Kokkos_Atomic.hpp>
+#include <Kokkos_MathematicalFunctions.hpp>
 #include <Kokkos_NumericTraits.hpp>
+#include <impl/Kokkos_Error.hpp>
 #include <complex>
-#include <iostream>
+#include <type_traits>
+#include <iosfwd>
 
 namespace Kokkos {
 
@@ -73,14 +76,14 @@ class
   using value_type = RealType;
 
   //! Default constructor (initializes both real and imaginary parts to zero).
-  KOKKOS_INLINE_FUNCTION
-  complex() noexcept = default;
+  KOKKOS_DEFAULTED_FUNCTION
+  complex() = default;
 
   //! Copy constructor.
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_DEFAULTED_FUNCTION
   complex(const complex&) noexcept = default;
 
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_DEFAULTED_FUNCTION
   complex& operator=(const complex&) noexcept = default;
 
   /// \brief Conversion constructor from compatible RType
@@ -147,11 +150,11 @@ class
 
   //! The imaginary part of this complex number.
   KOKKOS_INLINE_FUNCTION
-  KOKKOS_CONSTEXPR_14 RealType& imag() noexcept { return im_; }
+  constexpr RealType& imag() noexcept { return im_; }
 
   //! The real part of this complex number.
   KOKKOS_INLINE_FUNCTION
-  KOKKOS_CONSTEXPR_14 RealType& real() noexcept { return re_; }
+  constexpr RealType& real() noexcept { return re_; }
 
   //! The imaginary part of this complex number.
   KOKKOS_INLINE_FUNCTION
@@ -163,41 +166,39 @@ class
 
   //! Set the imaginary part of this complex number.
   KOKKOS_INLINE_FUNCTION
-  KOKKOS_CONSTEXPR_14
-  void imag(RealType v) noexcept { im_ = v; }
+  constexpr void imag(RealType v) noexcept { im_ = v; }
 
   //! Set the real part of this complex number.
   KOKKOS_INLINE_FUNCTION
-  KOKKOS_CONSTEXPR_14
-  void real(RealType v) noexcept { re_ = v; }
+  constexpr void real(RealType v) noexcept { re_ = v; }
 
-  KOKKOS_CONSTEXPR_14 KOKKOS_INLINE_FUNCTION complex& operator+=(
+  constexpr KOKKOS_INLINE_FUNCTION complex& operator+=(
       const complex<RealType>& src) noexcept {
     re_ += src.re_;
     im_ += src.im_;
     return *this;
   }
 
-  KOKKOS_CONSTEXPR_14 KOKKOS_INLINE_FUNCTION complex& operator+=(
+  constexpr KOKKOS_INLINE_FUNCTION complex& operator+=(
       const RealType& src) noexcept {
     re_ += src;
     return *this;
   }
 
-  KOKKOS_CONSTEXPR_14 KOKKOS_INLINE_FUNCTION complex& operator-=(
+  constexpr KOKKOS_INLINE_FUNCTION complex& operator-=(
       const complex<RealType>& src) noexcept {
     re_ -= src.re_;
     im_ -= src.im_;
     return *this;
   }
 
-  KOKKOS_CONSTEXPR_14 KOKKOS_INLINE_FUNCTION complex& operator-=(
+  constexpr KOKKOS_INLINE_FUNCTION complex& operator-=(
       const RealType& src) noexcept {
     re_ -= src;
     return *this;
   }
 
-  KOKKOS_CONSTEXPR_14 KOKKOS_INLINE_FUNCTION complex& operator*=(
+  constexpr KOKKOS_INLINE_FUNCTION complex& operator*=(
       const complex<RealType>& src) noexcept {
     const RealType realPart = re_ * src.re_ - im_ * src.im_;
     const RealType imagPart = re_ * src.im_ + im_ * src.re_;
@@ -206,7 +207,7 @@ class
     return *this;
   }
 
-  KOKKOS_CONSTEXPR_14 KOKKOS_INLINE_FUNCTION complex& operator*=(
+  constexpr KOKKOS_INLINE_FUNCTION complex& operator*=(
       const RealType& src) noexcept {
     re_ *= src;
     im_ *= src;
@@ -214,12 +215,13 @@ class
   }
 
   // Conditional noexcept, just in case RType throws on divide-by-zero
-  KOKKOS_CONSTEXPR_14 KOKKOS_INLINE_FUNCTION complex& operator/=(
+  constexpr KOKKOS_INLINE_FUNCTION complex& operator/=(
       const complex<RealType>& y) noexcept(noexcept(RealType{} / RealType{})) {
+    using Kokkos::Experimental::fabs;
     // Scale (by the "1-norm" of y) to avoid unwarranted overflow.
     // If the real part is +/-Inf and the imaginary part is -/+Inf,
     // this won't change the result.
-    const RealType s = std::fabs(y.real()) + std::fabs(y.imag());
+    const RealType s = fabs(y.real()) + fabs(y.imag());
 
     // If s is 0, then y is zero, so x/y == real(x)/0 + i*imag(x)/0.
     // In that case, the relation x/y == (x/s) / (y/s) doesn't hold,
@@ -240,14 +242,14 @@ class
     return *this;
   }
 
-  KOKKOS_CONSTEXPR_14
-  KOKKOS_INLINE_FUNCTION complex& operator/=(
+  constexpr KOKKOS_INLINE_FUNCTION complex& operator/=(
       const std::complex<RealType>& y) noexcept(noexcept(RealType{} /
                                                          RealType{})) {
+    using Kokkos::Experimental::fabs;
     // Scale (by the "1-norm" of y) to avoid unwarranted overflow.
     // If the real part is +/-Inf and the imaginary part is -/+Inf,
     // this won't change the result.
-    const RealType s = std::fabs(y.real()) + std::fabs(y.imag());
+    const RealType s = fabs(y.real()) + fabs(y.imag());
 
     // If s is 0, then y is zero, so x/y == real(x)/0 + i*imag(x)/0.
     // In that case, the relation x/y == (x/s) / (y/s) doesn't hold,
@@ -267,7 +269,7 @@ class
     return *this;
   }
 
-  KOKKOS_CONSTEXPR_14 KOKKOS_INLINE_FUNCTION complex& operator/=(
+  constexpr KOKKOS_INLINE_FUNCTION complex& operator/=(
       const RealType& src) noexcept(noexcept(RealType{} / RealType{})) {
     re_ /= src;
     im_ /= src;
@@ -298,8 +300,21 @@ class
   /// complex& </tt>.  See Kokkos Issue #177 for the
   /// explanation.  In practice, this means that you should not chain
   /// assignments with volatile lvalues.
-  KOKKOS_INLINE_FUNCTION void operator=(
-      const complex<RealType>& src) volatile noexcept {
+  //
+  // Templated, so as not to be a copy assignment operator (Kokkos issue #2577)
+  // Intended to behave as
+  //    void operator=(const complex&) volatile noexcept
+  //
+  // Use cases:
+  //    complex r;
+  //    const complex cr;
+  //    volatile complex vl;
+  //    vl = r;
+  //    vl = cr;
+  template <class Complex,
+            typename std::enable_if<std::is_same<Complex, complex>::value,
+                                    int>::type = 0>
+  KOKKOS_INLINE_FUNCTION void operator=(const Complex& src) volatile noexcept {
     re_ = src.re_;
     im_ = src.im_;
     // We deliberately do not return anything here.  See explanation
@@ -308,16 +323,45 @@ class
 
   //! Assignment operator, volatile LHS and volatile RHS
   // TODO Should this return void like the other volatile assignment operators?
+  //
+  // Templated, so as not to be a copy assignment operator (Kokkos issue #2577)
+  // Intended to behave as
+  //    volatile complex& operator=(const volatile complex&) volatile noexcept
+  //
+  // Use cases:
+  //    volatile complex vr;
+  //    const volatile complex cvr;
+  //    volatile complex vl;
+  //    vl = vr;
+  //    vl = cvr;
+  template <class Complex,
+            typename std::enable_if<std::is_same<Complex, complex>::value,
+                                    int>::type = 0>
   KOKKOS_INLINE_FUNCTION volatile complex& operator=(
-      const volatile complex<RealType>& src) volatile noexcept {
+      const volatile Complex& src) volatile noexcept {
     re_ = src.re_;
     im_ = src.im_;
     return *this;
   }
 
   //! Assignment operator, volatile RHS and non-volatile LHS
+  //
+  // Templated, so as not to be a copy assignment operator (Kokkos issue #2577)
+  // Intended to behave as
+  //    complex& operator=(const volatile complex&) noexcept
+  //
+  // Use cases:
+  //    volatile complex vr;
+  //    const volatile complex cvr;
+  //    complex l;
+  //    l = vr;
+  //    l = cvr;
+  //
+  template <class Complex,
+            typename std::enable_if<std::is_same<Complex, complex>::value,
+                                    int>::type = 0>
   KOKKOS_INLINE_FUNCTION complex& operator=(
-      const volatile complex<RealType>& src) noexcept {
+      const volatile Complex& src) noexcept {
     re_ = src.re_;
     im_ = src.im_;
     return *this;
@@ -641,39 +685,107 @@ KOKKOS_INLINE_FUNCTION RealType imag(const complex<RealType>& x) noexcept {
   return x.imag();
 }
 
+template <class ArithmeticType>
+KOKKOS_INLINE_FUNCTION constexpr Impl::promote_t<ArithmeticType> imag(
+    ArithmeticType) {
+  return ArithmeticType();
+}
+
 //! Real part of a complex number.
 template <class RealType>
 KOKKOS_INLINE_FUNCTION RealType real(const complex<RealType>& x) noexcept {
   return x.real();
 }
 
+template <class ArithmeticType>
+KOKKOS_INLINE_FUNCTION constexpr Impl::promote_t<ArithmeticType> real(
+    ArithmeticType x) {
+  return x;
+}
+
+//! Constructs a complex number from magnitude and phase angle
+template <class T>
+KOKKOS_INLINE_FUNCTION complex<T> polar(const T& r, const T& theta = T()) {
+  using Kokkos::Experimental::cos;
+  using Kokkos::Experimental::sin;
+  KOKKOS_EXPECTS(r >= 0);
+  return complex<T>(r * cos(theta), r * sin(theta));
+}
+
 //! Absolute value (magnitude) of a complex number.
 template <class RealType>
 KOKKOS_INLINE_FUNCTION RealType abs(const complex<RealType>& x) {
-#ifndef __CUDA_ARCH__
-  using std::hypot;
-#endif
+  using Kokkos::Experimental::hypot;
   return hypot(x.real(), x.imag());
 }
 
 //! Power of a complex number
-template <class RealType>
-KOKKOS_INLINE_FUNCTION Kokkos::complex<RealType> pow(const complex<RealType>& x,
-                                                     const RealType& e) {
-  RealType r   = abs(x);
-  RealType phi = std::atan(x.imag() / x.real());
-  return std::pow(r, e) *
-         Kokkos::complex<RealType>(std::cos(phi * e), std::sin(phi * e));
+template <class T>
+KOKKOS_INLINE_FUNCTION complex<T> pow(const complex<T>& x, const T& y) {
+  using Kokkos::Experimental::atan2;
+  using Kokkos::Experimental::pow;
+  T r     = abs(x);
+  T theta = atan2(x.imag(), x.real());
+  return polar(pow(r, y), y * theta);
 }
 
-//! Square root of a complex number.
+template <class T>
+KOKKOS_INLINE_FUNCTION complex<T> pow(const T& x, const complex<T>& y) {
+  return pow(complex<T>(x), y);
+}
+
+template <class T>
+KOKKOS_INLINE_FUNCTION complex<T> pow(const complex<T>& x,
+                                      const complex<T>& y) {
+  using Kokkos::Experimental::log;
+
+  return x == T() ? T() : exp(y * log(x));
+}
+
+template <class T, class U,
+          class = std::enable_if_t<std::is_arithmetic<T>::value>>
+KOKKOS_INLINE_FUNCTION complex<Impl::promote_2_t<T, U>> pow(
+    const T& x, const complex<U>& y) {
+  using type = Impl::promote_2_t<T, U>;
+  return pow(type(x), complex<type>(y));
+}
+
+template <class T, class U,
+          class = std::enable_if_t<std::is_arithmetic<U>::value>>
+KOKKOS_INLINE_FUNCTION complex<Impl::promote_2_t<T, U>> pow(const complex<T>& x,
+                                                            const U& y) {
+  using type = Impl::promote_2_t<T, U>;
+  return pow(complex<type>(x), type(y));
+}
+
+template <class T, class U>
+KOKKOS_INLINE_FUNCTION complex<Impl::promote_2_t<T, U>> pow(
+    const complex<T>& x, const complex<U>& y) {
+  using type = Impl::promote_2_t<T, U>;
+  return pow(complex<type>(x), complex<type>(y));
+}
+
+//! Square root of a complex number. This is intended to match the stdc++
+//! implementation, which returns sqrt(z*z) = z; where z is complex number.
 template <class RealType>
 KOKKOS_INLINE_FUNCTION Kokkos::complex<RealType> sqrt(
     const complex<RealType>& x) {
-  RealType r   = abs(x);
-  RealType phi = std::atan(x.imag() / x.real());
-  return std::sqrt(r) *
-         Kokkos::complex<RealType>(std::cos(phi * 0.5), std::sin(phi * 0.5));
+  using Kokkos::Experimental::fabs;
+  using Kokkos::Experimental::sqrt;
+
+  RealType r = x.real();
+  RealType i = x.imag();
+
+  if (r == RealType()) {
+    RealType t = sqrt(fabs(i) / 2);
+    return Kokkos::complex<RealType>(t, i < RealType() ? -t : t);
+  } else {
+    RealType t = sqrt(2 * (abs(x) + fabs(r)));
+    RealType u = t / 2;
+    return r > RealType() ? Kokkos::complex<RealType>(u, i / t)
+                          : Kokkos::complex<RealType>(fabs(i) / t,
+                                                      i < RealType() ? -u : u);
+  }
 }
 
 //! Conjugate of a complex number.
@@ -683,11 +795,167 @@ KOKKOS_INLINE_FUNCTION complex<RealType> conj(
   return complex<RealType>(real(x), -imag(x));
 }
 
+template <class ArithmeticType>
+KOKKOS_INLINE_FUNCTION constexpr complex<Impl::promote_t<ArithmeticType>> conj(
+    ArithmeticType x) {
+  using type = Impl::promote_t<ArithmeticType>;
+  return complex<type>(x, -type());
+}
+
 //! Exponential of a complex number.
 template <class RealType>
 KOKKOS_INLINE_FUNCTION complex<RealType> exp(const complex<RealType>& x) {
-  return std::exp(x.real()) *
-         complex<RealType>(std::cos(x.imag()), std::sin(x.imag()));
+  using Kokkos::Experimental::cos;
+  using Kokkos::Experimental::exp;
+  using Kokkos::Experimental::sin;
+  return exp(x.real()) * complex<RealType>(cos(x.imag()), sin(x.imag()));
+}
+
+//! natural log of a complex number.
+template <class RealType>
+KOKKOS_INLINE_FUNCTION Kokkos::complex<RealType> log(
+    const complex<RealType>& x) {
+  using Kokkos::Experimental::atan2;
+  using Kokkos::Experimental::log;
+  RealType phi = atan2(x.imag(), x.real());
+  return Kokkos::complex<RealType>(log(abs(x)), phi);
+}
+
+//! sine of a complex number.
+template <class RealType>
+KOKKOS_INLINE_FUNCTION Kokkos::complex<RealType> sin(
+    const complex<RealType>& x) {
+  using Kokkos::Experimental::cos;
+  using Kokkos::Experimental::cosh;
+  using Kokkos::Experimental::sin;
+  using Kokkos::Experimental::sinh;
+  return Kokkos::complex<RealType>(sin(x.real()) * cosh(x.imag()),
+                                   cos(x.real()) * sinh(x.imag()));
+}
+
+//! cosine of a complex number.
+template <class RealType>
+KOKKOS_INLINE_FUNCTION Kokkos::complex<RealType> cos(
+    const complex<RealType>& x) {
+  using Kokkos::Experimental::cos;
+  using Kokkos::Experimental::cosh;
+  using Kokkos::Experimental::sin;
+  using Kokkos::Experimental::sinh;
+  return Kokkos::complex<RealType>(cos(x.real()) * cosh(x.imag()),
+                                   -sin(x.real()) * sinh(x.imag()));
+}
+
+//! tangent of a complex number.
+template <class RealType>
+KOKKOS_INLINE_FUNCTION Kokkos::complex<RealType> tan(
+    const complex<RealType>& x) {
+  return sin(x) / cos(x);
+}
+
+//! hyperbolic sine of a complex number.
+template <class RealType>
+KOKKOS_INLINE_FUNCTION Kokkos::complex<RealType> sinh(
+    const complex<RealType>& x) {
+  using Kokkos::Experimental::cos;
+  using Kokkos::Experimental::cosh;
+  using Kokkos::Experimental::sin;
+  using Kokkos::Experimental::sinh;
+  return Kokkos::complex<RealType>(sinh(x.real()) * cos(x.imag()),
+                                   cosh(x.real()) * sin(x.imag()));
+}
+
+//! hyperbolic cosine of a complex number.
+template <class RealType>
+KOKKOS_INLINE_FUNCTION Kokkos::complex<RealType> cosh(
+    const complex<RealType>& x) {
+  using Kokkos::Experimental::cos;
+  using Kokkos::Experimental::cosh;
+  using Kokkos::Experimental::sin;
+  using Kokkos::Experimental::sinh;
+  return Kokkos::complex<RealType>(cosh(x.real()) * cos(x.imag()),
+                                   sinh(x.real()) * sin(x.imag()));
+}
+
+//! hyperbolic tangent of a complex number.
+template <class RealType>
+KOKKOS_INLINE_FUNCTION Kokkos::complex<RealType> tanh(
+    const complex<RealType>& x) {
+  return sinh(x) / cosh(x);
+}
+
+//! inverse hyperbolic sine of a complex number.
+template <class RealType>
+KOKKOS_INLINE_FUNCTION Kokkos::complex<RealType> asinh(
+    const complex<RealType>& x) {
+  return log(x + sqrt(x * x + RealType(1.0)));
+}
+
+//! inverse hyperbolic cosine of a complex number.
+template <class RealType>
+KOKKOS_INLINE_FUNCTION Kokkos::complex<RealType> acosh(
+    const complex<RealType>& x) {
+  return RealType(2.0) * log(sqrt(RealType(0.5) * (x + RealType(1.0))) +
+                             sqrt(RealType(0.5) * (x - RealType(1.0))));
+}
+
+//! inverse hyperbolic tangent of a complex number.
+template <class RealType>
+KOKKOS_INLINE_FUNCTION Kokkos::complex<RealType> atanh(
+    const complex<RealType>& x) {
+  using Kokkos::Experimental::atan2;
+  using Kokkos::Experimental::log;
+
+  const RealType i2 = x.imag() * x.imag();
+  const RealType r  = RealType(1.0) - i2 - x.real() * x.real();
+
+  RealType p = RealType(1.0) + x.real();
+  RealType m = RealType(1.0) - x.real();
+
+  p = i2 + p * p;
+  m = i2 + m * m;
+
+  RealType phi = atan2(RealType(2.0) * x.imag(), r);
+  return Kokkos::complex<RealType>(RealType(0.25) * (log(p) - log(m)),
+                                   RealType(0.5) * phi);
+}
+
+//! inverse sine of a complex number.
+template <class RealType>
+KOKKOS_INLINE_FUNCTION Kokkos::complex<RealType> asin(
+    const complex<RealType>& x) {
+  Kokkos::complex<RealType> t =
+      asinh(Kokkos::complex<RealType>(-x.imag(), x.real()));
+  return Kokkos::complex<RealType>(t.imag(), -t.real());
+}
+
+//! inverse cosine of a complex number.
+template <class RealType>
+KOKKOS_INLINE_FUNCTION Kokkos::complex<RealType> acos(
+    const complex<RealType>& x) {
+  using Kokkos::Experimental::acos;
+  Kokkos::complex<RealType> t = asin(x);
+  RealType pi_2               = acos(RealType(0.0));
+  return Kokkos::complex<RealType>(pi_2 - t.real(), -t.imag());
+}
+
+//! inverse tangent of a complex number.
+template <class RealType>
+KOKKOS_INLINE_FUNCTION Kokkos::complex<RealType> atan(
+    const complex<RealType>& x) {
+  using Kokkos::Experimental::atan2;
+  using Kokkos::Experimental::log;
+  const RealType r2 = x.real() * x.real();
+  const RealType i  = RealType(1.0) - r2 - x.imag() * x.imag();
+
+  RealType p = x.imag() + RealType(1.0);
+  RealType m = x.imag() - RealType(1.0);
+
+  p = r2 + p * p;
+  m = r2 + m * m;
+
+  return Kokkos::complex<RealType>(
+      RealType(0.5) * atan2(RealType(2.0) * x.real(), i),
+      RealType(0.25) * log(p / m));
 }
 
 /// This function cannot be called in a CUDA device function,
@@ -717,12 +985,13 @@ KOKKOS_INLINE_FUNCTION
     operator/(const complex<RealType1>& x,
               const complex<RealType2>& y) noexcept(noexcept(RealType1{} /
                                                              RealType2{})) {
+  using Kokkos::Experimental::fabs;
   // Scale (by the "1-norm" of y) to avoid unwarranted overflow.
   // If the real part is +/-Inf and the imaginary part is -/+Inf,
   // this won't change the result.
-  typedef
-      typename std::common_type<RealType1, RealType2>::type common_real_type;
-  const common_real_type s = std::fabs(real(y)) + std::fabs(imag(y));
+  using common_real_type =
+      typename std::common_type<RealType1, RealType2>::type;
+  const common_real_type s = fabs(real(y)) + fabs(imag(y));
 
   // If s is 0, then y is zero, so x/y == real(x)/0 + i*imag(x)/0.
   // In that case, the relation x/y == (x/s) / (y/s) doesn't hold,
@@ -767,8 +1036,8 @@ std::istream& operator>>(std::istream& is, complex<RealType>& x) {
 }
 
 template <class T>
-struct reduction_identity<Kokkos::complex<T> > {
-  typedef reduction_identity<T> t_red_ident;
+struct reduction_identity<Kokkos::complex<T>> {
+  using t_red_ident = reduction_identity<T>;
   KOKKOS_FORCEINLINE_FUNCTION constexpr static Kokkos::complex<T>
   sum() noexcept {
     return Kokkos::complex<T>(t_red_ident::sum(), t_red_ident::sum());

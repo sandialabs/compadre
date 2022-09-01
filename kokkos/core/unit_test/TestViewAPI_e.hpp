@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -54,33 +54,34 @@ namespace Test {
 TEST(TEST_CATEGORY, view_remap) {
   enum { N0 = 3, N1 = 2, N2 = 8, N3 = 9 };
 
-#ifdef KOKKOS_ENABLE_CUDA
+#if defined(KOKKOS_ENABLE_CUDA)
 #define EXECSPACE                                                     \
   std::conditional<std::is_same<TEST_EXECSPACE, Kokkos::Cuda>::value, \
                    Kokkos::CudaHostPinnedSpace, TEST_EXECSPACE>::type
-#else
-#ifdef KOKKOS_ENABLE_ROCM
+#elif defined(KOKKOS_ENABLE_HIP)
+#define EXECSPACE                                                     \
+  std::conditional<                                                   \
+      std::is_same<TEST_EXECSPACE, Kokkos::Experimental::HIP>::value, \
+      Kokkos::Experimental::HIPHostPinnedSpace, TEST_EXECSPACE>::type
+#elif defined(KOKKOS_ENABLE_SYCL)
 #define EXECSPACE                                                      \
   std::conditional<                                                    \
-      std::is_same<TEST_EXECSPACE, Kokkos::Experimental::ROCm>::value, \
-      Kokkos::Experimental::ROCmHostPinnedSpace, TEST_EXECSPACE>::type
-#else
-#if defined(KOKKOS_ENABLE_OPENMPTARGET)
+      std::is_same<TEST_EXECSPACE, Kokkos::Experimental::SYCL>::value, \
+      Kokkos::Experimental::SYCLHostUSMSpace, TEST_EXECSPACE>::type
+#elif defined(KOKKOS_ENABLE_OPENMPTARGET)
 #define EXECSPACE Kokkos::HostSpace
 #else
 #define EXECSPACE TEST_EXECSPACE
 #endif
-#endif
-#endif
 
-  typedef Kokkos::View<double * [N1][N2][N3], Kokkos::LayoutRight, EXECSPACE>
-      output_type;
+  using output_type =
+      Kokkos::View<double * [N1][N2][N3], Kokkos::LayoutRight, EXECSPACE>;
 
-  typedef Kokkos::View<int* * [N2][N3], Kokkos::LayoutLeft, EXECSPACE>
-      input_type;
+  using input_type =
+      Kokkos::View<int* * [N2][N3], Kokkos::LayoutLeft, EXECSPACE>;
 
-  typedef Kokkos::View<int * [N0][N2][N3], Kokkos::LayoutLeft, EXECSPACE>
-      diff_type;
+  using diff_type =
+      Kokkos::View<int * [N0][N2][N3], Kokkos::LayoutLeft, EXECSPACE>;
 
   output_type output("output", N0);
   input_type input("input", N0, N1);
@@ -204,13 +205,13 @@ TEST(TEST_CATEGORY, anonymous_space) { test_anonymous_space(); }
 template <class ExecSpace>
 struct TestViewOverloadResolution {
   // Overload based on value_type and rank
-  static int foo(Kokkos::View<const double**, ExecSpace> a) { return 1; }
-  static int foo(Kokkos::View<const int**, ExecSpace> a) { return 2; }
-  static int foo(Kokkos::View<const double***, ExecSpace> a) { return 3; }
+  static int foo(Kokkos::View<const double**, ExecSpace> /*a*/) { return 1; }
+  static int foo(Kokkos::View<const int**, ExecSpace> /*a*/) { return 2; }
+  static int foo(Kokkos::View<const double***, ExecSpace> /*a*/) { return 3; }
 
   // Overload based on compile time dimensions
-  static int bar(Kokkos::View<double * [3], ExecSpace> a) { return 4; }
-  static int bar(Kokkos::View<double * [4], ExecSpace> a) { return 5; }
+  static int bar(Kokkos::View<double * [3], ExecSpace> /*a*/) { return 4; }
+  static int bar(Kokkos::View<double * [4], ExecSpace> /*a*/) { return 5; }
 
   static void test_function_overload() {
     Kokkos::View<double**, typename ExecSpace::execution_space::array_layout,
@@ -239,4 +240,35 @@ struct TestViewOverloadResolution {
 TEST(TEST_CATEGORY, view_overload_resolution) {
   TestViewOverloadResolution<TEST_EXECSPACE>::test_function_overload();
 }
+
+template <typename MemorySpace>
+struct TestViewAllocationLargeRank {
+  using ViewType = Kokkos::View<char********, MemorySpace>;
+
+  KOKKOS_FUNCTION void operator()(int) const {
+    size_t idx = v.extent(0) - 1;
+    auto& lhs  = v(idx, idx, idx, idx, idx, idx, idx, idx);
+    lhs        = 42;  // This is where it segfaulted
+  }
+
+  ViewType v;
+};
+
+TEST(TEST_CATEGORY, view_allocation_large_rank) {
+  using ExecutionSpace = typename TEST_EXECSPACE::execution_space;
+  using MemorySpace    = typename TEST_EXECSPACE::memory_space;
+  constexpr int dim    = 16;
+  using FunctorType    = TestViewAllocationLargeRank<MemorySpace>;
+  typename FunctorType::ViewType v("v", dim, dim, dim, dim, dim, dim, dim, dim);
+
+  Kokkos::parallel_for(Kokkos::RangePolicy<ExecutionSpace>(0, 1),
+                       FunctorType{v});
+  typename FunctorType::ViewType v_single(v.data() + v.size() - 1, 1, 1, 1, 1,
+                                          1, 1, 1, 1);
+  auto result =
+      Kokkos::create_mirror_view_and_copy(Kokkos::HostSpace{}, v_single);
+  ASSERT_EQ(result(0, 0, 0, 0, 0, 0, 0, 0), 42);
+}
 }  // namespace Test
+
+#include <TestViewIsAssignable.hpp>
