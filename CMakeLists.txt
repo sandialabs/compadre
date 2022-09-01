@@ -1,4 +1,4 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.10.0 FATAL_ERROR)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.16.0 FATAL_ERROR)
 
 # get Compadre_VERSION
 file(STRINGS ${CMAKE_CURRENT_LIST_DIR}/cmake/Compadre_Version.txt Compadre_VERSION)
@@ -59,7 +59,15 @@ else() # Raw CMake Project
   #
   ########## 
 
+  # Disable in-source builds to prevent source tree corruption.
+  if( "${CMAKE_SOURCE_DIR}" STREQUAL "${CMAKE_BINARY_DIR}" )
+    message( FATAL_ERROR "FATAL: In-source builds are not allowed. You should create a separate directory for build files and delete CMakeCache.txt." )
+  endif()
+
   PROJECT(Compadre VERSION ${Compadre_VERSION} LANGUAGES CXX)
+  SET(CMAKE_CXX_STANDARD 14)
+  set(CMAKE_DISABLE_SOURCE_CHANGES ON)
+  set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
 
   get_directory_property(Compadre_HAS_PARENT PARENT_DIRECTORY)
 
@@ -294,13 +302,8 @@ else() # Raw CMake Project
   endif()
   message(STATUS "Compadre_USE_CUDA: ${Compadre_USE_CUDA}")
 
-  if(Compadre_USE_CUDA)
-    SET(CMAKE_CXX_STANDARD 11)
-    option(Kokkos_CXX_STANDARD "" "11")
-  else()
-    SET(CMAKE_CXX_STANDARD 11)
-    option(Kokkos_CXX_STANDARD "" "11")
-  endif()
+  option(Kokkos_CXX_STANDARD "" "${CMAKE_CXX_STANDARD}")
+
   if (NOT(KOKKOS_IN_TRILINOS) AND (KokkosCore_PREFIX STREQUAL ""))
       add_subdirectory(kokkos)
   endif()
