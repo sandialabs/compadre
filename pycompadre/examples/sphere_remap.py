@@ -3,6 +3,8 @@ import pycompadre
 from netCDF4 import Dataset
 import numpy as np
 
+do_plot = False
+
 '''
 
 Demonstration of remap of cell-integrated quantities to point values on the sphere
@@ -403,8 +405,18 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
 
             computed_total_length = 0.0
             ref_total_length = 0.0
+
+            # logic for evaluation at extra target sites (quadrature)
+            extra_points_coordinates = np.zeros(shape=(nEdges*len(qpoints), DIM), dtype=np.float64)
+            extra_points_indices = np.zeros(shape=(nEdges,len(qpoints)+1), dtype=np.int32)
+            quadrature_i = 0
+
             # get edges and put integral quantities on them
             for edge in range(nEdges):
+
+                # keep track of column for extra_points_indices
+                target_quadrature_local_entries = 0
+
                 edge_points[edge,:] = np.asarray([xE[edge], yE[edge], zE[edge]], dtype='f8')
                 edge_length = 0.0
                 ref_total_length += dataset['dvEdge'][edge]
@@ -520,6 +532,12 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
 
                     edge_length += qweights[i]*scaling
 
+                    # logic for evaluation at extra target sites (quadrature)
+                    extra_points_coordinates[quadrature_i, :] = scaled_transformed_qp[:]
+                    extra_points_indices[edge, target_quadrature_local_entries+1] = quadrature_i
+                    quadrature_i+=1 # keeps increasing over cell loops
+                    target_quadrature_local_entries+=1 # resets after edge quadrature loops
+
                 exact_edge_integral_normal[edge] += result_normal
                 exact_edge_average_normal[edge] += result_normal / edge_length
                 exact_edge_integral_tangent[edge] += result_tangent
@@ -527,6 +545,8 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
 
                 computed_total_length += edge_length
                 err[edge] = abs(edge_length-arclength)/abs(edge_length)
+
+                extra_points_indices[edge, 0] = target_quadrature_local_entries
 
             #print('arc norm:',np.linalg.norm(err))
             print("LENGTH", computed_total_length, " vs ", ref_total_length)
@@ -549,6 +569,20 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
                 ans_f = f_xyz(rot_xyz/np.linalg.norm(rot_xyz), alt_zonalUnitVector, alt_meridionalUnitVector)
                 alt_f = np.linalg.solve(R, ans_f)
                 exact_point[edge,:] = alt_f
+
+
+            # logic for evaluation at extra target sites (quadrature)
+            # get exact solution at quadrature #n
+            extra_n = 0
+            if remap_output_type==0 and extra_n!=0:
+                for edge in range(nEdges):
+                    rot_xyz = extra_points_coordinates[extra_points_indices[edge, extra_n],:]
+                    alt_lat, alt_lon = get_lat_lon(rot_xyz/np.linalg.norm(rot_xyz))
+                    alt_zonalUnitVector, alt_meridionalUnitVector, alt_verticalUnitVector = get_sphere_basis(alt_lat, alt_lon)
+                    #ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
+                    ans_f = f_xyz(rot_xyz/np.linalg.norm(rot_xyz), alt_zonalUnitVector, alt_meridionalUnitVector)
+                    alt_f = np.linalg.solve(R, ans_f)
+                    exact_point[edge,:] = alt_f
 
             gmls_obj=pycompadre.GMLS(basis,
                                      sampling_functional,
@@ -573,6 +607,11 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             gmls_obj.setTargetExtraData(extra_data)
             gmls_obj.setSourceExtraData(extra_data)
 
+            # logic for evaluation at extra target sites (quadrature)
+            # get extra sites
+            if remap_output_type==0 and extra_n!=0:
+                gmls_helper.setAdditionalEvaluationSitesData(extra_points_indices, extra_points_coordinates)
+
             gmls_helper.generateNeighborListsFromKNNSearchAndSet(edge_points, max(p_order,c_order), DIM-1, 3.8)
             gmls_helper.setTangentBundle(T)
             gmls_obj.generateAlphas(1, True)
@@ -593,6 +632,14 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
                                                  target_operator,
                                                  sampling_functional)
 
+            # logic for evaluation at extra target sites (quadrature)
+            if remap_output_type==0 and extra_n!=0:
+                # get value at nth quadrature point
+                out_field = gmls_helper.applyStencil(exact_in, 
+                                                     target_operator,
+                                                     sampling_functional,
+                                                     extra_n)
+
             ## remove extreme lats
             #for edge in range(nEdges):
             #    lat = dataset['latEdge'][edge]
@@ -607,9 +654,6 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             #        out_field[edge,:] = 0.0
             #        exact_out_field[edge,:] = 0.0
 
-            #if direction==1:
-            #    # swap out field with in field
-            #    exact_out_field = exact_in_field
             if remap_output_type==0:
                 exact_out = exact_point
             elif remap_output_type==1:
@@ -632,17 +676,19 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             rel_l2_error = np.linalg.norm(out_field-exact_out, axis=0)/np.sqrt(out_field.shape[0])
 
             
-            #import matplotlib.pyplot as plt
-            #fig = plt.figure(figsize=(12, 12))
-            #ax = fig.add_subplot(projection='3d')
-            ##err = np.linalg.norm(out_field-exact_out, axis=1)
-            ##ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=err)
-            ##sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=exact_out[:,0]-out_field[:,0])
-            #sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=exact_out-out_field)#[:,0])
-            ##sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=exact_out_field[:,0])
-            ##sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=in_field[:])
-            #plt.colorbar(sc)
-            #plt.show() 
+            global do_plot
+            if do_plot:
+                import matplotlib.pyplot as plt
+                fig = plt.figure(figsize=(12, 12))
+                ax = fig.add_subplot(projection='3d')
+                #err = np.linalg.norm(out_field-exact_out, axis=1)
+                #ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=err)
+                sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=exact_out[:,1]-out_field[:,1])
+                #sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=exact_out-out_field)#[:,0])
+                #sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=exact_out_field[:,0])
+                #sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=in_field[:])
+                plt.colorbar(sc)
+                plt.show() 
 
             #with np.printoptions(threshold=np.inf):
             #    print(np.linalg.norm(out_field-exact_out_field, axis=1))

@@ -1873,7 +1873,6 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                  * data._source_extra_data will contain the endpoints (2 for 2D, 3 for 3D) and then the unit normals
                  * (e0_x, e0_y, e1_x, e1_y, n_x, n_y, t_x, t_y)
                  */
-                //printf("sm: %d bm: %d, rr: %d\n", data._sampling_multiplier, data._basis_multiplier, data._reconstruction_space_rank );
 
                 int quadrature_point_loop = data._qm.getNumberOfQuadraturePoints();
 
@@ -1913,10 +1912,9 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                     theta = std::atan(norm_a_cross_b / a_dot_b);
                 }
 
-                //int input_components = data._sampling_multiplier;
-                int input_components = data._local_dimensions;
-                for (int c=0; c<input_components; ++c) {
-                    int offset = data._d_ss.getTargetOffsetIndex(i, c /*in*/, 0 /*out*/, 0/*additional*/);
+                for (int c=0; c<data._local_dimensions; ++c) {
+                    int input_component = (data._sampling_multiplier==1 && data._reconstruction_space_rank==1) ? 0 : c;
+                    int offset = data._d_ss.getTargetOffsetIndex(i, input_component /*in*/, 0 /*out*/, 0/*additional*/);
                     int column_offset = (data._reconstruction_space_rank==1) ? c*target_NP : 0;
                     for (int j=0; j<target_NP; ++j) {
                         P_target_row(offset, column_offset + j) = 0;
@@ -1948,7 +1946,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                             transformed_qp_norm += unscaled_transformed_qp[j]*unscaled_transformed_qp[j];
                         }
                         transformed_qp_norm = std::sqrt(transformed_qp_norm);
-                        // transformed_qp made unit length
+                        // transformed_qp made radius in length
                         for (int j=0; j<data._global_dimensions; ++j) {
                             scaled_transformed_qp[j] = unscaled_transformed_qp[j] * radius / transformed_qp_norm;
                         }
@@ -1982,24 +1980,19 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                         }
                     } else {
                         if (data._problem_type == ProblemType::MANIFOLD) {
-                            //if (data._operations(i) == TargetOperation::EdgeTangentIntegralEvaluation) {
-                                // generate tangent from outward normal direction of the sphere and edge normal
-                                XYZ k = {scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]};
-                                XYZ n = {data._target_extra_data(target_index, 2*data._global_dimensions + 0),
-                                         data._target_extra_data(target_index, 2*data._global_dimensions + 1),
-                                         data._target_extra_data(target_index, 2*data._global_dimensions + 2)};
+                            // generate tangent from outward normal direction of the sphere and edge normal
+                            XYZ k = {scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]};
+                            //XYZ k = {data._pc.getTargetCoordinate(target_index, 0), data._pc.getTargetCoordinate(target_index, 1),data._pc.getTargetCoordinate(target_index, 2)};
+                            double k_norm = std::sqrt(k[0]*k[0]+k[1]*k[1]+k[2]*k[2]);
+                            k[0] = k[0]/k_norm; k[1] = k[1]/k_norm; k[2] = k[2]/k_norm;
+                            XYZ n = {data._target_extra_data(target_index, 2*data._global_dimensions + 0),
+                                     data._target_extra_data(target_index, 2*data._global_dimensions + 1),
+                                     data._target_extra_data(target_index, 2*data._global_dimensions + 2)};
 
-                                double norm_k_cross_n = getAreaFromVectors(teamMember, k, n);
-                                direction[0] = (k[1]*n[2] - k[2]*n[1]) / norm_k_cross_n;
-                                direction[1] = (k[2]*n[0] - k[0]*n[2]) / norm_k_cross_n;
-                                direction[2] = (k[0]*n[1] - k[1]*n[0]) / norm_k_cross_n;
-                            //} else {
-                            //    // tangent direction
-                            //    for (int j=0; j<data._global_dimensions; ++j) {
-                            //        direction[j] = data._target_extra_data(target_index, 3*data._global_dimensions + j);
-
-                            //    }
-                            //}
+                            double norm_k_cross_n = getAreaFromVectors(teamMember, k, n);
+                            direction[0] = (k[1]*n[2] - k[2]*n[1]) / norm_k_cross_n;
+                            direction[1] = (k[2]*n[0] - k[0]*n[2]) / norm_k_cross_n;
+                            direction[2] = (k[0]*n[1] - k[1]*n[0]) / norm_k_cross_n;
                         } else {
                             for (int j=0; j<data._global_dimensions; ++j) {
                                 // tangent direction
@@ -2024,11 +2017,8 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                     // if sampling multiplier is 2 && vector, then vector is [(u_x,   0), (0, u_y)]
                     // if sampling multiplier is 1 && scalar, then vector is [u_x][u_y]
                     // if sampling multiplier is 2 && scalar, then vector is [(u_x,   0), (0, u_y)]
-                    //printf("sampling multiplier: %d\n", data._sampling_multiplier);
-                    //printf("rsr: %d\n", data._reconstruction_space_rank);
                     for (int c=0; c<data._local_dimensions; ++c) {
                         int input_component = (data._sampling_multiplier==1 && data._reconstruction_space_rank==1) ? 0 : c;
-                        //int input_component = c;
                         int offset = data._d_ss.getTargetOffsetIndex(i, input_component, 0 /*out*/, 0/*additional*/);
                         int column_offset = (data._reconstruction_space_rank==1) ? c*target_NP : 0;
                         int k = 0;
@@ -2052,8 +2042,6 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                                 } else {
                                     dot_product = direction[0]*v0 + direction[1]*v1;
                                 }
-                                //printf("local direction: %g, %g\n", local_direction[0], local_direction[1]);
-                                //printf("col offsets: %d, dp: %g\n", column_offset, dot_product);
 
                                 // multiply by quadrature weight
                                 Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
