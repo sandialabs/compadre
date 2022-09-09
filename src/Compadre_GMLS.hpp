@@ -546,7 +546,7 @@ public:
             // (1 - |r/h|^n)^p
             // p=0,n=1 -> Uniform, boxcar
             // p=1,n=1 -> triangular
-            // p=0,n=2 -> Epanechnikov, parabolic
+            // p=1,n=2 -> Epanechnikov, parabolic
             // p=2,n=2 -> Quartic, biweight
             // p=3,n=2 -> Triweight
             // p=3,n=3 -> Tricube
