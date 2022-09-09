@@ -267,35 +267,31 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                 }
             } // NON MANIFOLD PROBLEMS
         });
-    } else if (polynomial_sampling_functional == FaceNormalIntegralSample ||
-                polynomial_sampling_functional == FaceTangentIntegralSample ||
-                polynomial_sampling_functional == FaceNormalPointSample ||
-                polynomial_sampling_functional == FaceTangentPointSample) {
+    } else if ((polynomial_sampling_functional == FaceNormalIntegralSample ||
+                polynomial_sampling_functional == EdgeTangentIntegralSample ||
+                polynomial_sampling_functional == FaceNormalAverageSample ||
+                polynomial_sampling_functional == EdgeTangentAverageSample) &&
+               reconstruction_space == VectorTaylorPolynomial) {
 
         compadre_kernel_assert_debug(data._local_dimensions==2 &&
-                "FaceNormalIntegralSample, FaceTangentIntegralSample, FaceNormalPointSample, \
-                    and FaceTangentPointSample only support 2d or 3d with 2d manifold");
+                "FaceNormalIntegralSample, EdgeTangentIntegralSample, FaceNormalAverageSample, \
+                    and EdgeTangentAverageSample only support 2d or 3d with 2d manifold");
 
-        if (polynomial_sampling_functional == FaceNormalIntegralSample ||
-                polynomial_sampling_functional == FaceTangentIntegralSample) {
-            compadre_kernel_assert_debug(data._qm.getDimensionOfQuadraturePoints()==1 \
-                    && "Only 1d quadrature may be specified for edge integrals");
-        }
+        compadre_kernel_assert_debug(data._qm.getDimensionOfQuadraturePoints()==1 \
+                && "Only 1d quadrature may be specified for edge integrals");
+
+        compadre_kernel_assert_debug(data._qm.getNumberOfQuadraturePoints()>=1 \
+                && "Quadrature points not generated");
+
         compadre_kernel_assert_debug(data._source_extra_data.extent(0)>0 && "Extra data used but not set.");
 
         compadre_kernel_assert_debug(!specific_order_only && 
                 "Sampling functional does not support specific_order_only");
 
-        // On the sphere, edges lie on a great circle, which means the normal direction to the edge is 
-        // constant for all quadrature on the edge. this is not the case for tangent directions, which vary 
-        // by quadrature point. Data structures to support varying direction by quadrature point are not
-        // currently supported.
-        compadre_kernel_assert_debug((data._problem_type != ProblemType::MANIFOLD || 
-                                      polynomial_sampling_functional != FaceTangentIntegralSample) && 
-                "FaceTangentIntegralSamplg not supported on manifolds");
-
         double cutoff_p = data._epsilons(target_index);
         auto global_neighbor_index = data._pc.getNeighborIndex(target_index, neighbor_index);
+        int alphax, alphay;
+        double alphaf;
 
         /*
          * requires quadrature points defined on an edge, not a target/source edge (spoke)
@@ -304,10 +300,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
          * (e0_x, e0_y, e1_x, e1_y, n_x, n_y, t_x, t_y)
          */
 
-        // if not integrating, set to 1
-        int quadrature_point_loop = (polynomial_sampling_functional == FaceNormalIntegralSample 
-                || polynomial_sampling_functional == FaceTangentIntegralSample) ?
-                                    data._qm.getNumberOfQuadraturePoints() : 1;
+        int quadrature_point_loop = data._qm.getNumberOfQuadraturePoints();
 
         const int TWO = 2; // used because of # of vertices on an edge
         double G_data[3*TWO]; // max(2,3)*TWO
@@ -346,67 +339,81 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
         }
 
         // loop 
+        double entire_edge_length = 0.0;
         for (int quadrature = 0; quadrature<quadrature_point_loop; ++quadrature) {
+
             double G_determinant = 1.0;
-            if (polynomial_sampling_functional == FaceNormalIntegralSample 
-                    || polynomial_sampling_functional == FaceTangentIntegralSample) {
-                double unscaled_transformed_qp[3] = {0,0,0};
-                double scaled_transformed_qp[3] = {0,0,0};
+            double scaled_transformed_qp[3] = {0,0,0};
+            double unscaled_transformed_qp[3] = {0,0,0};
+            for (int j=0; j<data._global_dimensions; ++j) {
+                unscaled_transformed_qp[j] += E(j,1)*data._qm.getSite(quadrature, 0);
+                // adds back on shift by endpoint
+                unscaled_transformed_qp[j] += E(j,0);
+            }
+
+            // project onto the sphere
+            if (data._problem_type == ProblemType::MANIFOLD) {
+                // unscaled_transformed_qp now lives on cell edge, but if on manifold,
+                // not directly on the sphere, just near by
+
+                // normalize to project back onto sphere
+                double transformed_qp_norm = 0;
                 for (int j=0; j<data._global_dimensions; ++j) {
-                    unscaled_transformed_qp[j] += E(j,1)*data._qm.getSite(quadrature, 0);
-                    // adds back on shift by endpoint
-                    unscaled_transformed_qp[j] += E(j,0);
+                    transformed_qp_norm += unscaled_transformed_qp[j]*unscaled_transformed_qp[j];
+                }
+                transformed_qp_norm = std::sqrt(transformed_qp_norm);
+                // transformed_qp made unit length
+                for (int j=0; j<data._global_dimensions; ++j) {
+                    scaled_transformed_qp[j] = unscaled_transformed_qp[j] * radius / transformed_qp_norm;
                 }
 
-                // project onto the sphere
-                if (data._problem_type == ProblemType::MANIFOLD) {
-                    // unscaled_transformed_qp now lives on cell edge, but if on manifold,
-                    // not directly on the sphere, just near by
-
-                    // normalize to project back onto sphere
-                    double transformed_qp_norm = 0;
-                    for (int j=0; j<data._global_dimensions; ++j) {
-                        transformed_qp_norm += unscaled_transformed_qp[j]*unscaled_transformed_qp[j];
-                    }
-                    transformed_qp_norm = std::sqrt(transformed_qp_norm);
-                    // transformed_qp made unit length
-                    for (int j=0; j<data._global_dimensions; ++j) {
-                        scaled_transformed_qp[j] = unscaled_transformed_qp[j] * radius / transformed_qp_norm;
-                    }
-
-                    G_determinant = radius * theta;
-                    XYZ qp = XYZ(scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]);
-                    for (int j=0; j<data._local_dimensions; ++j) {
-                        relative_coord[j] = data._pc.convertGlobalToLocalCoordinate(qp,j,*V) 
-                                            - data._pc.getTargetCoordinate(target_index,j,V); 
-                        // shift quadrature point by target site
-                    }
-                    relative_coord[2] = 0;
-                } else { // not on a manifold, but still integrated
-                    XYZ endpoints_difference = {E(0,1), E(1,1), 0};
-                    G_determinant = data._pc.EuclideanVectorLength(endpoints_difference, 2);
-                    for (int j=0; j<data._local_dimensions; ++j) {
-                        relative_coord[j] = unscaled_transformed_qp[j] 
-                                            - data._pc.getTargetCoordinate(target_index,j,V); 
-                        // shift quadrature point by target site
-                    }
-                    relative_coord[2] = 0;
+                G_determinant = radius * theta;
+                XYZ qp = XYZ(scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]);
+                for (int j=0; j<data._local_dimensions; ++j) {
+                    relative_coord[j] = data._pc.convertGlobalToLocalCoordinate(qp,j,*V) 
+                                        - data._pc.getTargetCoordinate(target_index,j,V); 
+                    // shift quadrature point by target site
                 }
+                relative_coord[2] = 0;
+            } else { // not on a manifold, but still integrated
+                XYZ endpoints_difference = {E(0,1), E(1,1), 0};
+                G_determinant = data._pc.EuclideanVectorLength(endpoints_difference, 2);
+                for (int j=0; j<data._local_dimensions; ++j) {
+                    relative_coord[j] = unscaled_transformed_qp[j] 
+                                        - data._pc.getTargetCoordinate(target_index,j,V); 
+                    // shift quadrature point by target site
+                }
+                relative_coord[2] = 0;
             }
 
             // get normal or tangent direction (ambient)
             XYZ direction;
-            for (int j=0; j<data._global_dimensions; ++j) {
-                // normal direction or tangent direction
-                if (polynomial_sampling_functional == FaceNormalIntegralSample 
-                        || polynomial_sampling_functional == FaceNormalPointSample) {
+            if (polynomial_sampling_functional == FaceNormalIntegralSample 
+                    || polynomial_sampling_functional == FaceNormalAverageSample) {
+                for (int j=0; j<data._global_dimensions; ++j) {
                     // normal direction
                     direction[j] = data._source_extra_data(global_neighbor_index, 2*data._global_dimensions + j);
-                } else {
-                    // tangent direction
-                    direction[j] = data._source_extra_data(global_neighbor_index, 3*data._global_dimensions + j);
                 }
+            } else {
+                if (data._problem_type == ProblemType::MANIFOLD) {
+                    // generate tangent from outward normal direction of the sphere and edge normal
+                    XYZ k = {scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]};
+                    double k_norm = std::sqrt(k[0]*k[0]+k[1]*k[1]+k[2]*k[2]);
+                    k[0] = k[0]/k_norm; k[1] = k[1]/k_norm; k[2] = k[2]/k_norm;
+                    XYZ n = {data._source_extra_data(global_neighbor_index, 2*data._global_dimensions + 0),
+                             data._source_extra_data(global_neighbor_index, 2*data._global_dimensions + 1),
+                             data._source_extra_data(global_neighbor_index, 2*data._global_dimensions + 2)};
 
+                    double norm_k_cross_n = getAreaFromVectors(teamMember, k, n);
+                    direction[0] = (k[1]*n[2] - k[2]*n[1]) / norm_k_cross_n;
+                    direction[1] = (k[2]*n[0] - k[0]*n[2]) / norm_k_cross_n;
+                    direction[2] = (k[0]*n[1] - k[1]*n[0]) / norm_k_cross_n;
+                } else {
+                    for (int j=0; j<data._global_dimensions; ++j) {
+                        // tangent direction
+                        direction[j] = data._source_extra_data(global_neighbor_index, 3*data._global_dimensions + j);
+                    }
+                }
             }
 
             // convert direction to local chart (for manifolds)
@@ -416,13 +423,10 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                     // Project ambient normal direction onto local chart basis as a local direction.
                     // Using V alone to provide vectors only gives tangent vectors at
                     // the target site. This could result in accuracy < 3rd order.
-
                     local_direction[j] = data._pc.convertGlobalToLocalCoordinate(direction,j,*V);
                 }
             }
 
-            int alphax, alphay;
-            double alphaf;
             int i = 0;
             for (int j=0; j<data._basis_multiplier; ++j) {
                 for (int n = 0; n <= poly_order; n++){
@@ -448,28 +452,33 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
 
                         // multiply by quadrature weight
                         if (quadrature==0) {
-                            if (polynomial_sampling_functional == FaceNormalIntegralSample 
-                                    || polynomial_sampling_functional == FaceTangentIntegralSample) {
-                                // integral
-                                *(delta+i) = dot_product * data._qm.getWeight(quadrature) * G_determinant;
-                            } else {
-                                // point
-                                *(delta+i) = dot_product;
-                            }
+                            *(delta+i) = dot_product * data._qm.getWeight(quadrature) * G_determinant;
                         } else {
-                            // non-integrated quantities never satisfy this condition
                             *(delta+i) += dot_product * data._qm.getWeight(quadrature) * G_determinant;
                         }
                         i++;
                     }
                 }
             }
+            entire_edge_length += G_determinant * data._qm.getWeight(quadrature);
         }
-    } else if (polynomial_sampling_functional == ScalarFaceAverageSample ||
-               polynomial_sampling_functional == ScalarFaceIntegralSample) {
+        if (polynomial_sampling_functional == FaceNormalAverageSample ||
+                polynomial_sampling_functional == EdgeTangentAverageSample) {
+            int k = 0;
+            for (int j=0; j<data._basis_multiplier; ++j) {
+                for (int n = 0; n <= poly_order; n++){
+                    for (alphay = 0; alphay <= n; alphay++){
+                        *(delta+k) /= entire_edge_length;
+                        k++;
+                    }
+                }
+            }
+        }
+    } else if (polynomial_sampling_functional == CellAverageSample ||
+               polynomial_sampling_functional == CellIntegralSample) {
 
         compadre_kernel_assert_debug(data._local_dimensions==2 &&
-                "ScalarFaceAverageSample only supports 2d or 3d with 2d manifold");
+                "CellAverageSample only supports 2d or 3d with 2d manifold");
         auto global_neighbor_index = data._pc.getNeighborIndex(target_index, neighbor_index);
         double cutoff_p = data._epsilons(target_index);
         int alphax, alphay;
@@ -612,7 +621,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
 
                 int k = 0;
                 compadre_kernel_assert_debug(!specific_order_only && 
-                        "ScalarFaceAverageSample does not support specific_order_only");
+                        "CellAverageSample does not support specific_order_only");
                 for (int n = 0; n <= poly_order; n++){
                     for (alphay = 0; alphay <= n; alphay++){
                         alphax = n - alphay;
@@ -628,7 +637,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                 entire_cell_area += G_determinant * data._qm.getWeight(quadrature);
             }
         }
-        if (polynomial_sampling_functional == ScalarFaceAverageSample) {
+        if (polynomial_sampling_functional == CellAverageSample) {
             int k = 0;
             for (int n = 0; n <= poly_order; n++){
                 for (alphay = 0; alphay <= n; alphay++){

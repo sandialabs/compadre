@@ -149,10 +149,10 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                       P_target_row(offset, 2) = std::pow(data._epsilons(target_index), -2);
                   }
               });
-            } else if (data._operations(i) == TargetOperation::ScalarFaceAverageEvaluation ||
-                       data._operations(i) == TargetOperation::ScalarFaceIntegralEvaluation) {
+            } else if (data._operations(i) == TargetOperation::CellAverageEvaluation ||
+                       data._operations(i) == TargetOperation::CellIntegralEvaluation) {
                 compadre_kernel_assert_debug(data._local_dimensions==2 &&
-                        "ScalarFaceAverageSample only supports 2d or 3d with 2d manifold");
+                        "CellAverageEvaluation and CellIntegralEvaluation only support 2d or 3d with 2d manifold");
                 const double factorial[15] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
                 int offset = data._d_ss.getTargetOffsetIndex(i, 0, 0, 0);
 
@@ -227,7 +227,7 @@ void computeTargetFunctionals(const TargetData& data, const member_type& teamMem
                         entire_cell_area += G_determinant * data._qm.getWeight(quadrature);
                     }
                 }
-                if (data._operations(i) == TargetOperation::ScalarFaceAverageEvaluation) {
+                if (data._operations(i) == TargetOperation::CellAverageEvaluation) {
                     int k = 0;
                     for (int n = 0; n <= data._poly_order; n++){
                         for (alphay = 0; alphay <= n; alphay++){
@@ -1209,6 +1209,8 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                         }
                     });
                     additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
+                } else {
+                    compadre_kernel_assert_release((false) && "Functionality not yet available.");
                 }
 
             } else if (data._operations(i) == TargetOperation::LaplacianOfScalarPointEvaluation) {
@@ -1319,6 +1321,8 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                         }
 
                     });
+                } else {
+                    compadre_kernel_assert_release((false) && "Functionality not yet available.");
                 }
             } else if (data._operations(i) == TargetOperation::VectorLaplacianPointEvaluation) {
                 // vector basis
@@ -1430,6 +1434,8 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                             P_target_row(offset, j) = delta(j);
                         }
                     });
+                } else {
+                    compadre_kernel_assert_release((false) && "Functionality not yet available.");
                 }
             } else if (data._operations(i) == TargetOperation::GradientOfScalarPointEvaluation) {
                 if (data._reconstruction_space_rank == 0
@@ -1643,7 +1649,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                             relative_coord[d] -= data._pc.getTargetCoordinate(target_index, d, &V);
                         }
                     } else {
-                        for (int i=0; i<3; ++i) relative_coord[i] = 0;
+                        for (int j=0; j<3; ++j) relative_coord[j] = 0;
                     }
 
                     int offset = data._d_ss.getTargetOffsetIndex(i, 0, 0, k);
@@ -1664,7 +1670,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                             relative_coord[d] -= data._pc.getTargetCoordinate(target_index, d, &V);
                         }
                     } else {
-                        for (int i=0; i<3; ++i) relative_coord[i] = 0;
+                        for (int j=0; j<3; ++j) relative_coord[j] = 0;
                     }
 
                     int offset = data._d_ss.getTargetOffsetIndex(i, 0, 0, k);
@@ -1688,14 +1694,13 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                     }
                 });
                 additional_evaluation_sites_handled = true; // additional non-target site evaluations handled
-            } else if (data._operations(i) == TargetOperation::ScalarFaceAverageEvaluation ||
-                       data._operations(i) == TargetOperation::ScalarFaceIntegralEvaluation) {
+            } else if (data._operations(i) == TargetOperation::CellAverageEvaluation ||
+                       data._operations(i) == TargetOperation::CellIntegralEvaluation) {
                 compadre_kernel_assert_debug(data._local_dimensions==2 &&
-                        "ScalarFaceAverageSample only supports 2d or 3d with 2d manifold");
+                        "CellAverageEvaluation and CellIntegralEvaluation only support 2d or 3d with 2d manifold");
                 const double factorial[15] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
                 int offset = data._d_ss.getTargetOffsetIndex(i, 0, 0, 0);
 
-                // Calculate basis matrix for NON MANIFOLD problems
                 double cutoff_p = data._epsilons(target_index);
                 int alphax, alphay;
                 double alphaf;
@@ -1833,7 +1838,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                         entire_cell_area += G_determinant * data._qm.getWeight(quadrature);
                     }
                 }
-                if (data._operations(i) == TargetOperation::ScalarFaceAverageEvaluation) {
+                if (data._operations(i) == TargetOperation::CellAverageEvaluation) {
                     int k = 0;
                     for (int n = 0; n <= data._poly_order; n++){
                         for (alphay = 0; alphay <= n; alphay++){
@@ -1841,6 +1846,234 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                                 P_target_row(offset, k) /= entire_cell_area;
                             });
                             k++;
+                        }
+                    }
+                }
+            } else if (data._operations(i) == TargetOperation::FaceNormalAverageEvaluation ||
+                       data._operations(i) == TargetOperation::FaceNormalIntegralEvaluation ||
+                       data._operations(i) == TargetOperation::EdgeTangentAverageEvaluation ||
+                       data._operations(i) == TargetOperation::EdgeTangentIntegralEvaluation) {
+                compadre_kernel_assert_debug(data._local_dimensions==2 &&
+                        "FaceNormalIntegralSample, EdgeTangentIntegralSample, FaceNormalAverageSample, \
+                            and EdgeTangentAverageSample only support 2d or 3d with 2d manifold");
+                compadre_kernel_assert_debug(data._qm.getDimensionOfQuadraturePoints()==1 \
+                        && "Only 1d quadrature may be specified for edge integrals");
+                compadre_kernel_assert_debug(data._qm.getNumberOfQuadraturePoints()>=1 \
+                        && "Quadrature points not generated");
+                compadre_kernel_assert_debug(data._target_extra_data.extent(0)>0 && "Extra data used but not set.");
+                const double factorial[15] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
+
+                double cutoff_p = data._epsilons(target_index);
+                int alphax, alphay;
+                double alphaf;
+
+                /*
+                 * requires quadrature points defined on an edge, not a target/source edge (spoke)
+                 *
+                 * data._source_extra_data will contain the endpoints (2 for 2D, 3 for 3D) and then the unit normals
+                 * (e0_x, e0_y, e1_x, e1_y, n_x, n_y, t_x, t_y)
+                 */
+
+                int quadrature_point_loop = data._qm.getNumberOfQuadraturePoints();
+
+                const int TWO = 2; // used because of # of vertices on an edge
+                double G_data[3*TWO]; // max(2,3)*TWO
+                double edge_coords[3*TWO];
+                for (int j=0; j<data._global_dimensions*TWO; ++j) G_data[j] = 0;
+                for (int j=0; j<data._global_dimensions*TWO; ++j) edge_coords[j] = 0;
+                // 2 is for # vertices on an edge
+                scratch_matrix_right_type G(G_data, data._global_dimensions, TWO); 
+                scratch_matrix_right_type edge_coords_matrix(edge_coords, data._global_dimensions, TWO); 
+
+                // neighbor coordinate is assumed to be midpoint
+                // could be calculated, but is correct for sphere
+                // and also for non-manifold problems
+                // uses given midpoint, rather than computing the midpoint from vertices
+                double radius = 0.0;
+                // this midpoint should lie on the sphere, or this will be the wrong radius
+                for (int j=0; j<data._global_dimensions; ++j) {
+                    edge_coords_matrix(j, 0) = data._target_extra_data(target_index, j);
+                    edge_coords_matrix(j, 1) = data._target_extra_data(target_index, data._global_dimensions + j) - edge_coords_matrix(j, 0);
+                    radius += edge_coords_matrix(j, 0)*edge_coords_matrix(j, 0);
+                }
+                radius = std::sqrt(radius);
+
+                // edge_coords now has:
+                // (v0_x, v0_y, v1_x-v0_x, v1_y-v0_y)
+                auto E = edge_coords_matrix;
+
+                // get arc length of edge on manifold
+                double theta = 0.0;
+                if (data._problem_type == ProblemType::MANIFOLD) {
+                    XYZ a = {E(0,0), E(1,0), E(2,0)};
+                    XYZ b = {E(0,1)+E(0,0), E(1,1)+E(1,0), E(2,1)+E(2,0)};
+                    double a_dot_b = a[0]*b[0] + a[1]*b[1] + a[2]*b[2];
+                    double norm_a_cross_b = getAreaFromVectors(teamMember, a, b);
+                    theta = std::atan(norm_a_cross_b / a_dot_b);
+                }
+
+                for (int c=0; c<data._local_dimensions; ++c) {
+                    int input_component = (data._sampling_multiplier==1 && data._reconstruction_space_rank==1) ? 0 : c;
+                    int offset = data._d_ss.getTargetOffsetIndex(i, input_component /*in*/, 0 /*out*/, 0/*additional*/);
+                    int column_offset = (data._reconstruction_space_rank==1) ? c*target_NP : 0;
+                    for (int j=0; j<target_NP; ++j) {
+                        P_target_row(offset, column_offset + j) = 0;
+                    }
+                }
+
+                // loop 
+                double entire_edge_length = 0.0;
+                XYZ relative_coord;
+                for (int quadrature = 0; quadrature<quadrature_point_loop; ++quadrature) {
+
+                    double G_determinant = 1.0;
+                    double scaled_transformed_qp[3] = {0,0,0};
+                    double unscaled_transformed_qp[3] = {0,0,0};
+                    for (int j=0; j<data._global_dimensions; ++j) {
+                        unscaled_transformed_qp[j] += E(j,1)*data._qm.getSite(quadrature, 0);
+                        // adds back on shift by endpoint
+                        unscaled_transformed_qp[j] += E(j,0);
+                    }
+
+                    // project onto the sphere
+                    if (data._problem_type == ProblemType::MANIFOLD) {
+                        // unscaled_transformed_qp now lives on cell edge, but if on manifold,
+                        // not directly on the sphere, just near by
+
+                        // normalize to project back onto sphere
+                        double transformed_qp_norm = 0;
+                        for (int j=0; j<data._global_dimensions; ++j) {
+                            transformed_qp_norm += unscaled_transformed_qp[j]*unscaled_transformed_qp[j];
+                        }
+                        transformed_qp_norm = std::sqrt(transformed_qp_norm);
+                        // transformed_qp made radius in length
+                        for (int j=0; j<data._global_dimensions; ++j) {
+                            scaled_transformed_qp[j] = unscaled_transformed_qp[j] * radius / transformed_qp_norm;
+                        }
+
+                        G_determinant = radius * theta;
+                        XYZ qp = XYZ(scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]);
+                        for (int j=0; j<data._local_dimensions; ++j) {
+                            relative_coord[j] = data._pc.convertGlobalToLocalCoordinate(qp,j,V) 
+                                                - data._pc.getTargetCoordinate(target_index,j,&V); 
+                            // shift quadrature point by target site
+                        }
+                        relative_coord[2] = 0;
+                    } else { // not on a manifold, but still integrated
+                        XYZ endpoints_difference = {E(0,1), E(1,1), 0};
+                        G_determinant = data._pc.EuclideanVectorLength(endpoints_difference, 2);
+                        for (int j=0; j<data._local_dimensions; ++j) {
+                            relative_coord[j] = unscaled_transformed_qp[j] 
+                                                - data._pc.getTargetCoordinate(target_index,j,&V); 
+                            // shift quadrature point by target site
+                        }
+                        relative_coord[2] = 0;
+                    }
+
+                    // get normal or tangent direction (ambient)
+                    XYZ direction;
+                    if (data._operations(i) == TargetOperation::FaceNormalIntegralEvaluation 
+                            || data._operations(i) == FaceNormalAverageEvaluation) {
+                        for (int j=0; j<data._global_dimensions; ++j) {
+                            // normal direction
+                            direction[j] = data._target_extra_data(target_index, 2*data._global_dimensions + j);
+                        }
+                    } else {
+                        if (data._problem_type == ProblemType::MANIFOLD) {
+                            // generate tangent from outward normal direction of the sphere and edge normal
+                            XYZ k = {scaled_transformed_qp[0], scaled_transformed_qp[1], scaled_transformed_qp[2]};
+                            //XYZ k = {data._pc.getTargetCoordinate(target_index, 0), data._pc.getTargetCoordinate(target_index, 1),data._pc.getTargetCoordinate(target_index, 2)};
+                            double k_norm = std::sqrt(k[0]*k[0]+k[1]*k[1]+k[2]*k[2]);
+                            k[0] = k[0]/k_norm; k[1] = k[1]/k_norm; k[2] = k[2]/k_norm;
+                            XYZ n = {data._target_extra_data(target_index, 2*data._global_dimensions + 0),
+                                     data._target_extra_data(target_index, 2*data._global_dimensions + 1),
+                                     data._target_extra_data(target_index, 2*data._global_dimensions + 2)};
+
+                            double norm_k_cross_n = getAreaFromVectors(teamMember, k, n);
+                            direction[0] = (k[1]*n[2] - k[2]*n[1]) / norm_k_cross_n;
+                            direction[1] = (k[2]*n[0] - k[0]*n[2]) / norm_k_cross_n;
+                            direction[2] = (k[0]*n[1] - k[1]*n[0]) / norm_k_cross_n;
+                        } else {
+                            for (int j=0; j<data._global_dimensions; ++j) {
+                                // tangent direction
+                                direction[j] = data._target_extra_data(target_index, 3*data._global_dimensions + j);
+                            }
+                        }
+                    }
+
+                    // convert direction to local chart (for manifolds)
+                    XYZ local_direction;
+                    if (data._problem_type == ProblemType::MANIFOLD) {
+                        for (int j=0; j<data._local_dimensions; ++j) {
+                            // Project ambient normal direction onto local chart basis as a local direction.
+                            // Using V alone to provide vectors only gives tangent vectors at
+                            // the target site. This could result in accuracy < 3rd order.
+
+                            local_direction[j] = data._pc.convertGlobalToLocalCoordinate(direction,j,V);
+                        }
+                    }
+
+                    // if sampling multiplier is 1 && vector, then vector is [(u_x, u_y)]
+                    // if sampling multiplier is 2 && vector, then vector is [(u_x,   0), (0, u_y)]
+                    // if sampling multiplier is 1 && scalar, then vector is [u_x][u_y]
+                    // if sampling multiplier is 2 && scalar, then vector is [(u_x,   0), (0, u_y)]
+                    for (int c=0; c<data._local_dimensions; ++c) {
+                        int input_component = (data._sampling_multiplier==1 && data._reconstruction_space_rank==1) ? 0 : c;
+                        int offset = data._d_ss.getTargetOffsetIndex(i, input_component, 0 /*out*/, 0/*additional*/);
+                        int column_offset = (data._reconstruction_space_rank==1) ? c*target_NP : 0;
+                        int k = 0;
+                        for (int n = 0; n <= data._poly_order; n++){
+                            for (alphay = 0; alphay <= n; alphay++){
+                                alphax = n - alphay;
+                                alphaf = factorial[alphax]*factorial[alphay];
+
+                                // local evaluation of vector [0,p] or [p,0]
+                                double v0, v1;
+                                v0 = (c==0) ? std::pow(relative_coord.x/cutoff_p,alphax)
+                                    *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf : 0;
+                                v1 = (c==1) ? std::pow(relative_coord.x/cutoff_p,alphax)
+                                    *std::pow(relative_coord.y/cutoff_p,alphay)/alphaf : 0;
+
+                                // either n*v or t*v
+                                double dot_product = 0.0;
+                                if (data._problem_type == ProblemType::MANIFOLD) {
+                                    // alternate option for projection
+                                    dot_product = local_direction[0]*v0 + local_direction[1]*v1;
+                                } else {
+                                    dot_product = direction[0]*v0 + direction[1]*v1;
+                                }
+
+                                // multiply by quadrature weight
+                                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                                    if (quadrature==0 && c==0) P_target_row(offset, column_offset + k) = 
+                                        dot_product * data._qm.getWeight(quadrature) * G_determinant;
+                                    else P_target_row(offset, column_offset + k) += 
+                                        dot_product * data._qm.getWeight(quadrature) * G_determinant;
+                                });
+                                k++;
+                            }
+                        }
+                    }
+                    entire_edge_length += G_determinant * data._qm.getWeight(quadrature);
+                } // end of quadrature loop
+                if (data._operations(i) == TargetOperation::FaceNormalAverageEvaluation
+                        || data._operations(i) == TargetOperation::EdgeTangentAverageEvaluation) {
+                    for (int c=0; c<data._local_dimensions; ++c) {
+                        int k = 0;
+                        //int offset = data._d_ss.getTargetOffsetIndex(i, c, 0, 0);
+                        //int offset = data._d_ss.getTargetOffsetIndex(i, 0, 0, 0);
+                        //int input_component = (data._sampling_multiplier==1) ? 0 : c;
+                        int input_component = (data._sampling_multiplier==1 && data._reconstruction_space_rank==1) ? 0 : c;
+                        //int input_component = c;
+                        int offset = data._d_ss.getTargetOffsetIndex(i, input_component, 0 /*out*/, 0/*additional*/);
+                        int column_offset = (data._reconstruction_space_rank == 1) ? c*target_NP : 0;
+                        for (int n = 0; n <= data._poly_order; n++){
+                            for (alphay = 0; alphay <= n; alphay++){
+                                Kokkos::single(Kokkos::PerTeam(teamMember), [&] () {
+                                    P_target_row(offset, column_offset + k) /= entire_edge_length;
+                                });
+                                k++;
+                            }
                         }
                     }
                 }
@@ -1860,6 +2093,8 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
             } else {
                 compadre_kernel_assert_release((false) && "Functionality not yet available.");
             }
+        } else {
+            compadre_kernel_assert_release((false) && "Functionality not yet available.");
         }
         compadre_kernel_assert_release(((additional_evaluation_sites_need_handled && additional_evaluation_sites_handled) || (!additional_evaluation_sites_need_handled)) && "Auxiliary evaluation coordinates are specified by user, but are calling a target operation that can not handle evaluating additional sites.");
         } // !operation_handled

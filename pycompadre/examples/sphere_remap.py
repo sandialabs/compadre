@@ -3,6 +3,8 @@ import pycompadre
 from netCDF4 import Dataset
 import numpy as np
 
+do_plot = False
+
 '''
 
 Demonstration of remap of cell-integrated quantities to point values on the sphere
@@ -159,7 +161,7 @@ class TestSphereRemapCellIntegral(KokkosTestCase):
 
             if direction==0:
                 gmls_obj=pycompadre.GMLS(pycompadre.ReconstructionSpace.ScalarTaylorPolynomial, 
-                                         pycompadre.SamplingFunctionals['ScalarFaceIntegralSample'], 
+                                         pycompadre.SamplingFunctionals['CellIntegralSample'], 
                                          p_order, 
                                          DIM, 
                                          "QR", 
@@ -194,14 +196,14 @@ class TestSphereRemapCellIntegral(KokkosTestCase):
                 gmls_obj.setQuadratureType("TRI")
                 gmls_helper = pycompadre.ParticleHelper(gmls_obj)
                 gmls_helper.generateKDTree(cell_points)
-                gmls_obj.addTargets(pycompadre.TargetOperation.ScalarFaceIntegralEvaluation)
+                gmls_obj.addTargets(pycompadre.TargetOperation.CellIntegralEvaluation)
                 gmls_obj.setTargetExtraData(extra_data)
                 gmls_obj.setSourceExtraData(extra_data)
 
                 gmls_helper.generateNeighborListsFromKNNSearchAndSet(cell_points, p_order, DIM-1, 2.2)
                 gmls_obj.generateAlphas(1, False)
                 # use exact_out_field instead of exact_in_field
-                out_field = gmls_helper.applyStencil(exact_out_field, pycompadre.TargetOperation.ScalarFaceIntegralEvaluation)
+                out_field = gmls_helper.applyStencil(exact_out_field, pycompadre.TargetOperation.CellIntegralEvaluation)
 
             print('exact out:',exact_out_field)
             print('computed out:',out_field)
@@ -231,28 +233,52 @@ class TestSphereRemapCellIntegral(KokkosTestCase):
 
 class TestSphereRemapEdgeIntegral(KokkosTestCase):
 
-    def test_edge_integrated_remap_2d_manifold(self):
+    def test_edge_normal_integrated_remap_2d_manifold(self):
 
-        def run(level):
+        def run(level, p_order):
+
+            global input_operation, output_operation, basis_type
 
             dataset = Dataset('../../../test_data/grids/sphere_{0}.nc'.format(str(level)), "r", format="NETCDF4")
 
             TWO = 2 # number of vertices on an edge
 
-            remap_type  = 1
-            remap_types = (pycompadre.SamplingFunctionals['FaceNormalPointSample'], 
-                          pycompadre.SamplingFunctionals['FaceNormalIntegralSample'])
-            sampling_functional = remap_types[remap_type]
+            remap_input_type  = input_operation
+            remap_output_type = output_operation
+
+            remap_sampling_types = (pycompadre.SamplingFunctionals['ManifoldVectorPointSample'],
+                                    pycompadre.SamplingFunctionals['FaceNormalAverageSample'], 
+                                    pycompadre.SamplingFunctionals['FaceNormalIntegralSample'],
+                                    pycompadre.SamplingFunctionals['EdgeTangentAverageSample'], 
+                                    pycompadre.SamplingFunctionals['EdgeTangentIntegralSample'])
+            remap_target_types = (pycompadre.TargetOperation.VectorPointEvaluation,
+                                  pycompadre.TargetOperation.FaceNormalAverageEvaluation,
+                                  pycompadre.TargetOperation.FaceNormalIntegralEvaluation,
+                                  pycompadre.TargetOperation.EdgeTangentAverageEvaluation,
+                                  pycompadre.TargetOperation.EdgeTangentIntegralEvaluation)
+
+            sampling_functional = remap_sampling_types[remap_input_type]
+            if remap_input_type > 0:
+                data_sampling_functional = pycompadre.SamplingFunctionals['PointSample']
+            else:
+                data_sampling_functional = pycompadre.SamplingFunctionals['ManifoldVectorPointSample']
+
+            target_operator = remap_target_types[remap_output_type]
+
+            if basis_type==0:
+                basis = pycompadre.ReconstructionSpace.VectorOfScalarClonesTaylorPolynomial
+            else:
+                basis = pycompadre.ReconstructionSpace.VectorTaylorPolynomial
+
+            print("Performing: input type %d to %s"%(remap_input_type, target_operator))
+
 
             radius = 6371220.00
             dimensions = dataset.dimensions
             variables = dataset.variables
 
-            p_order = 4
             c_order = 4
             q_order = 5
-            if remap_type==0:
-                q_order = 1 # point sample can be though of as 1 pt quadrature
 
             DIM = 3
             assert DIM==3, "Only created for 3D problem with 2D manifolds (DIM==3)"
@@ -296,6 +322,8 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             f_zonal = lambda lat, lon: np.cos(lat)
             f_meridional = lambda lat, lon: lat**4-(np.pi/2.0)**4
             f = lambda lat, lon, zonal, meridional: f_zonal(lat,lon)*zonal + f_meridional(lat,lon)*meridional
+            u_xyz = lambda x: [np.sin(x[0]), np.sin(x[1]), np.sin(x[2])]
+            f_xyz = lambda x, zonal, meridional: (u_xyz(x)[0]*zonal[0]+u_xyz(x)[1]*zonal[1]+u_xyz(x)[2]*zonal[2])*zonal + (u_xyz(x)[0]*meridional[0]+u_xyz(x)[1]*meridional[1]+u_xyz(x)[2]*meridional[2])*meridional
 
             # https://github.com/MPAS-Dev/MPAS-Model/blob/master/src/operators/mpas_vector_operations.F
             # Copyright (c) 2013,  Los Alamos National Security, LLC (LANS)
@@ -363,7 +391,11 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             # directions 
             T = np.zeros(shape=(nEdges,DIM,DIM), dtype='f8')
             v = np.zeros(shape=(DIM,TWO), dtype='f8') # 2 is from vertices on edge
-            exact_in_field = np.zeros(shape=(nEdges), dtype='f8')
+
+            exact_edge_average_normal   = np.zeros(shape=(nEdges), dtype='f8')
+            exact_edge_integral_normal  = np.zeros(shape=(nEdges), dtype='f8')
+            exact_edge_average_tangent  = np.zeros(shape=(nEdges), dtype='f8')
+            exact_edge_integral_tangent = np.zeros(shape=(nEdges), dtype='f8')
 
             rot_rad = np.pi/2.0
             cos_r = np.cos(rot_rad)
@@ -373,8 +405,18 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
 
             computed_total_length = 0.0
             ref_total_length = 0.0
+
+            # logic for evaluation at extra target sites (quadrature)
+            extra_points_coordinates = np.zeros(shape=(nEdges*len(qpoints), DIM), dtype=np.float64)
+            extra_points_indices = np.zeros(shape=(nEdges,len(qpoints)+1), dtype=np.int32)
+            quadrature_i = 0
+
             # get edges and put integral quantities on them
             for edge in range(nEdges):
+
+                # keep track of column for extra_points_indices
+                target_quadrature_local_entries = 0
+
                 edge_points[edge,:] = np.asarray([xE[edge], yE[edge], zE[edge]], dtype='f8')
                 edge_length = 0.0
                 ref_total_length += dataset['dvEdge'][edge]
@@ -420,13 +462,15 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
                 ## normal at the midpoint of edge (use for orientation)
                 ## but constant on a great circle so valid at all quadrature as well
                 ## not sufficiently accurate near poles
-                #norm_vec = np.cos(angle)*zonalUnitVector + np.sin(angle)*meridionalUnitVector
+                #alt_norm_vec = np.cos(angle)*zonalUnitVector + np.sin(angle)*meridionalUnitVector
 
                 # replace with cross product of endpoint vertices
                 norm_vec = np.cross(a,b) / np.linalg.norm(np.cross(a,b))
+                #norm_vec *= np.sign(np.dot(norm_vec, alt_norm_vec))
                 extra_data[edge,TWO*DIM:(TWO+1)*DIM] = norm_vec
 
-                result = 0.0
+                result_normal = 0.0
+                result_tangent = 0.0
                 for i in range(len(qpoints)):
 
                     unscaled_transformed_qp = v[:,0].copy()
@@ -434,9 +478,8 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
                     transformed_qp_norm = np.linalg.norm(unscaled_transformed_qp)
                     scaled_transformed_qp = unscaled_transformed_qp.copy() * radius / transformed_qp_norm
 
-                    if remap_type!=0:
-                        lat_qp, lon_qp = get_lat_lon(scaled_transformed_qp)
-                        zonalUnitVector_qp, meridionalUnitVector_qp, verticalUnitVector_qp = get_sphere_basis(lat_qp, lon_qp)
+                    lat_qp, lon_qp = get_lat_lon(scaled_transformed_qp)
+                    zonalUnitVector_qp, meridionalUnitVector_qp, verticalUnitVector_qp = get_sphere_basis(lat_qp, lon_qp)
 
                     scaling = arclength
 
@@ -462,45 +505,88 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
                     #              *2*(unscaled_transformed_qp[k]*v[k,1]);
                     #scaling = radius * np.linalg.norm(G[:,1])
 
-                    if remap_type==0:
-                        # good
-                        #result += np.dot(f(lat, lon, zonalUnitVector, meridionalUnitVector), norm_vec)
+                    # norm_vec is constant for all qp on a great circle
+                    #result += np.dot(f(lat_qp, lon_qp, zonalUnitVector_qp, meridionalUnitVector_qp), norm_vec)*qweights[i]*scaling
 
-                        # rotate the vector 90
-                        alt_lat, alt_lon = get_lat_lon(rot_xyz/np.linalg.norm(rot_xyz))
-                        alt_zonalUnitVector, alt_meridionalUnitVector, alt_verticalUnitVector = get_sphere_basis(alt_lat, alt_lon)
-                        ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
-                        alt_f = np.linalg.solve(R, ans_f)
-                        result += np.dot(alt_f, norm_vec)
-                    else:
-                        # norm_vec is constant for all qp on a great circle
-                        #result += np.dot(f(lat_qp, lon_qp, zonalUnitVector_qp, meridionalUnitVector_qp), norm_vec)*qweights[i]*scaling
+                    # rotate the vector 90
+                    xyz_qp = verticalUnitVector_qp.copy() * radius
+                    rot_xyz_qp = np.matmul(R, xyz_qp)
+                    d_rot = np.linalg.norm(rot_xyz_qp-rot_xyz)
+                    assert d_rot < dataset['dcEdge'][edge], "Quadrature and midpoint too far apart"
+                    alt_lat, alt_lon = get_lat_lon(rot_xyz_qp/np.linalg.norm(rot_xyz_qp))
+                    alt_zonalUnitVector, alt_meridionalUnitVector, alt_verticalUnitVector = get_sphere_basis(alt_lat, alt_lon)
+                    #ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
+                    ans_f = f_xyz(rot_xyz_qp/np.linalg.norm(rot_xyz_qp), alt_zonalUnitVector, alt_meridionalUnitVector)
+                    alt_f = np.linalg.solve(R, ans_f)
+                    result_normal += np.dot(alt_f, norm_vec)*qweights[i]*scaling
 
-                        # rotate the vector 90
-                        xyz_qp = verticalUnitVector_qp.copy() * radius
-                        rot_xyz_qp = np.matmul(R, xyz_qp)
-                        d_rot = np.linalg.norm(rot_xyz_qp-rot_xyz)
-                        assert d_rot < dataset['dcEdge'][edge], "Quadrature and midpoint too far apart"
-                        alt_lat, alt_lon = get_lat_lon(rot_xyz_qp/np.linalg.norm(rot_xyz_qp))
-                        alt_zonalUnitVector, alt_meridionalUnitVector, alt_verticalUnitVector = get_sphere_basis(alt_lat, alt_lon)
-                        ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
-                        alt_f = np.linalg.solve(R, ans_f)
-                        result += np.dot(alt_f, norm_vec)*qweights[i]*scaling
+                    cross_k_n_qp = np.cross(rot_xyz_qp/np.linalg.norm(rot_xyz_qp), norm_vec)
+                    tang_vec = cross_k_n_qp / np.linalg.norm(cross_k_n_qp)
+                    result_tangent += np.dot(alt_f, tang_vec)*qweights[i]*scaling
+
+                    # check if tangent vector is completely inside of zonal and meridional
+                    #print("dot",np.dot(alt_zonalUnitVector,tang_vec)+ np.dot(alt_meridionalUnitVector,tang_vec))
+                    ans=np.linalg.norm(np.dot(alt_zonalUnitVector,tang_vec)*alt_zonalUnitVector+ np.dot(alt_meridionalUnitVector,tang_vec)*alt_meridionalUnitVector-tang_vec)
+                    if abs(ans)>1e-14:
+                        print("norm:",ans)
 
                     edge_length += qweights[i]*scaling
 
-                exact_in_field[edge] += result
+                    # logic for evaluation at extra target sites (quadrature)
+                    extra_points_coordinates[quadrature_i, :] = scaled_transformed_qp[:]
+                    extra_points_indices[edge, target_quadrature_local_entries+1] = quadrature_i
+                    quadrature_i+=1 # keeps increasing over cell loops
+                    target_quadrature_local_entries+=1 # resets after edge quadrature loops
+
+                exact_edge_integral_normal[edge] += result_normal
+                exact_edge_average_normal[edge] += result_normal / edge_length
+                exact_edge_integral_tangent[edge] += result_tangent
+                exact_edge_average_tangent[edge] += result_tangent / edge_length
+
                 computed_total_length += edge_length
                 err[edge] = abs(edge_length-arclength)/abs(edge_length)
 
+                extra_points_indices[edge, 0] = target_quadrature_local_entries
+
             #print('arc norm:',np.linalg.norm(err))
+            print("LENGTH", computed_total_length, " vs ", ref_total_length)
 
-            if remap_type!=0: # doesn't make sense to calculate arc length when not integrating
-                print("LENGTH", computed_total_length, " vs ", ref_total_length)
+            # get exact solution
+            exact_point = np.zeros(shape=(nEdges,3), dtype='f8')
+            for edge in range(nEdges):
+                lat = dataset['latEdge'][edge]
+                lon = dataset['lonEdge'][edge]
+                zonalUnitVector, meridionalUnitVector, verticalUnitVector = get_sphere_basis(lat, lon)
+                #exact_out_field[edge,:] = f(lat, lon, zonalUnitVector, meridionalUnitVector)
 
-            gmls_obj=pycompadre.GMLS(pycompadre.ReconstructionSpace.VectorTaylorPolynomial, 
+                # rotate the vector 90
+                xyz = verticalUnitVector * radius
+                rot_xyz = np.matmul(R, xyz)
+
+                alt_lat, alt_lon = get_lat_lon(rot_xyz/np.linalg.norm(rot_xyz))
+                alt_zonalUnitVector, alt_meridionalUnitVector, alt_verticalUnitVector = get_sphere_basis(alt_lat, alt_lon)
+                #ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
+                ans_f = f_xyz(rot_xyz/np.linalg.norm(rot_xyz), alt_zonalUnitVector, alt_meridionalUnitVector)
+                alt_f = np.linalg.solve(R, ans_f)
+                exact_point[edge,:] = alt_f
+
+
+            # logic for evaluation at extra target sites (quadrature)
+            # get exact solution at quadrature #n
+            extra_n = 0
+            if remap_output_type==0 and extra_n!=0:
+                for edge in range(nEdges):
+                    rot_xyz = extra_points_coordinates[extra_points_indices[edge, extra_n],:]
+                    alt_lat, alt_lon = get_lat_lon(rot_xyz/np.linalg.norm(rot_xyz))
+                    alt_zonalUnitVector, alt_meridionalUnitVector, alt_verticalUnitVector = get_sphere_basis(alt_lat, alt_lon)
+                    #ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
+                    ans_f = f_xyz(rot_xyz/np.linalg.norm(rot_xyz), alt_zonalUnitVector, alt_meridionalUnitVector)
+                    alt_f = np.linalg.solve(R, ans_f)
+                    exact_point[edge,:] = alt_f
+
+            gmls_obj=pycompadre.GMLS(basis,
                                      sampling_functional,
-                                     pycompadre.SamplingFunctionals['PointSample'],
+                                     data_sampling_functional,
                                      p_order, 
                                      DIM, 
                                      "QR", 
@@ -517,43 +603,49 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
 
             gmls_helper = pycompadre.ParticleHelper(gmls_obj)
             gmls_helper.generateKDTree(edge_points)
-            gmls_obj.addTargets(pycompadre.TargetOperation.VectorPointEvaluation)
+            gmls_obj.addTargets(target_operator)
             gmls_obj.setTargetExtraData(extra_data)
             gmls_obj.setSourceExtraData(extra_data)
+
+            # logic for evaluation at extra target sites (quadrature)
+            # get extra sites
+            if remap_output_type==0 and extra_n!=0:
+                gmls_helper.setAdditionalEvaluationSitesData(extra_points_indices, extra_points_coordinates)
 
             gmls_helper.generateNeighborListsFromKNNSearchAndSet(edge_points, max(p_order,c_order), DIM-1, 3.8)
             gmls_helper.setTangentBundle(T)
             gmls_obj.generateAlphas(1, True)
 
-            # get exact solution
-            exact_out_field = np.zeros(shape=(nEdges,3), dtype='f8')
-            for edge in range(nEdges):
-                lat = dataset['latEdge'][edge]
-                lon = dataset['lonEdge'][edge]
-                zonalUnitVector, meridionalUnitVector, verticalUnitVector = get_sphere_basis(lat, lon)
-                #exact_out_field[edge,:] = f(lat, lon, zonalUnitVector, meridionalUnitVector)
-
-                # rotate the vector 90
-                xyz = verticalUnitVector * radius
-                rot_xyz = np.matmul(R, xyz)
-
-                alt_lat, alt_lon = get_lat_lon(rot_xyz/np.linalg.norm(rot_xyz))
-                alt_zonalUnitVector, alt_meridionalUnitVector, alt_verticalUnitVector = get_sphere_basis(alt_lat, alt_lon)
-                ans_f = f(alt_lat, alt_lon, alt_zonalUnitVector, alt_meridionalUnitVector)
-                alt_f = np.linalg.solve(R, ans_f)
-                exact_out_field[edge,:] = alt_f
+            if remap_input_type==0:
+                exact_in = exact_point
+            elif remap_input_type==1:
+                exact_in = exact_edge_average_normal
+            elif remap_input_type==2:
+                exact_in = exact_edge_integral_normal
+            elif remap_input_type==3:
+                exact_in = exact_edge_average_tangent
+            elif remap_input_type==4:
+                exact_in = exact_edge_integral_tangent
 
             # get computed solution
-            out_field = gmls_helper.applyStencil(exact_in_field, 
-                                                 pycompadre.TargetOperation.VectorPointEvaluation, 
+            out_field = gmls_helper.applyStencil(exact_in, 
+                                                 target_operator,
                                                  sampling_functional)
 
-            # remove extreme lats
-            for edge in range(nEdges):
-                lat = dataset['latEdge'][edge]
-                if abs(lat)>np.pi/3.:
-                    out_field[edge,:] = 0.0
-                    exact_out_field[edge,:] = 0.0
+            # logic for evaluation at extra target sites (quadrature)
+            if remap_output_type==0 and extra_n!=0:
+                # get value at nth quadrature point
+                out_field = gmls_helper.applyStencil(exact_in, 
+                                                     target_operator,
+                                                     sampling_functional,
+                                                     extra_n)
+
+            ## remove extreme lats
+            #for edge in range(nEdges):
+            #    lat = dataset['latEdge'][edge]
+            #    if abs(lat)>np.pi/3.:
+            #        out_field[edge,:] = 0.0
+            #        exact_out_field[edge,:] = 0.0
 
             ## remove equator
             #for edge in range(nEdges):
@@ -562,26 +654,41 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             #        out_field[edge,:] = 0.0
             #        exact_out_field[edge,:] = 0.0
 
+            if remap_output_type==0:
+                exact_out = exact_point
+            elif remap_output_type==1:
+                exact_out = exact_edge_average_normal
+            elif remap_output_type==2:
+                exact_out = exact_edge_integral_normal
+            elif remap_output_type==3:
+                exact_out = exact_edge_average_tangent
+            elif remap_output_type==4:
+                exact_out = exact_edge_integral_tangent
+
             print('computed out:',out_field)
-            print('exact out:',exact_out_field)
-            print('diff:',out_field - exact_out_field)
+            print('exact out:',exact_out)
+            print('diff:',out_field - exact_out)
             #with np.printoptions(threshold=np.inf):
             #    print('diff:',out_field - exact_out_field)
-            print(np.max(out_field-exact_out_field, axis=0))
+            print(np.max(out_field-exact_out, axis=0))
 
             # calculate error norm (l2)
-            rel_l2_error = np.linalg.norm(out_field-exact_out_field, axis=0)/np.sqrt(out_field.shape[0])
+            rel_l2_error = np.linalg.norm(out_field-exact_out, axis=0)/np.sqrt(out_field.shape[0])
 
             
-            #import matplotlib.pyplot as plt
-            #fig = plt.figure(figsize=(12, 12))
-            #ax = fig.add_subplot(projection='3d')
-            #err = np.linalg.norm(out_field-exact_out_field, axis=1)
-            ##ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=err)
-            #sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=exact_out_field[:,0]-out_field[:,0])
-            ##ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=in_field[:])
-            #plt.colorbar(sc)
-            #plt.show() 
+            global do_plot
+            if do_plot:
+                import matplotlib.pyplot as plt
+                fig = plt.figure(figsize=(12, 12))
+                ax = fig.add_subplot(projection='3d')
+                #err = np.linalg.norm(out_field-exact_out, axis=1)
+                #ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=err)
+                sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=exact_out[:,1]-out_field[:,1])
+                #sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=exact_out-out_field)#[:,0])
+                #sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=exact_out_field[:,0])
+                #sc = ax.scatter(dataset['xEdge'], dataset['yEdge'], dataset['zEdge'], c=in_field[:])
+                plt.colorbar(sc)
+                plt.show() 
 
             #with np.printoptions(threshold=np.inf):
             #    print(np.linalg.norm(out_field-exact_out_field, axis=1))
@@ -589,23 +696,46 @@ class TestSphereRemapEdgeIntegral(KokkosTestCase):
             print('Error norm (all comps.):', np.linalg.norm(rel_l2_error))
             return rel_l2_error
 
+        p_order = 4
+
         rel_l2_errors = []
         for i in range(0,args.grids):
-            rel_l2_errors.append(run(i))
-        print('edge integrals :: rel_l2_errors', rel_l2_errors)
+            rel_l2_errors.append(run(i, p_order))
+        print('edge normal integrals :: rel_l2_errors', rel_l2_errors)
 
         rel_l2_rates = []
         for i in range(1,len(rel_l2_errors)):
             rel_l2_rates.append(np.log(rel_l2_errors[i]/rel_l2_errors[i-1])/np.log(0.5))
-        print('edge integrals :: rel_l2_rates', rel_l2_rates)
+        print('edge normal integrals :: rel_l2_rates', rel_l2_rates)
+
+        result=True
+        for rate_block in rel_l2_rates:
+            print(type(rate_block))
+            if type(rate_block)==np.float64:
+                if rate_block < 5:
+                    result &= False
+            else:
+                for i in range(rate_block.shape[0]):
+                    if rate_block[i] < p_order+1:
+                        result &= False
+
+        assert result, "Failed"
 
 if __name__ == '__main__':
 
     import argparse
     parser = argparse.ArgumentParser(description='test remap on the sphere')
+    parser.add_argument('-b','--basis', dest='basis_type', type=int, default=1, help='basis type (0-VectorOfScalarClonesTaylorPolynomial 1-VectorTaylorPolynomial')
+    parser.add_argument('-io','--input-operation', dest='input_operation', type=int, default=1, help='input operation type (0-IntegralAverage 1-Integral 2-PointValues)')
+    parser.add_argument('-oo','--output-operation', dest='output_operation', type=int, default=1, help='output operation type (0-IntegralAverage 1-Integral 2-PointValues )')
     parser.add_argument('-g','--grids', dest='grids', type=int, default=2, help='number of grids for refinement sequence')
     parser.add_argument('-l','--list', nargs='*', help='{0: cell-integrated, 1: edge-integrated}', default=['0','1'], required=False)
     args = parser.parse_args()
+
+    global input_operation, output_operation, basis_type
+    input_operation = args.input_operation
+    output_operation = args.output_operation
+    basis_type = args.basis_type
 
     # remove tests not requested
     if '0' not in args.list:

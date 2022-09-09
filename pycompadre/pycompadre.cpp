@@ -742,11 +742,11 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     sampling_functional["StaggeredEdgeIntegralSample"] = StaggeredEdgeIntegralSample;
     sampling_functional["VaryingManifoldVectorPointSample"] = VaryingManifoldVectorPointSample;
     sampling_functional["FaceNormalIntegralSample"] = FaceNormalIntegralSample;
-    sampling_functional["FaceNormalPointSample"] = FaceNormalPointSample;
-    sampling_functional["FaceTangentIntegralSample"] = FaceTangentIntegralSample;
-    sampling_functional["FaceTangentPointSample"] = FaceTangentPointSample;
-    sampling_functional["ScalarFaceAverageSample"] = ScalarFaceAverageSample;
-    sampling_functional["ScalarFaceIntegralSample"] = ScalarFaceIntegralSample;
+    sampling_functional["FaceNormalAverageSample"] = FaceNormalAverageSample;
+    sampling_functional["EdgeTangentIntegralSample"] = EdgeTangentIntegralSample;
+    sampling_functional["EdgeTangentAverageSample"] = EdgeTangentAverageSample;
+    sampling_functional["CellAverageSample"] = CellAverageSample;
+    sampling_functional["CellIntegralSample"] = CellIntegralSample;
     m.attr("SamplingFunctionals") = sampling_functional;
 
     py::enum_<TargetOperation>(m, "TargetOperation")
@@ -764,8 +764,12 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .value("PartialZOfScalarPointEvaluation", TargetOperation::PartialZOfScalarPointEvaluation)
     .value("ChainedStaggeredLaplacianOfScalarPointEvaluation", TargetOperation::ChainedStaggeredLaplacianOfScalarPointEvaluation)
     .value("GaussianCurvaturePointEvaluation", TargetOperation::GaussianCurvaturePointEvaluation)
-    .value("ScalarFaceAverageEvaluation", TargetOperation::ScalarFaceAverageEvaluation)
-    .value("ScalarFaceIntegralEvaluation", TargetOperation::ScalarFaceIntegralEvaluation)
+    .value("CellAverageEvaluation", TargetOperation::CellAverageEvaluation)
+    .value("CellIntegralEvaluation", TargetOperation::CellIntegralEvaluation)
+    .value("FaceNormalAverageEvaluation", TargetOperation::FaceNormalAverageEvaluation)
+    .value("FaceNormalIntegralEvaluation", TargetOperation::FaceNormalIntegralEvaluation)
+    .value("EdgeTangentAverageEvaluation", TargetOperation::EdgeTangentAverageEvaluation)
+    .value("EdgeTangentIntegralEvaluation", TargetOperation::EdgeTangentIntegralEvaluation)
     .export_values();
 
 
