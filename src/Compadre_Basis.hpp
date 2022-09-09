@@ -522,7 +522,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
         // loop over each two vertices 
         // made for flat surfaces (either dim=2 or on a manifold)
         double entire_cell_area = 0.0;
-        for (size_t v=0; v<num_vertices; ++v) {
+        for (int v=0; v<num_vertices; ++v) {
             int v1 = v;
             int v2 = (v+1) % num_vertices;
 
