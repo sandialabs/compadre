@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -49,27 +49,48 @@
 #ifdef KOKKOS_ENABLE_CUDA
 
 #include <impl/Kokkos_Error.hpp>
-
-#include <iostream>
+#include <impl/Kokkos_Profiling.hpp>
+#include <iosfwd>
 
 namespace Kokkos {
 namespace Impl {
 
-void cuda_device_synchronize();
+void cuda_stream_synchronize(
+    const cudaStream_t stream,
+    Kokkos::Tools::Experimental::SpecialSynchronizationCases reason,
+    const std::string& name);
+void cuda_device_synchronize(const std::string& name);
+void cuda_stream_synchronize(const cudaStream_t stream,
+                             const std::string& name);
 
 void cuda_internal_error_throw(cudaError e, const char* name,
-                               const char* file = NULL, const int line = 0);
+                               const char* file = nullptr, const int line = 0);
 
 inline void cuda_internal_safe_call(cudaError e, const char* name,
-                                    const char* file = NULL,
+                                    const char* file = nullptr,
                                     const int line   = 0) {
   if (cudaSuccess != e) {
     cuda_internal_error_throw(e, name, file, line);
   }
 }
 
-#define CUDA_SAFE_CALL(call) \
+#define KOKKOS_IMPL_CUDA_SAFE_CALL(call) \
   Kokkos::Impl::cuda_internal_safe_call(call, #call, __FILE__, __LINE__)
+
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE_3
+
+KOKKOS_DEPRECATED
+inline void cuda_internal_safe_call_deprecated(cudaError e, const char* name,
+                                               const char* file = nullptr,
+                                               const int line   = 0) {
+  cuda_internal_safe_call(e, name, file, line);
+}
+
+#define CUDA_SAFE_CALL(call)                                              \
+  Kokkos::Impl::cuda_internal_safe_call_deprecated(call, #call, __FILE__, \
+                                                   __LINE__)
+
+#endif
 
 }  // namespace Impl
 
@@ -113,12 +134,7 @@ class CudaRawMemoryAllocationFailure : public RawMemoryAllocationFailure {
                get_failure_mode(arg_error_code), arg_mechanism),
         m_error_code(arg_error_code) {}
 
-  void append_additional_error_information(std::ostream& o) const override {
-    if (m_error_code != cudaSuccess) {
-      o << "  The Cuda allocation returned the error code \"\""
-        << cudaGetErrorName(m_error_code) << "\".";
-    }
-  }
+  void append_additional_error_information(std::ostream& o) const override;
 };
 
 }  // end namespace Experimental

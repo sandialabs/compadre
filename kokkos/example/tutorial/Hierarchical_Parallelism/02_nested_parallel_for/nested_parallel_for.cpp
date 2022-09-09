@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -46,11 +46,11 @@
 #include <cstdio>
 
 // See 01_thread_teams for an explanation of a basic TeamPolicy
-typedef Kokkos::TeamPolicy<> team_policy;
-typedef typename team_policy::member_type team_member;
+using team_policy = Kokkos::TeamPolicy<>;
+using team_member = typename team_policy::member_type;
 
 struct hello_world {
-  typedef int value_type;  // Specify value type for reduction target, sum
+  using value_type = int;  // Specify value type for reduction target, sum
   KOKKOS_INLINE_FUNCTION
   void operator()(const team_member& thread, int& sum) const {
     sum += 1;
@@ -73,8 +73,13 @@ struct hello_world {
     // also executed by all threads of the team.
     Kokkos::parallel_for(Kokkos::TeamThreadRange(thread, 31),
                          [&](const int& i) {
+#ifndef __SYCL_DEVICE_ONLY__
+                           // FIXME_SYCL needs printf workaround
                            printf("Hello World: (%i , %i) executed loop %i \n",
                                   thread.league_rank(), thread.team_rank(), i);
+#else
+			   (void) i;
+#endif
                          });
   }
 };

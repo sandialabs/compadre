@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -67,7 +67,7 @@
 //
 // The first dimension of the View is the dimension over which it is
 // efficient for Kokkos to parallelize.
-typedef Kokkos::View<double * [3]> view_type;
+using view_type = Kokkos::View<double * [3]>;
 
 // parallel_for functor that fills the View given to its constructor.
 // The View must already have been allocated.
@@ -102,8 +102,8 @@ struct ReduceFunctor {
   ReduceFunctor(view_type a_) : a(a_) {}
 
   // If you write a functor to do a reduction, you must specify the
-  // type of the reduction result via a public 'value_type' typedef.
-  typedef double value_type;
+  // type of the reduction result via a public 'value_type' alias.
+  using value_type = double;
 
   KOKKOS_INLINE_FUNCTION
   void operator()(int i, double& lsum) const {

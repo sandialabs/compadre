@@ -23,10 +23,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -52,10 +52,10 @@ namespace Kokkos {
 
 template <typename T>
 struct pod_hash {
-  typedef T argument_type;
-  typedef T first_argument_type;
-  typedef uint32_t second_argument_type;
-  typedef uint32_t result_type;
+  using argument_type        = T;
+  using first_argument_type  = T;
+  using second_argument_type = uint32_t;
+  using result_type          = uint32_t;
 
   KOKKOS_FORCEINLINE_FUNCTION
   uint32_t operator()(T const& t) const {
@@ -70,9 +70,9 @@ struct pod_hash {
 
 template <typename T>
 struct pod_equal_to {
-  typedef T first_argument_type;
-  typedef T second_argument_type;
-  typedef bool result_type;
+  using first_argument_type  = T;
+  using second_argument_type = T;
+  using result_type          = bool;
 
   KOKKOS_FORCEINLINE_FUNCTION
   bool operator()(T const& a, T const& b) const {
@@ -82,9 +82,9 @@ struct pod_equal_to {
 
 template <typename T>
 struct pod_not_equal_to {
-  typedef T first_argument_type;
-  typedef T second_argument_type;
-  typedef bool result_type;
+  using first_argument_type  = T;
+  using second_argument_type = T;
+  using result_type          = bool;
 
   KOKKOS_FORCEINLINE_FUNCTION
   bool operator()(T const& a, T const& b) const {
@@ -94,9 +94,9 @@ struct pod_not_equal_to {
 
 template <typename T>
 struct equal_to {
-  typedef T first_argument_type;
-  typedef T second_argument_type;
-  typedef bool result_type;
+  using first_argument_type  = T;
+  using second_argument_type = T;
+  using result_type          = bool;
 
   KOKKOS_FORCEINLINE_FUNCTION
   bool operator()(T const& a, T const& b) const { return a == b; }
@@ -104,9 +104,9 @@ struct equal_to {
 
 template <typename T>
 struct not_equal_to {
-  typedef T first_argument_type;
-  typedef T second_argument_type;
-  typedef bool result_type;
+  using first_argument_type  = T;
+  using second_argument_type = T;
+  using result_type          = bool;
 
   KOKKOS_FORCEINLINE_FUNCTION
   bool operator()(T const& a, T const& b) const { return a != b; }
@@ -114,9 +114,9 @@ struct not_equal_to {
 
 template <typename T>
 struct greater {
-  typedef T first_argument_type;
-  typedef T second_argument_type;
-  typedef bool result_type;
+  using first_argument_type  = T;
+  using second_argument_type = T;
+  using result_type          = bool;
 
   KOKKOS_FORCEINLINE_FUNCTION
   bool operator()(T const& a, T const& b) const { return a > b; }
@@ -124,9 +124,9 @@ struct greater {
 
 template <typename T>
 struct less {
-  typedef T first_argument_type;
-  typedef T second_argument_type;
-  typedef bool result_type;
+  using first_argument_type  = T;
+  using second_argument_type = T;
+  using result_type          = bool;
 
   KOKKOS_FORCEINLINE_FUNCTION
   bool operator()(T const& a, T const& b) const { return a < b; }
@@ -134,9 +134,9 @@ struct less {
 
 template <typename T>
 struct greater_equal {
-  typedef T first_argument_type;
-  typedef T second_argument_type;
-  typedef bool result_type;
+  using first_argument_type  = T;
+  using second_argument_type = T;
+  using result_type          = bool;
 
   KOKKOS_FORCEINLINE_FUNCTION
   bool operator()(T const& a, T const& b) const { return a >= b; }
@@ -144,9 +144,9 @@ struct greater_equal {
 
 template <typename T>
 struct less_equal {
-  typedef T first_argument_type;
-  typedef T second_argument_type;
-  typedef bool result_type;
+  using first_argument_type  = T;
+  using second_argument_type = T;
+  using result_type          = bool;
 
   KOKKOS_FORCEINLINE_FUNCTION
   bool operator()(T const& a, T const& b) const { return a <= b; }

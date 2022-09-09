@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -48,13 +48,18 @@
 namespace Kokkos {
 
 //----------------------------------------------------------------------------
-
+#ifndef KOKKOS_ENABLE_IMPL_DESUL_ATOMICS
 KOKKOS_FORCEINLINE_FUNCTION
 void memory_fence() {
 #if defined(__CUDA_ARCH__)
   __threadfence();
-#elif defined(KOKKOS_ENABLE_ROCM_ATOMICS)
-  amp_barrier(CLK_LOCAL_MEM_FENCE | CLK_GLOBAL_MEM_FENCE);
+#elif defined(KOKKOS_ENABLE_OPENMPTARGET)
+#pragma omp flush
+#elif defined(__HIP_DEVICE_COMPILE__)
+  __threadfence();
+#elif defined(KOKKOS_ENABLE_SYCL) && defined(__SYCL_DEVICE_ONLY__)
+  sycl::atomic_fence(sycl::ext::oneapi::memory_order::acq_rel,
+                     sycl::ext::oneapi::memory_scope::device);
 #elif defined(KOKKOS_ENABLE_ASM) && defined(KOKKOS_ENABLE_ISA_X86_64)
   asm volatile("mfence" ::: "memory");
 #elif defined(KOKKOS_ENABLE_GNU_ATOMICS) || \
@@ -70,6 +75,7 @@ void memory_fence() {
 #error "Error: memory_fence() not defined"
 #endif
 }
+#endif
 
 //////////////////////////////////////////////////////
 // store_fence()

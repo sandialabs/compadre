@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//               KokkosKernels 0.9: Linear Algebra and Graph Kernels
-//                 Copyright 2017 Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -23,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -48,19 +49,19 @@
 #include <Kokkos_ArithTraits.hpp>
 
 // Include the actual functors
-#if !defined(KOKKOSKERNELS_ETI_ONLY) || KOKKOSKERNELS_IMPL_COMPILE_LIBRARY 
+#if !defined(KOKKOSKERNELS_ETI_ONLY) || KOKKOSKERNELS_IMPL_COMPILE_LIBRARY
 #include <KokkosBlas1_reciprocal_impl.hpp>
 #endif
 
 namespace KokkosBlas {
 namespace Impl {
 // Specialization struct which defines whether a specialization exists
-template<class RMV, class XMV, int rank = RMV::rank>
+template <class RMV, class XMV, int rank = RMV::rank>
 struct reciprocal_eti_spec_avail {
   enum : bool { value = false };
 };
-}
-}
+}  // namespace Impl
+}  // namespace KokkosBlas
 
 //
 // Macro for declaration of full specialization availability
@@ -69,14 +70,18 @@ struct reciprocal_eti_spec_avail {
 // We may spread out definitions (see _INST macro below) across one or
 // more .cpp files.
 //
-#define KOKKOSBLAS1_RECIPROCAL_ETI_SPEC_AVAIL( SCALAR, LAYOUT, EXEC_SPACE, MEM_SPACE ) \
-    template<> \
-    struct reciprocal_eti_spec_avail< \
-        Kokkos::View<SCALAR*, LAYOUT, Kokkos::Device<EXEC_SPACE, MEM_SPACE>, \
-                     Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-        Kokkos::View<const SCALAR*, LAYOUT, Kokkos::Device<EXEC_SPACE, MEM_SPACE>, \
-                     Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-        1> { enum : bool { value = true }; };
+#define KOKKOSBLAS1_RECIPROCAL_ETI_SPEC_AVAIL(SCALAR, LAYOUT, EXEC_SPACE,  \
+                                              MEM_SPACE)                   \
+  template <>                                                              \
+  struct reciprocal_eti_spec_avail<                                        \
+      Kokkos::View<SCALAR*, LAYOUT, Kokkos::Device<EXEC_SPACE, MEM_SPACE>, \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,              \
+      Kokkos::View<const SCALAR*, LAYOUT,                                  \
+                   Kokkos::Device<EXEC_SPACE, MEM_SPACE>,                  \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,              \
+      1> {                                                                 \
+    enum : bool { value = true };                                          \
+  };
 
 //
 // Macro for declaration of full specialization availability
@@ -85,111 +90,127 @@ struct reciprocal_eti_spec_avail {
 // We may spread out definitions (see _DEF macro below) across one or
 // more .cpp files.
 //
-#define KOKKOSBLAS1_RECIPROCAL_MV_ETI_SPEC_AVAIL( SCALAR, LAYOUT, EXEC_SPACE, MEM_SPACE ) \
-    template<> \
-    struct reciprocal_eti_spec_avail< \
-        Kokkos::View<SCALAR**, LAYOUT, Kokkos::Device<EXEC_SPACE, MEM_SPACE>, \
-                     Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-        Kokkos::View<const SCALAR**, LAYOUT, Kokkos::Device<EXEC_SPACE, MEM_SPACE>, \
-                     Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-        2> { enum : bool { value = true }; };
+#define KOKKOSBLAS1_RECIPROCAL_MV_ETI_SPEC_AVAIL(SCALAR, LAYOUT, EXEC_SPACE, \
+                                                 MEM_SPACE)                  \
+  template <>                                                                \
+  struct reciprocal_eti_spec_avail<                                          \
+      Kokkos::View<SCALAR**, LAYOUT, Kokkos::Device<EXEC_SPACE, MEM_SPACE>,  \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,                \
+      Kokkos::View<const SCALAR**, LAYOUT,                                   \
+                   Kokkos::Device<EXEC_SPACE, MEM_SPACE>,                    \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,                \
+      2> {                                                                   \
+    enum : bool { value = true };                                            \
+  };
 
 // Include the actual specialization declarations
-#include<KokkosBlas1_reciprocal_tpl_spec_avail.hpp>
-#include<generated_specializations_hpp/KokkosBlas1_reciprocal_eti_spec_avail.hpp>
-#include<generated_specializations_hpp/KokkosBlas1_reciprocal_mv_eti_spec_avail.hpp>
+#include <KokkosBlas1_reciprocal_tpl_spec_avail.hpp>
+#include <generated_specializations_hpp/KokkosBlas1_reciprocal_eti_spec_avail.hpp>
+#include <generated_specializations_hpp/KokkosBlas1_reciprocal_mv_eti_spec_avail.hpp>
 
 namespace KokkosBlas {
 namespace Impl {
 
 // Unification layer
-template<class RMV, class XMV, int rank = RMV::rank,
-         bool tpl_spec_avail = reciprocal_tpl_spec_avail<RMV,XMV>::value,
-         bool eti_spec_avail = reciprocal_eti_spec_avail<RMV,XMV>::value>
+template <class RMV, class XMV, int rank = RMV::rank,
+          bool tpl_spec_avail = reciprocal_tpl_spec_avail<RMV, XMV>::value,
+          bool eti_spec_avail = reciprocal_eti_spec_avail<RMV, XMV>::value>
 struct Reciprocal {
-  static void reciprocal (const RMV& R, const XMV& X);
+  static void reciprocal(const RMV& R, const XMV& X);
 };
 
 #if !defined(KOKKOSKERNELS_ETI_ONLY) || KOKKOSKERNELS_IMPL_COMPILE_LIBRARY
 //! Full specialization of Reciprocal for single vectors (1-D Views).
-template<class RMV, class XMV>
-struct Reciprocal<RMV, XMV, 1, false, KOKKOSKERNELS_IMPL_COMPILE_LIBRARY>
-{
+template <class RMV, class XMV>
+struct Reciprocal<RMV, XMV, 1, false, KOKKOSKERNELS_IMPL_COMPILE_LIBRARY> {
   typedef typename XMV::size_type size_type;
 
-  static void reciprocal (const RMV& R, const XMV& X)
-  {
-    static_assert (Kokkos::Impl::is_view<RMV>::value, "KokkosBlas::Impl::"
-                   "Reciprocal<1-D>: RMV is not a Kokkos::View.");
-    static_assert (Kokkos::Impl::is_view<XMV>::value, "KokkosBlas::Impl::"
-                   "Reciprocal<1-D>: XMV is not a Kokkos::View.");
-    static_assert (RMV::rank == 1, "KokkosBlas::Impl::Reciprocal<1-D>: "
-                   "RMV is not rank 1.");
-    static_assert (XMV::rank == 1, "KokkosBlas::Impl::Reciprocal<1-D>: "
-                   "XMV is not rank 1.");
-    Kokkos::Profiling::pushRegion(KOKKOSKERNELS_IMPL_COMPILE_LIBRARY?"KokkosBlas::reciprocal[ETI]":"KokkosBlas::reciprocal[noETI]");
-    #ifdef KOKKOSKERNELS_ENABLE_CHECK_SPECIALIZATION
-    if(KOKKOSKERNELS_IMPL_COMPILE_LIBRARY)
-      printf("KokkosBlas1::reciprocal<> ETI specialization for < %s , %s >\n",typeid(RMV).name(),typeid(XMV).name());
+  static void reciprocal(const RMV& R, const XMV& X) {
+    static_assert(Kokkos::is_view<RMV>::value,
+                  "KokkosBlas::Impl::"
+                  "Reciprocal<1-D>: RMV is not a Kokkos::View.");
+    static_assert(Kokkos::is_view<XMV>::value,
+                  "KokkosBlas::Impl::"
+                  "Reciprocal<1-D>: XMV is not a Kokkos::View.");
+    static_assert(RMV::rank == 1,
+                  "KokkosBlas::Impl::Reciprocal<1-D>: "
+                  "RMV is not rank 1.");
+    static_assert(XMV::rank == 1,
+                  "KokkosBlas::Impl::Reciprocal<1-D>: "
+                  "XMV is not rank 1.");
+    Kokkos::Profiling::pushRegion(KOKKOSKERNELS_IMPL_COMPILE_LIBRARY
+                                      ? "KokkosBlas::reciprocal[ETI]"
+                                      : "KokkosBlas::reciprocal[noETI]");
+#ifdef KOKKOSKERNELS_ENABLE_CHECK_SPECIALIZATION
+    if (KOKKOSKERNELS_IMPL_COMPILE_LIBRARY)
+      printf("KokkosBlas1::reciprocal<> ETI specialization for < %s , %s >\n",
+             typeid(RMV).name(), typeid(XMV).name());
     else {
-      printf("KokkosBlas1::reciprocal<> non-ETI specialization for < %s , %s >\n",typeid(RMV).name(),typeid(XMV).name());
+      printf(
+          "KokkosBlas1::reciprocal<> non-ETI specialization for < %s , %s >\n",
+          typeid(RMV).name(), typeid(XMV).name());
     }
-    #endif
+#endif
     const size_type numRows = X.extent(0);
 
-    if (numRows < static_cast<size_type> (INT_MAX)) {
+    if (numRows < static_cast<size_type>(INT_MAX)) {
       typedef int index_type;
-      V_Reciprocal_Generic<RMV, XMV, index_type> (R, X);
-    }
-    else {
+      V_Reciprocal_Generic<RMV, XMV, index_type>(R, X);
+    } else {
       typedef std::int64_t index_type;
-      V_Reciprocal_Generic<RMV, XMV, index_type> (R, X);
+      V_Reciprocal_Generic<RMV, XMV, index_type>(R, X);
     }
     Kokkos::Profiling::popRegion();
   }
 };
 
-template<class RMV, class XMV>
+template <class RMV, class XMV>
 struct Reciprocal<RMV, XMV, 2, false, KOKKOSKERNELS_IMPL_COMPILE_LIBRARY> {
   typedef typename XMV::size_type size_type;
 
-  static void reciprocal (const RMV& R, const XMV& X)
-  {
-    static_assert (Kokkos::Impl::is_view<RMV>::value, "KokkosBlas::Impl::"
-                   "Reciprocal<2-D>: RMV is not a Kokkos::View.");
-    static_assert (Kokkos::Impl::is_view<XMV>::value, "KokkosBlas::Impl::"
-                   "Reciprocal<2-D>: XMV is not a Kokkos::View.");
-    static_assert (RMV::rank == 2, "KokkosBlas::Impl::Reciprocal<2-D>: "
-                   "RMV is not rank 2.");
-    static_assert (XMV::rank == 2, "KokkosBlas::Impl::Reciprocal<2-D>: "
-                   "XMV is not rank 2.");
-    Kokkos::Profiling::pushRegion(KOKKOSKERNELS_IMPL_COMPILE_LIBRARY?"KokkosBlas::reciprocal[ETI]":"KokkosBlas::reciprocal[noETI]");
-    #ifdef KOKKOSKERNELS_ENABLE_CHECK_SPECIALIZATION
-    if(KOKKOSKERNELS_IMPL_COMPILE_LIBRARY)
-      printf("KokkosBlas1::reciprocal<> ETI specialization for < %s , %s >\n",typeid(RMV).name(),typeid(XMV).name());
+  static void reciprocal(const RMV& R, const XMV& X) {
+    static_assert(Kokkos::is_view<RMV>::value,
+                  "KokkosBlas::Impl::"
+                  "Reciprocal<2-D>: RMV is not a Kokkos::View.");
+    static_assert(Kokkos::is_view<XMV>::value,
+                  "KokkosBlas::Impl::"
+                  "Reciprocal<2-D>: XMV is not a Kokkos::View.");
+    static_assert(RMV::rank == 2,
+                  "KokkosBlas::Impl::Reciprocal<2-D>: "
+                  "RMV is not rank 2.");
+    static_assert(XMV::rank == 2,
+                  "KokkosBlas::Impl::Reciprocal<2-D>: "
+                  "XMV is not rank 2.");
+    Kokkos::Profiling::pushRegion(KOKKOSKERNELS_IMPL_COMPILE_LIBRARY
+                                      ? "KokkosBlas::reciprocal[ETI]"
+                                      : "KokkosBlas::reciprocal[noETI]");
+#ifdef KOKKOSKERNELS_ENABLE_CHECK_SPECIALIZATION
+    if (KOKKOSKERNELS_IMPL_COMPILE_LIBRARY)
+      printf("KokkosBlas1::reciprocal<> ETI specialization for < %s , %s >\n",
+             typeid(RMV).name(), typeid(XMV).name());
     else {
-      printf("KokkosBlas1::asb<> non-ETI specialization for < %s , %s >\n",typeid(RMV).name(),typeid(XMV).name());
+      printf("KokkosBlas1::asb<> non-ETI specialization for < %s , %s >\n",
+             typeid(RMV).name(), typeid(XMV).name());
     }
-    #endif
+#endif
 
     const size_type numRows = X.extent(0);
     const size_type numCols = X.extent(1);
-    if (numRows < static_cast<size_type> (INT_MAX) &&
-        numRows * numCols < static_cast<size_type> (INT_MAX)) {
+    if (numRows < static_cast<size_type>(INT_MAX) &&
+        numRows * numCols < static_cast<size_type>(INT_MAX)) {
       typedef int index_type;
-      MV_Reciprocal_Generic<RMV, XMV, index_type> (R, X);
-    }
-    else {
+      MV_Reciprocal_Generic<RMV, XMV, index_type>(R, X);
+    } else {
       typedef std::int64_t index_type;
-      MV_Reciprocal_Generic<RMV, XMV, index_type> (R, X);
+      MV_Reciprocal_Generic<RMV, XMV, index_type>(R, X);
     }
     Kokkos::Profiling::popRegion();
   }
 };
 #endif
 
-}
-}
+}  // namespace Impl
+}  // namespace KokkosBlas
 
 //
 // Macro for declaration of full specialization of
@@ -198,26 +219,30 @@ struct Reciprocal<RMV, XMV, 2, false, KOKKOSKERNELS_IMPL_COMPILE_LIBRARY> {
 // We may spread out definitions (see _DEF macro below) across one or
 // more .cpp files.
 //
-#define KOKKOSBLAS1_RECIPROCAL_ETI_SPEC_DECL( SCALAR, LAYOUT, EXEC_SPACE, MEM_SPACE ) \
-extern template struct Reciprocal< \
-         Kokkos::View<SCALAR*, LAYOUT, Kokkos::Device<EXEC_SPACE, MEM_SPACE>, \
-                      Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-         Kokkos::View<const SCALAR*, LAYOUT, Kokkos::Device<EXEC_SPACE, MEM_SPACE>, \
-                      Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-         1, false, true>;
+#define KOKKOSBLAS1_RECIPROCAL_ETI_SPEC_DECL(SCALAR, LAYOUT, EXEC_SPACE,   \
+                                             MEM_SPACE)                    \
+  extern template struct Reciprocal<                                       \
+      Kokkos::View<SCALAR*, LAYOUT, Kokkos::Device<EXEC_SPACE, MEM_SPACE>, \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,              \
+      Kokkos::View<const SCALAR*, LAYOUT,                                  \
+                   Kokkos::Device<EXEC_SPACE, MEM_SPACE>,                  \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,              \
+      1, false, true>;
 
 //
 // Macro for definition of full specialization of
 // KokkosBlas::Impl::Reciprocal for rank == 2.  This is NOT for users!!!  We
 // use this macro in one or more .cpp files in this directory.
 //
-#define KOKKOSBLAS1_RECIPROCAL_ETI_SPEC_INST( SCALAR, LAYOUT, EXEC_SPACE, MEM_SPACE ) \
-template struct Reciprocal< \
-         Kokkos::View<SCALAR*, LAYOUT, Kokkos::Device<EXEC_SPACE, MEM_SPACE>, \
-                      Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-         Kokkos::View<const SCALAR*, LAYOUT, Kokkos::Device<EXEC_SPACE, MEM_SPACE>, \
-                      Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-         1, false, true>;
+#define KOKKOSBLAS1_RECIPROCAL_ETI_SPEC_INST(SCALAR, LAYOUT, EXEC_SPACE,   \
+                                             MEM_SPACE)                    \
+  template struct Reciprocal<                                              \
+      Kokkos::View<SCALAR*, LAYOUT, Kokkos::Device<EXEC_SPACE, MEM_SPACE>, \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,              \
+      Kokkos::View<const SCALAR*, LAYOUT,                                  \
+                   Kokkos::Device<EXEC_SPACE, MEM_SPACE>,                  \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,              \
+      1, false, true>;
 
 //
 // Macro for declaration of full specialization of
@@ -226,29 +251,33 @@ template struct Reciprocal< \
 // We may spread out definitions (see _DEF macro below) across one or
 // more .cpp files.
 //
-#define KOKKOSBLAS1_RECIPROCAL_MV_ETI_SPEC_DECL( SCALAR, LAYOUT, EXEC_SPACE, MEM_SPACE ) \
-extern template struct Reciprocal< \
-         Kokkos::View<SCALAR**, LAYOUT, Kokkos::Device<EXEC_SPACE, MEM_SPACE>, \
-                      Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-         Kokkos::View<const SCALAR**, LAYOUT, Kokkos::Device<EXEC_SPACE, MEM_SPACE>, \
-                      Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-         2, false, true>;
+#define KOKKOSBLAS1_RECIPROCAL_MV_ETI_SPEC_DECL(SCALAR, LAYOUT, EXEC_SPACE, \
+                                                MEM_SPACE)                  \
+  extern template struct Reciprocal<                                        \
+      Kokkos::View<SCALAR**, LAYOUT, Kokkos::Device<EXEC_SPACE, MEM_SPACE>, \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,               \
+      Kokkos::View<const SCALAR**, LAYOUT,                                  \
+                   Kokkos::Device<EXEC_SPACE, MEM_SPACE>,                   \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,               \
+      2, false, true>;
 
 //
 // Macro for definition of full specialization of
 // KokkosBlas::Impl::Reciprocal for rank == 2.  This is NOT for users!!!  We
 // use this macro in one or more .cpp files in this directory.
 //
-#define KOKKOSBLAS1_RECIPROCAL_MV_ETI_SPEC_INST( SCALAR, LAYOUT, EXEC_SPACE, MEM_SPACE ) \
-template struct Reciprocal< \
-         Kokkos::View<SCALAR**, LAYOUT, Kokkos::Device<EXEC_SPACE, MEM_SPACE>, \
-                      Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-         Kokkos::View<const SCALAR**, LAYOUT, Kokkos::Device<EXEC_SPACE, MEM_SPACE>, \
-                      Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-         2, false, true>;
+#define KOKKOSBLAS1_RECIPROCAL_MV_ETI_SPEC_INST(SCALAR, LAYOUT, EXEC_SPACE, \
+                                                MEM_SPACE)                  \
+  template struct Reciprocal<                                               \
+      Kokkos::View<SCALAR**, LAYOUT, Kokkos::Device<EXEC_SPACE, MEM_SPACE>, \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,               \
+      Kokkos::View<const SCALAR**, LAYOUT,                                  \
+                   Kokkos::Device<EXEC_SPACE, MEM_SPACE>,                   \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,               \
+      2, false, true>;
 
-#include<KokkosBlas1_reciprocal_tpl_spec_decl.hpp>
-#include<generated_specializations_hpp/KokkosBlas1_reciprocal_eti_spec_decl.hpp>
-#include<generated_specializations_hpp/KokkosBlas1_reciprocal_mv_eti_spec_decl.hpp>
+#include <KokkosBlas1_reciprocal_tpl_spec_decl.hpp>
+#include <generated_specializations_hpp/KokkosBlas1_reciprocal_eti_spec_decl.hpp>
+#include <generated_specializations_hpp/KokkosBlas1_reciprocal_mv_eti_spec_decl.hpp>
 
-#endif // KOKKOS_BLAS1_MV_IMPL_RECIPROCAL_HPP_
+#endif  // KOKKOS_BLAS1_MV_IMPL_RECIPROCAL_HPP_

@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -76,14 +76,18 @@ class TaskQueueSpecialization<SimpleTaskScheduler<Kokkos::Serial, QueueType> > {
   static void execute(scheduler_type const& scheduler) {
     using task_base_type = typename scheduler_type::task_base_type;
 
-    // Set default buffers
-    serial_resize_thread_team_data(0,   /* global reduce buffer */
-                                   512, /* team reduce buffer */
-                                   0,   /* team shared buffer */
-                                   0    /* thread local buffer */
-    );
+    auto const& serial_execution_space = scheduler.get_execution_space();
 
-    Impl::HostThreadTeamData& self = *Impl::serial_get_thread_team_data();
+    // Set default buffers
+    serial_execution_space.impl_internal_space_instance()
+        ->resize_thread_team_data(0,   /* global reduce buffer */
+                                  512, /* team reduce buffer */
+                                  0,   /* team shared buffer */
+                                  0    /* thread local buffer */
+        );
+
+    auto& self = serial_execution_space.impl_internal_space_instance()
+                     ->m_thread_team_data;
 
     auto& queue         = scheduler.queue();
     auto team_scheduler = scheduler.get_team_scheduler(0);
@@ -92,7 +96,7 @@ class TaskQueueSpecialization<SimpleTaskScheduler<Kokkos::Serial, QueueType> > {
 
     auto current_task = OptionalRef<task_base_type>(nullptr);
 
-    while (not queue.is_done()) {
+    while (!queue.is_done()) {
       // Each team lead attempts to acquire either a thread team task
       // or a single thread task for the team.
 
@@ -147,9 +151,11 @@ class TaskQueueSpecializationConstrained<
 
     task_base_type* const end = (task_base_type*)task_base_type::EndTag;
 
-    Impl::HostThreadTeamData* const data = Impl::serial_get_thread_team_data();
+    execution_space serial_execution_space;
+    auto& data = serial_execution_space.impl_internal_space_instance()
+                     ->m_thread_team_data;
 
-    member_type exec(scheduler, *data);
+    member_type exec(scheduler, data);
 
     // Loop until no runnable task
 
@@ -181,18 +187,22 @@ class TaskQueueSpecializationConstrained<
 
     task_base_type* const end = (task_base_type*)task_base_type::EndTag;
 
+    execution_space serial_execution_space;
+
     // Set default buffers
-    serial_resize_thread_team_data(0,   /* global reduce buffer */
-                                   512, /* team reduce buffer */
-                                   0,   /* team shared buffer */
-                                   0    /* thread local buffer */
-    );
+    serial_execution_space.impl_internal_space_instance()
+        ->resize_thread_team_data(0,   /* global reduce buffer */
+                                  512, /* team reduce buffer */
+                                  0,   /* team shared buffer */
+                                  0    /* thread local buffer */
+        );
 
     auto* const queue = scheduler.m_queue;
 
-    Impl::HostThreadTeamData* const data = Impl::serial_get_thread_team_data();
+    auto& data = serial_execution_space.impl_internal_space_instance()
+                     ->m_thread_team_data;
 
-    member_type exec(scheduler, *data);
+    member_type exec(scheduler, data);
 
     // Loop until all queues are empty
     while (0 < queue->m_ready_count) {
@@ -209,16 +219,6 @@ class TaskQueueSpecializationConstrained<
         // In the executing state
 
         (*task->m_apply)(task, &exec);
-
-#if 0
-        printf( "TaskQueue<Serial>::executed: 0x%lx { 0x%lx 0x%lx %d %d %d }\n"
-        , uintptr_t(task)
-        , uintptr_t(task->m_wait)
-        , uintptr_t(task->m_next)
-        , task->m_task_type
-        , task->m_priority
-        , task->m_ref_count );
-#endif
 
         // If a respawn then re-enqueue otherwise the task is complete
         // and all tasks waiting on this task are updated.

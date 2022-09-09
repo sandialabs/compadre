@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//               KokkosKernels 0.9: Linear Algebra and Graph Kernels
-//                 Copyright 2017 Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -23,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -46,29 +47,33 @@
 
 #ifdef MAKE_BUILD
 #ifdef KOKKOS_ENABLE_CUDA
-  #define KOKKOSKERNELS_ETI_MANGLING_TYPEDEFS()  \
-        typedef Kokkos::Device<Kokkos::Cuda, Kokkos::Cuda::memory_space> Kokkos_Device0Kokkos_Cuda_Kokkos_CudaSpace0; \
-        typedef Kokkos::complex<double> Kokkos_complex0double0; \
-        typedef long long longlong;
+#define KOKKOSKERNELS_ETI_MANGLING_TYPEDEFS()                      \
+  typedef Kokkos::Device<Kokkos::Cuda, Kokkos::Cuda::memory_space> \
+      Kokkos_Device0Kokkos_Cuda_Kokkos_CudaSpace0;                 \
+  typedef Kokkos::complex<double> Kokkos_complex0double0;          \
+  typedef long long longlong;
 #else
-  #ifdef KOKKOS_ENABLE_OPENMP
-    #define KOKKOSKERNELS_ETI_MANGLING_TYPEDEFS()  \
-        typedef Kokkos::Device<Kokkos::OpenMP, Kokkos::OpenMP::memory_space> Kokkos_Device0Kokkos_OpenMP_Kokkos_HostSpace0; \
-        typedef Kokkos::complex<double> Kokkos_complex0double0; \
-        typedef long long longlong;
-  #else
-    #ifdef KOKKOS_ENABLE_THREADS
-      #define KOKKOSKERNELS_ETI_MANGLING_TYPEDEFS()  \
-        typedef Kokkos::Device<Kokkos::Threads, Kokkos::Threads::memory_space> Kokkos_Device0Kokkos_Threads_Kokkos_HostSpace0; \
-        typedef Kokkos::complex<double> Kokkos_complex0double0; \
-        typedef long long longlong;
-    #else
-      #define KOKKOSKERNELS_ETI_MANGLING_TYPEDEFS()  \
-        typedef Kokkos::Device<Kokkos::OpenMP, Kokkos::HostSpace> Kokkos_Device0Kokkos_OpenMP_Kokkos_HostSpace0; \
-        typedef Kokkos::complex<double> Kokkos_complex0double0; \
-        typedef long long longlong;
-    #endif
-  #endif
+#ifdef KOKKOS_ENABLE_OPENMP
+#define KOKKOSKERNELS_ETI_MANGLING_TYPEDEFS()                          \
+  typedef Kokkos::Device<Kokkos::OpenMP, Kokkos::OpenMP::memory_space> \
+      Kokkos_Device0Kokkos_OpenMP_Kokkos_HostSpace0;                   \
+  typedef Kokkos::complex<double> Kokkos_complex0double0;              \
+  typedef long long longlong;
+#else
+#ifdef KOKKOS_ENABLE_THREADS
+#define KOKKOSKERNELS_ETI_MANGLING_TYPEDEFS()                            \
+  typedef Kokkos::Device<Kokkos::Threads, Kokkos::Threads::memory_space> \
+      Kokkos_Device0Kokkos_Threads_Kokkos_HostSpace0;                    \
+  typedef Kokkos::complex<double> Kokkos_complex0double0;                \
+  typedef long long longlong;
+#else
+#define KOKKOSKERNELS_ETI_MANGLING_TYPEDEFS()               \
+  typedef Kokkos::Device<Kokkos::OpenMP, Kokkos::HostSpace> \
+      Kokkos_Device0Kokkos_OpenMP_Kokkos_HostSpace0;        \
+  typedef Kokkos::complex<double> Kokkos_complex0double0;   \
+  typedef long long longlong;
+#endif
+#endif
 #endif
 
 #endif
@@ -78,10 +83,10 @@
 
 #ifdef HAVE_KK_KERNELS
 
-
-template<typename AType, typename XType, typename YType>
-void kokkoskernels_matvec(AType A, XType x, YType y, int rows_per_thread, int team_size, int vector_length) {
-  KokkosSparse::spmv (KokkosSparse::NoTranspose,1.0,A,x,0.0,y);
+template <typename AType, typename XType, typename YType>
+void kokkoskernels_matvec(AType A, XType x, YType y, int rows_per_thread,
+                          int team_size, int vector_length) {
+  KokkosSparse::spmv(KokkosSparse::NoTranspose, 1.0, A, x, 0.0, y);
 }
 #endif
 

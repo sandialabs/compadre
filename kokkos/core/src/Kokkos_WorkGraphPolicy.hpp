@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -44,6 +44,9 @@
 
 #ifndef KOKKOS_WORKGRAPHPOLICY_HPP
 #define KOKKOS_WORKGRAPHPOLICY_HPP
+
+#include <impl/Kokkos_AnalyzePolicy.hpp>
+#include <Kokkos_Crs.hpp>
 
 namespace Kokkos {
 namespace Impl {
@@ -199,6 +202,8 @@ class WorkGraphPolicy : public Kokkos::Impl::PolicyTraits<Properties...> {
     if (0 == count_queue[w]) push_work(w);
   }
 
+  execution_space space() const { return execution_space(); }
+
   WorkGraphPolicy(const graph_type& arg_graph)
       : m_graph(arg_graph),
         m_queue(view_alloc("queue", WithoutInitializing),
@@ -208,7 +213,9 @@ class WorkGraphPolicy : public Kokkos::Impl::PolicyTraits<Properties...> {
       using closure_type = Kokkos::Impl::ParallelFor<self_type, policy_type>;
       const closure_type closure(*this, policy_type(0, m_queue.size()));
       closure.execute();
-      execution_space().fence();
+      execution_space().fence(
+          "Kokkos::WorkGraphPolicy::WorkGraphPolicy: fence after executing "
+          "graph init");
     }
 
     {  // execute-after counts
@@ -216,7 +223,9 @@ class WorkGraphPolicy : public Kokkos::Impl::PolicyTraits<Properties...> {
       using closure_type = Kokkos::Impl::ParallelFor<self_type, policy_type>;
       const closure_type closure(*this, policy_type(0, m_graph.entries.size()));
       closure.execute();
-      execution_space().fence();
+      execution_space().fence(
+          "Kokkos::WorkGraphPolicy::WorkGraphPolicy: fence after executing "
+          "graph count");
     }
 
     {  // Scheduling ready tasks
@@ -224,7 +233,9 @@ class WorkGraphPolicy : public Kokkos::Impl::PolicyTraits<Properties...> {
       using closure_type = Kokkos::Impl::ParallelFor<self_type, policy_type>;
       const closure_type closure(*this, policy_type(0, m_graph.numRows()));
       closure.execute();
-      execution_space().fence();
+      execution_space().fence(
+          "Kokkos::WorkGraphPolicy::WorkGraphPolicy: fence after executing "
+          "readied graph");
     }
   }
 };
@@ -241,6 +252,10 @@ class WorkGraphPolicy : public Kokkos::Impl::PolicyTraits<Properties...> {
 
 #ifdef KOKKOS_ENABLE_CUDA
 #include "Cuda/Kokkos_Cuda_WorkGraphPolicy.hpp"
+#endif
+
+#ifdef KOKKOS_ENABLE_HIP
+#include "HIP/Kokkos_HIP_WorkGraphPolicy.hpp"
 #endif
 
 #ifdef KOKKOS_ENABLE_THREADS

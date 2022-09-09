@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -66,14 +66,12 @@ struct ArrayBoundsCheck<Integral, true> {
   KOKKOS_INLINE_FUNCTION
   ArrayBoundsCheck(Integral i, size_t N) {
     if (i < 0) {
-#ifdef KOKKOS_ACTIVE_EXECUTION_MEMORY_SPACE_HOST
-      std::string s = "Kokkos::Array: index ";
-      s += std::to_string(i);
-      s += " < 0";
-      Kokkos::Impl::throw_runtime_exception(s);
-#else
-      Kokkos::abort("Kokkos::Array: negative index in device code");
-#endif
+      KOKKOS_IF_ON_HOST((std::string s = "Kokkos::Array: index ";
+                         s += std::to_string(i); s += " < 0";
+                         Kokkos::Impl::throw_runtime_exception(s);))
+
+      KOKKOS_IF_ON_DEVICE(
+          (Kokkos::abort("Kokkos::Array: negative index in device code");))
     }
     ArrayBoundsCheck<Integral, false>(i, N);
   }
@@ -84,15 +82,12 @@ struct ArrayBoundsCheck<Integral, false> {
   KOKKOS_INLINE_FUNCTION
   ArrayBoundsCheck(Integral i, size_t N) {
     if (size_t(i) >= N) {
-#ifdef KOKKOS_ACTIVE_EXECUTION_MEMORY_SPACE_HOST
-      std::string s = "Kokkos::Array: index ";
-      s += std::to_string(i);
-      s += " >= ";
-      s += std::to_string(N);
-      Kokkos::Impl::throw_runtime_exception(s);
-#else
-      Kokkos::abort("Kokkos::Array: index >= size");
-#endif
+      KOKKOS_IF_ON_HOST((std::string s = "Kokkos::Array: index ";
+                         s += std::to_string(i); s += " >= ";
+                         s += std::to_string(N);
+                         Kokkos::Impl::throw_runtime_exception(s);))
+
+      KOKKOS_IF_ON_DEVICE((Kokkos::abort("Kokkos::Array: index >= size");))
     }
   }
 };
@@ -122,13 +117,13 @@ struct Array {
   T m_internal_implementation_private_member_data[N];
 
  public:
-  typedef T& reference;
-  typedef typename std::add_const<T>::type& const_reference;
-  typedef size_t size_type;
-  typedef ptrdiff_t difference_type;
-  typedef T value_type;
-  typedef T* pointer;
-  typedef typename std::add_const<T>::type* const_pointer;
+  using reference       = T&;
+  using const_reference = typename std::add_const<T>::type&;
+  using size_type       = size_t;
+  using difference_type = ptrdiff_t;
+  using value_type      = T;
+  using pointer         = T*;
+  using const_pointer   = typename std::add_const<T>::type*;
 
   KOKKOS_INLINE_FUNCTION static constexpr size_type size() { return N; }
   KOKKOS_INLINE_FUNCTION static constexpr bool empty() { return false; }
@@ -158,39 +153,18 @@ struct Array {
   KOKKOS_INLINE_FUNCTION const_pointer data() const {
     return &m_internal_implementation_private_member_data[0];
   }
-
-#ifdef KOKKOS_IMPL_ROCM_CLANG_WORKAROUND
-  // Do not default unless move and move-assignment are also defined
-  KOKKOS_INLINE_FUNCTION
-  ~Array()            = default;
-  Array()             = default;
-  Array(const Array&) = default;
-  Array& operator=(const Array&) = default;
-
-  // Some supported compilers are not sufficiently C++11 compliant
-  // for default move constructor and move assignment operator.
-  Array(Array&&) = default;
-  Array& operator=(Array&&) = default;
-
-  KOKKOS_INLINE_FUNCTION
-  Array(const std::initializer_list<T>& vals) {
-    for (int i = 0; i < N; i++) {
-      m_internal_implementation_private_member_data[i] = vals.begin()[i];
-    }
-  }
-#endif
 };
 
 template <class T, class Proxy>
 struct Array<T, 0, Proxy> {
  public:
-  typedef T& reference;
-  typedef typename std::add_const<T>::type& const_reference;
-  typedef size_t size_type;
-  typedef ptrdiff_t difference_type;
-  typedef T value_type;
-  typedef T* pointer;
-  typedef typename std::add_const<T>::type* const_pointer;
+  using reference       = T&;
+  using const_reference = typename std::add_const<T>::type&;
+  using size_type       = size_t;
+  using difference_type = ptrdiff_t;
+  using value_type      = T;
+  using pointer         = T*;
+  using const_pointer   = typename std::add_const<T>::type*;
 
   KOKKOS_INLINE_FUNCTION static constexpr size_type size() { return 0; }
   KOKKOS_INLINE_FUNCTION static constexpr bool empty() { return true; }
@@ -217,17 +191,10 @@ struct Array<T, 0, Proxy> {
   KOKKOS_INLINE_FUNCTION pointer data() { return pointer(0); }
   KOKKOS_INLINE_FUNCTION const_pointer data() const { return const_pointer(0); }
 
-#ifdef KOKKOS_CUDA_9_DEFAULTED_BUG_WORKAROUND
-  KOKKOS_INLINE_FUNCTION ~Array() {}
-  KOKKOS_INLINE_FUNCTION Array() {}
-  KOKKOS_INLINE_FUNCTION Array(const Array&) {}
-  KOKKOS_INLINE_FUNCTION Array& operator=(const Array&) {}
-#else
-  KOKKOS_INLINE_FUNCTION ~Array()            = default;
-  KOKKOS_INLINE_FUNCTION Array()             = default;
-  KOKKOS_INLINE_FUNCTION Array(const Array&) = default;
-  KOKKOS_INLINE_FUNCTION Array& operator=(const Array&) = default;
-#endif
+  KOKKOS_DEFAULTED_FUNCTION ~Array()            = default;
+  KOKKOS_DEFAULTED_FUNCTION Array()             = default;
+  KOKKOS_DEFAULTED_FUNCTION Array(const Array&) = default;
+  KOKKOS_DEFAULTED_FUNCTION Array& operator=(const Array&) = default;
 
   // Some supported compilers are not sufficiently C++11 compliant
   // for default move constructor and move assignment operator.
@@ -248,13 +215,13 @@ struct Array<T, KOKKOS_INVALID_INDEX, Array<>::contiguous> {
   size_t m_size;
 
  public:
-  typedef T& reference;
-  typedef typename std::add_const<T>::type& const_reference;
-  typedef size_t size_type;
-  typedef ptrdiff_t difference_type;
-  typedef T value_type;
-  typedef T* pointer;
-  typedef typename std::add_const<T>::type* const_pointer;
+  using reference       = T&;
+  using const_reference = typename std::add_const<T>::type&;
+  using size_type       = size_t;
+  using difference_type = ptrdiff_t;
+  using value_type      = T;
+  using pointer         = T*;
+  using const_pointer   = typename std::add_const<T>::type*;
 
   KOKKOS_INLINE_FUNCTION constexpr size_type size() const { return m_size; }
   KOKKOS_INLINE_FUNCTION constexpr bool empty() const { return 0 != m_size; }
@@ -281,13 +248,9 @@ struct Array<T, KOKKOS_INVALID_INDEX, Array<>::contiguous> {
   KOKKOS_INLINE_FUNCTION pointer data() { return m_elem; }
   KOKKOS_INLINE_FUNCTION const_pointer data() const { return m_elem; }
 
-#ifdef KOKKOS_CUDA_9_DEFAULTED_BUG_WORKAROUND
-  KOKKOS_INLINE_FUNCTION ~Array() {}
-#else
-  KOKKOS_INLINE_FUNCTION ~Array()                       = default;
-#endif
-  Array()                 = delete;
-  Array(const Array& rhs) = delete;
+  KOKKOS_DEFAULTED_FUNCTION ~Array()                     = default;
+  KOKKOS_INLINE_FUNCTION_DELETED Array()                 = delete;
+  KOKKOS_INLINE_FUNCTION_DELETED Array(const Array& rhs) = delete;
 
   // Some supported compilers are not sufficiently C++11 compliant
   // for default move constructor and move assignment operator.
@@ -321,13 +284,13 @@ struct Array<T, KOKKOS_INVALID_INDEX, Array<>::strided> {
   size_t m_stride;
 
  public:
-  typedef T& reference;
-  typedef typename std::add_const<T>::type& const_reference;
-  typedef size_t size_type;
-  typedef ptrdiff_t difference_type;
-  typedef T value_type;
-  typedef T* pointer;
-  typedef typename std::add_const<T>::type* const_pointer;
+  using reference       = T&;
+  using const_reference = typename std::add_const<T>::type&;
+  using size_type       = size_t;
+  using difference_type = ptrdiff_t;
+  using value_type      = T;
+  using pointer         = T*;
+  using const_pointer   = typename std::add_const<T>::type*;
 
   KOKKOS_INLINE_FUNCTION constexpr size_type size() const { return m_size; }
   KOKKOS_INLINE_FUNCTION constexpr bool empty() const { return 0 != m_size; }
@@ -354,13 +317,9 @@ struct Array<T, KOKKOS_INVALID_INDEX, Array<>::strided> {
   KOKKOS_INLINE_FUNCTION pointer data() { return m_elem; }
   KOKKOS_INLINE_FUNCTION const_pointer data() const { return m_elem; }
 
-#ifdef KOKKOS_CUDA_9_DEFAULTED_BUG_WORKAROUND
-  KOKKOS_INLINE_FUNCTION ~Array() {}
-#else
-  KOKKOS_INLINE_FUNCTION ~Array()                       = default;
-#endif
-  Array()             = delete;
-  Array(const Array&) = delete;
+  KOKKOS_DEFAULTED_FUNCTION ~Array()                 = default;
+  KOKKOS_INLINE_FUNCTION_DELETED Array()             = delete;
+  KOKKOS_INLINE_FUNCTION_DELETED Array(const Array&) = delete;
 
   // Some supported compilers are not sufficiently C++11 compliant
   // for default move constructor and move assignment operator.

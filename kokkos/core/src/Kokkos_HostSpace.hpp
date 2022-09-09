@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -57,6 +57,7 @@
 #include <impl/Kokkos_Traits.hpp>
 #include <impl/Kokkos_Error.hpp>
 #include <impl/Kokkos_SharedAlloc.hpp>
+#include <impl/Kokkos_Tools.hpp>
 
 #include "impl/Kokkos_HostSpace_deepcopy.hpp"
 
@@ -74,10 +75,10 @@ namespace Impl {
 /// This function initializes the locks to zero (unset).
 void init_lock_array_host_space();
 
-/// \brief Aquire a lock for the address
+/// \brief Acquire a lock for the address
 ///
-/// This function tries to aquire the lock for the hash value derived
-/// from the provided ptr. If the lock is successfully aquired the
+/// This function tries to acquire the lock for the hash value derived
+/// from the provided ptr. If the lock is successfully acquired the
 /// function returns true. Otherwise it returns false.
 bool lock_address_host_space(void* ptr);
 
@@ -85,7 +86,7 @@ bool lock_address_host_space(void* ptr);
 ///
 /// This function releases the lock for the hash value derived
 /// from the provided ptr. This function should only be called
-/// after previously successfully aquiring a lock with
+/// after previously successfully acquiring a lock with
 /// lock_address.
 void unlock_address_host_space(void* ptr);
 
@@ -94,7 +95,6 @@ void unlock_address_host_space(void* ptr);
 }  // namespace Kokkos
 
 namespace Kokkos {
-
 /// \class HostSpace
 /// \brief Memory management for host memory.
 ///
@@ -103,8 +103,8 @@ namespace Kokkos {
 class HostSpace {
  public:
   //! Tag this class as a kokkos memory space
-  typedef HostSpace memory_space;
-  typedef size_t size_type;
+  using memory_space = HostSpace;
+  using size_type    = size_t;
 
   /// \typedef execution_space
   /// \brief Default execution space for this memory space.
@@ -112,31 +112,10 @@ class HostSpace {
   /// Every memory space has a default execution space.  This is
   /// useful for things like initializing a View (which happens in
   /// parallel using the View's default execution space).
-#if defined(KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_OPENMP)
-  typedef Kokkos::OpenMP execution_space;
-#elif defined(KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_THREADS)
-  typedef Kokkos::Threads execution_space;
-#elif defined(KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_HPX)
-  typedef Kokkos::Experimental::HPX execution_space;
-//#elif defined( KOKKOS_ENABLE_DEFAULT_DEVICE_TYPE_QTHREADS )
-//  typedef Kokkos::Qthreads  execution_space;
-#elif defined(KOKKOS_ENABLE_OPENMP)
-  typedef Kokkos::OpenMP execution_space;
-#elif defined(KOKKOS_ENABLE_THREADS)
-  typedef Kokkos::Threads execution_space;
-//#elif defined( KOKKOS_ENABLE_QTHREADS )
-//  typedef Kokkos::Qthreads  execution_space;
-#elif defined(KOKKOS_ENABLE_HPX)
-  typedef Kokkos::Experimental::HPX execution_space;
-#elif defined(KOKKOS_ENABLE_SERIAL)
-  typedef Kokkos::Serial execution_space;
-#else
-#error \
-    "At least one of the following host execution spaces must be defined: Kokkos::OpenMP, Kokkos::Threads, Kokkos::Qthreads, or Kokkos::Serial.  You might be seeing this message if you disabled the Kokkos::Serial device explicitly using the Kokkos_ENABLE_Serial:BOOL=OFF CMake option, but did not enable any of the other host execution space devices."
-#endif
+  using execution_space = DefaultHostExecutionSpace;
 
   //! This memory space preferred device_type
-  typedef Kokkos::Device<execution_space, memory_space> device_type;
+  using device_type = Kokkos::Device<execution_space, memory_space>;
 
   /**\brief  Default memory space instance */
   HostSpace();
@@ -160,10 +139,30 @@ class HostSpace {
 
   /**\brief  Allocate untracked memory in the space */
   void* allocate(const size_t arg_alloc_size) const;
+  void* allocate(const char* arg_label, const size_t arg_alloc_size,
+                 const size_t arg_logical_size = 0) const;
 
   /**\brief  Deallocate untracked memory in the space */
   void deallocate(void* const arg_alloc_ptr, const size_t arg_alloc_size) const;
+  void deallocate(const char* arg_label, void* const arg_alloc_ptr,
+                  const size_t arg_alloc_size,
+                  const size_t arg_logical_size = 0) const;
 
+ private:
+  template <class, class, class, class>
+  friend class Kokkos::Experimental::LogicalMemorySpace;
+
+  void* impl_allocate(const char* arg_label, const size_t arg_alloc_size,
+                      const size_t arg_logical_size = 0,
+                      const Kokkos::Tools::SpaceHandle =
+                          Kokkos::Tools::make_space_handle(name())) const;
+  void impl_deallocate(const char* arg_label, void* const arg_alloc_ptr,
+                       const size_t arg_alloc_size,
+                       const size_t arg_logical_size = 0,
+                       const Kokkos::Tools::SpaceHandle =
+                           Kokkos::Tools::make_space_handle(name())) const;
+
+ public:
   /**\brief Return Name of the MemorySpace */
   static constexpr const char* name() { return m_name; }
 
@@ -205,16 +204,13 @@ struct HostMirror {
   };
 
  public:
-  typedef typename std::conditional<
-      keep_exe && keep_mem /* Can keep whole space */
-      ,
-      S,
+  using Space = typename std::conditional<
+      keep_exe && keep_mem, S,
       typename std::conditional<
-          keep_mem /* Can keep memory space, use default Host execution space */
-          ,
+          keep_mem,
           Kokkos::Device<Kokkos::HostSpace::execution_space,
                          typename S::memory_space>,
-          Kokkos::HostSpace>::type>::type Space;
+          Kokkos::HostSpace>::type>::type;
 };
 
 }  // namespace Impl
@@ -229,18 +225,18 @@ namespace Impl {
 
 template <>
 class SharedAllocationRecord<Kokkos::HostSpace, void>
-    : public SharedAllocationRecord<void, void> {
+    : public SharedAllocationRecordCommon<Kokkos::HostSpace> {
  private:
   friend Kokkos::HostSpace;
+  friend class SharedAllocationRecordCommon<Kokkos::HostSpace>;
 
-  typedef SharedAllocationRecord<void, void> RecordBase;
+  using base_t     = SharedAllocationRecordCommon<Kokkos::HostSpace>;
+  using RecordBase = SharedAllocationRecord<void, void>;
 
   SharedAllocationRecord(const SharedAllocationRecord&) = delete;
   SharedAllocationRecord& operator=(const SharedAllocationRecord&) = delete;
 
-  static void deallocate(RecordBase*);
-
-#ifdef KOKKOS_DEBUG
+#ifdef KOKKOS_ENABLE_DEBUG
   /**\brief  Root record for tracked allocations from this HostSpace instance */
   static RecordBase s_root_record;
 #endif
@@ -248,7 +244,12 @@ class SharedAllocationRecord<Kokkos::HostSpace, void>
   const Kokkos::HostSpace m_space;
 
  protected:
-  ~SharedAllocationRecord();
+  ~SharedAllocationRecord()
+#if defined( \
+    KOKKOS_IMPL_INTEL_WORKAROUND_NOEXCEPT_SPECIFICATION_VIRTUAL_FUNCTION)
+      noexcept
+#endif
+      ;
   SharedAllocationRecord() = default;
 
   SharedAllocationRecord(
@@ -257,36 +258,14 @@ class SharedAllocationRecord<Kokkos::HostSpace, void>
       const RecordBase::function_type arg_dealloc = &deallocate);
 
  public:
-  inline std::string get_label() const {
-    return std::string(RecordBase::head()->m_label);
-  }
-
   KOKKOS_INLINE_FUNCTION static SharedAllocationRecord* allocate(
       const Kokkos::HostSpace& arg_space, const std::string& arg_label,
       const size_t arg_alloc_size) {
-#if defined(KOKKOS_ACTIVE_EXECUTION_MEMORY_SPACE_HOST)
-    return new SharedAllocationRecord(arg_space, arg_label, arg_alloc_size);
-#else
-    return (SharedAllocationRecord*)0;
-#endif
+    KOKKOS_IF_ON_HOST((return new SharedAllocationRecord(arg_space, arg_label,
+                                                         arg_alloc_size);))
+    KOKKOS_IF_ON_DEVICE(((void)arg_space; (void)arg_label; (void)arg_alloc_size;
+                         return nullptr;))
   }
-
-  /**\brief  Allocate tracked memory in the space */
-  static void* allocate_tracked(const Kokkos::HostSpace& arg_space,
-                                const std::string& arg_label,
-                                const size_t arg_alloc_size);
-
-  /**\brief  Reallocate tracked memory in the space */
-  static void* reallocate_tracked(void* const arg_alloc_ptr,
-                                  const size_t arg_alloc_size);
-
-  /**\brief  Deallocate tracked memory in the space */
-  static void deallocate_tracked(void* const arg_alloc_ptr);
-
-  static SharedAllocationRecord* get_record(void* arg_alloc_ptr);
-
-  static void print_records(std::ostream&, const Kokkos::HostSpace&,
-                            bool detail = false);
 };
 
 }  // namespace Impl
@@ -299,6 +278,32 @@ namespace Kokkos {
 
 namespace Impl {
 
+template <class DT, class... DP>
+struct ZeroMemset<typename HostSpace::execution_space, DT, DP...> {
+  ZeroMemset(const typename HostSpace::execution_space&,
+             const View<DT, DP...>& dst,
+             typename View<DT, DP...>::const_value_type& value)
+      : ZeroMemset(dst, value) {}
+
+  ZeroMemset(const View<DT, DP...>& dst,
+             typename View<DT, DP...>::const_value_type&) {
+    using ValueType = typename View<DT, DP...>::value_type;
+    std::memset(dst.data(), 0, sizeof(ValueType) * dst.size());
+  }
+};
+
+template <>
+struct DeepCopy<HostSpace, HostSpace, DefaultHostExecutionSpace> {
+  DeepCopy(void* dst, const void* src, size_t n) {
+    hostspace_parallel_deepcopy(dst, src, n);
+  }
+
+  DeepCopy(const DefaultHostExecutionSpace& exec, void* dst, const void* src,
+           size_t n) {
+    hostspace_parallel_deepcopy_async(exec, dst, src, n);
+  }
+};
+
 template <class ExecutionSpace>
 struct DeepCopy<HostSpace, HostSpace, ExecutionSpace> {
   DeepCopy(void* dst, const void* src, size_t n) {
@@ -306,9 +311,10 @@ struct DeepCopy<HostSpace, HostSpace, ExecutionSpace> {
   }
 
   DeepCopy(const ExecutionSpace& exec, void* dst, const void* src, size_t n) {
-    exec.fence();
-    hostspace_parallel_deepcopy(dst, src, n);
-    exec.fence();
+    exec.fence(
+        "Kokkos::Impl::DeepCopy<HostSpace, HostSpace, "
+        "ExecutionSpace>::DeepCopy: fence before copy");
+    hostspace_parallel_deepcopy_async(dst, src, n);
   }
 };
 

@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//               KokkosKernels 0.9: Linear Algebra and Graph Kernels
-//                 Copyright 2017 Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -23,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -47,12 +48,13 @@
 namespace KokkosBlas {
 namespace Impl {
 // Specialization struct which defines whether a specialization exists
-template<class AV, class XMV, class YMV, int Xrank = XMV::Rank, int Yrank = YMV::Rank>
+template <class AV, class XMV, class YMV, int Xrank = XMV::Rank,
+          int Yrank = YMV::Rank>
 struct dot_tpl_spec_avail {
   enum : bool { value = false };
 };
-}
-}
+}  // namespace Impl
+}  // namespace KokkosBlas
 
 namespace KokkosBlas {
 namespace Impl {
@@ -60,61 +62,57 @@ namespace Impl {
 // Generic Host side BLAS (could be MKL or whatever)
 #ifdef KOKKOSKERNELS_ENABLE_TPL_BLAS
 // double
-#define KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_BLAS( SCALAR, LAYOUT, MEMSPACE ) \
-template<class ExecSpace> \
-struct dot_tpl_spec_avail< \
-Kokkos::View<SCALAR, LAYOUT, Kokkos::HostSpace, \
-             Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-Kokkos::View<const SCALAR*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
-             Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-Kokkos::View<const SCALAR*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
-             Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-1,1> { enum : bool { value = true }; };
+#define KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_BLAS(SCALAR, LAYOUT, MEMSPACE)          \
+  template <class ExecSpace>                                                   \
+  struct dot_tpl_spec_avail<                                                   \
+      Kokkos::View<SCALAR, LAYOUT, Kokkos::HostSpace,                          \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,                  \
+      Kokkos::View<const SCALAR*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,                  \
+      Kokkos::View<const SCALAR*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,                  \
+      1, 1> {                                                                  \
+    enum : bool { value = true };                                              \
+  };
 
-#if defined (KOKKOSKERNELS_INST_DOUBLE)
-KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_BLAS( double,                  Kokkos::LayoutLeft, Kokkos::HostSpace)
-#endif
-#if defined (KOKKOSKERNELS_INST_FLOAT)
-KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_BLAS( float,                   Kokkos::LayoutLeft, Kokkos::HostSpace)
-#endif
-#if defined (KOKKOSKERNELS_INST_KOKKOS_COMPLEX_DOUBLE_)
-KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_BLAS( Kokkos::complex<double>, Kokkos::LayoutLeft, Kokkos::HostSpace)
-#endif
-#if defined (KOKKOSKERNELS_INST_KOKKOS_COMPLEX_FLOAT_)
-KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_BLAS( Kokkos::complex<float>,  Kokkos::LayoutLeft, Kokkos::HostSpace)
-#endif
+KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_BLAS(double, Kokkos::LayoutLeft,
+                                    Kokkos::HostSpace)
+KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_BLAS(float, Kokkos::LayoutLeft,
+                                    Kokkos::HostSpace)
+KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_BLAS(Kokkos::complex<double>, Kokkos::LayoutLeft,
+                                    Kokkos::HostSpace)
+KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_BLAS(Kokkos::complex<float>, Kokkos::LayoutLeft,
+                                    Kokkos::HostSpace)
 
 #endif
 
 // cuBLAS
 #ifdef KOKKOSKERNELS_ENABLE_TPL_CUBLAS
 // double
-#define KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_CUBLAS( SCALAR, LAYOUT, MEMSPACE ) \
-template<class ExecSpace> \
-struct dot_tpl_spec_avail< \
-Kokkos::View<SCALAR, LAYOUT, Kokkos::HostSpace, \
-             Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-Kokkos::View<const SCALAR*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
-             Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-Kokkos::View<const SCALAR*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
-             Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-1,1> { enum : bool { value = true }; };
+#define KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_CUBLAS(SCALAR, LAYOUT, MEMSPACE)        \
+  template <class ExecSpace>                                                   \
+  struct dot_tpl_spec_avail<                                                   \
+      Kokkos::View<SCALAR, LAYOUT, Kokkos::HostSpace,                          \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,                  \
+      Kokkos::View<const SCALAR*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,                  \
+      Kokkos::View<const SCALAR*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,                  \
+      1, 1> {                                                                  \
+    enum : bool { value = true };                                              \
+  };
 
-#if defined (KOKKOSKERNELS_INST_DOUBLE)
-KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_CUBLAS( double,                  Kokkos::LayoutLeft, Kokkos::CudaSpace)
-#endif
-#if defined (KOKKOSKERNELS_INST_FLOAT)
-KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_CUBLAS( float,                   Kokkos::LayoutLeft, Kokkos::CudaSpace)
-#endif
-#if defined (KOKKOSKERNELS_INST_KOKKOS_COMPLEX_DOUBLE_)
-KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_CUBLAS( Kokkos::complex<double>, Kokkos::LayoutLeft, Kokkos::CudaSpace)
-#endif
-#if defined (KOKKOSKERNELS_INST_KOKKOS_COMPLEX_FLOAT_)
-KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_CUBLAS( Kokkos::complex<float>,  Kokkos::LayoutLeft, Kokkos::CudaSpace)
-#endif
+KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_CUBLAS(double, Kokkos::LayoutLeft,
+                                      Kokkos::CudaSpace)
+KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_CUBLAS(float, Kokkos::LayoutLeft,
+                                      Kokkos::CudaSpace)
+KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_CUBLAS(Kokkos::complex<double>,
+                                      Kokkos::LayoutLeft, Kokkos::CudaSpace)
+KOKKOSBLAS1_DOT_TPL_SPEC_AVAIL_CUBLAS(Kokkos::complex<float>,
+                                      Kokkos::LayoutLeft, Kokkos::CudaSpace)
 
 #endif
 
-}
-}
+}  // namespace Impl
+}  // namespace KokkosBlas
 #endif

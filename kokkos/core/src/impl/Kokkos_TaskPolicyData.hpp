@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -75,20 +75,20 @@ struct TaskPolicyWithPredecessor {
 
   TaskPolicyWithPredecessor() = delete;
 
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_DEFAULTED_FUNCTION
   TaskPolicyWithPredecessor(TaskPolicyWithPredecessor const&) = default;
 
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_DEFAULTED_FUNCTION
   TaskPolicyWithPredecessor(TaskPolicyWithPredecessor&&) = default;
 
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_DEFAULTED_FUNCTION
   TaskPolicyWithPredecessor& operator=(TaskPolicyWithPredecessor const&) =
       default;
 
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_DEFAULTED_FUNCTION
   TaskPolicyWithPredecessor& operator=(TaskPolicyWithPredecessor&&) = default;
 
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_DEFAULTED_FUNCTION
   ~TaskPolicyWithPredecessor() = default;
 
   KOKKOS_INLINE_FUNCTION
@@ -129,19 +129,19 @@ struct TaskPolicyWithScheduler {
 
   TaskPolicyWithScheduler() = delete;
 
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_DEFAULTED_FUNCTION
   TaskPolicyWithScheduler(TaskPolicyWithScheduler const&) = default;
 
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_DEFAULTED_FUNCTION
   TaskPolicyWithScheduler(TaskPolicyWithScheduler&&) = default;
 
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_DEFAULTED_FUNCTION
   TaskPolicyWithScheduler& operator=(TaskPolicyWithScheduler const&) = default;
 
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_DEFAULTED_FUNCTION
   TaskPolicyWithScheduler& operator=(TaskPolicyWithScheduler&&) = default;
 
-  KOKKOS_INLINE_FUNCTION
+  KOKKOS_DEFAULTED_FUNCTION
   ~TaskPolicyWithScheduler() = default;
 
   KOKKOS_INLINE_FUNCTION
@@ -155,7 +155,7 @@ struct TaskPolicyWithScheduler {
 
   KOKKOS_INLINE_FUNCTION
   static constexpr bool has_predecessor() noexcept {
-    return not std::is_same<PredecessorFuture, std::nullptr_t>::value;
+    return !std::is_same<PredecessorFuture, std::nullptr_t>::value;
   }
 
   KOKKOS_INLINE_FUNCTION

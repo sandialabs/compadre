@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -45,6 +45,9 @@
 #ifndef KOKKOS_CUDA_WORKGRAPHPOLICY_HPP
 #define KOKKOS_CUDA_WORKGRAPHPOLICY_HPP
 
+#include <Kokkos_Cuda.hpp>
+#include <Cuda/Kokkos_Cuda_KernelLaunch.hpp>
+
 namespace Kokkos {
 namespace Impl {
 
@@ -52,8 +55,8 @@ template <class FunctorType, class... Traits>
 class ParallelFor<FunctorType, Kokkos::WorkGraphPolicy<Traits...>,
                   Kokkos::Cuda> {
  public:
-  typedef Kokkos::WorkGraphPolicy<Traits...> Policy;
-  typedef ParallelFor<FunctorType, Policy, Kokkos::Cuda> Self;
+  using Policy = Kokkos::WorkGraphPolicy<Traits...>;
+  using Self   = ParallelFor<FunctorType, Policy, Kokkos::Cuda>;
 
  private:
   Policy m_policy;
@@ -75,6 +78,8 @@ class ParallelFor<FunctorType, Kokkos::WorkGraphPolicy<Traits...>,
   }
 
  public:
+  Policy const& get_policy() const { return m_policy; }
+
   __device__ inline void operator()() const noexcept {
     if (0 == (threadIdx.y % 16)) {
       // Spin until COMPLETED_TOKEN.

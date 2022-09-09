@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -58,19 +58,19 @@ namespace Kokkos {
 template <class Scalar, class Arg1Type = void>
 class vector : public DualView<Scalar*, LayoutLeft, Arg1Type> {
  public:
-  typedef Scalar value_type;
-  typedef Scalar* pointer;
-  typedef const Scalar* const_pointer;
-  typedef Scalar& reference;
-  typedef const Scalar& const_reference;
-  typedef Scalar* iterator;
-  typedef const Scalar* const_iterator;
-  typedef size_t size_type;
+  using value_type      = Scalar;
+  using pointer         = Scalar*;
+  using const_pointer   = const Scalar*;
+  using reference       = Scalar&;
+  using const_reference = const Scalar&;
+  using iterator        = Scalar*;
+  using const_iterator  = const Scalar*;
+  using size_type       = size_t;
 
  private:
   size_t _size;
   float _extra_storage;
-  typedef DualView<Scalar*, LayoutLeft, Arg1Type> DV;
+  using DV = DualView<Scalar*, LayoutLeft, Arg1Type>;
 
  public:
 #ifdef KOKKOS_ENABLE_CUDA_UVM
@@ -109,7 +109,7 @@ class vector : public DualView<Scalar*, LayoutLeft, Arg1Type> {
   void resize(size_t n, const Scalar& val) { assign(n, val); }
 
   void assign(size_t n, const Scalar& val) {
-    /* Resize if necessary (behavour of std:vector) */
+    /* Resize if necessary (behavior of std:vector) */
 
     if (n > span()) DV::resize(size_t(n * _extra_storage));
     _size = n;
@@ -118,13 +118,15 @@ class vector : public DualView<Scalar*, LayoutLeft, Arg1Type> {
 
     if (DV::template need_sync<typename DV::t_dev::device_type>()) {
       set_functor_host f(DV::h_view, val);
-      parallel_for(n, f);
-      typename DV::t_host::execution_space().fence();
+      parallel_for("Kokkos::vector::assign", n, f);
+      typename DV::t_host::execution_space().fence(
+          "Kokkos::vector::assign: fence after assigning values");
       DV::template modify<typename DV::t_host::device_type>();
     } else {
       set_functor f(DV::d_view, val);
-      parallel_for(n, f);
-      typename DV::t_dev::execution_space().fence();
+      parallel_for("Kokkos::vector::assign", n, f);
+      typename DV::t_dev::execution_space().fence(
+          "Kokkos::vector::assign: fence after assigning values");
       DV::template modify<typename DV::t_dev::device_type>();
     }
   }
@@ -160,7 +162,7 @@ class vector : public DualView<Scalar*, LayoutLeft, Arg1Type> {
     }
     DV::sync_host();
     DV::modify_host();
-    if (it < begin() || it > end())
+    if (std::less<>()(it, begin()) || std::less<>()(end(), it))
       Kokkos::abort("Kokkos::vector::insert : invalid insert iterator");
     if (count == 0) return it;
     ptrdiff_t start = std::distance(begin(), it);
@@ -187,38 +189,35 @@ class vector : public DualView<Scalar*, LayoutLeft, Arg1Type> {
                           iterator>::type
   insert(iterator it, InputIterator b, InputIterator e) {
     ptrdiff_t count = std::distance(b, e);
-    if (count == 0) return it;
 
     DV::sync_host();
     DV::modify_host();
-    if (it < begin() || it > end())
+    if (std::less<>()(it, begin()) || std::less<>()(end(), it))
       Kokkos::abort("Kokkos::vector::insert : invalid insert iterator");
 
-    bool resized = false;
-    if ((size() == 0) && (it == begin())) {
-      resize(count);
-      it      = begin();
-      resized = true;
-    }
     ptrdiff_t start = std::distance(begin(), it);
     auto org_size   = size();
-    if (!resized) resize(size() + count);
-    it = begin() + start;
+
+    // Note: resize(...) invalidates it; use begin() + start instead
+    resize(size() + count);
 
     std::copy_backward(begin() + start, begin() + org_size,
                        begin() + org_size + count);
-    std::copy(b, e, it);
+    std::copy(b, e, begin() + start);
 
     return begin() + start;
   }
 
+  KOKKOS_INLINE_FUNCTION constexpr bool is_allocated() const {
+    return DV::is_allocated();
+  }
+
   size_type size() const { return _size; }
   size_type max_size() const { return 2000000000; }
-#ifdef KOKKOS_ENABLE_DEPRECATED_CODE
-  size_type capacity() const { return DV::capacity(); }
-#endif
   size_type span() const { return DV::span(); }
   bool empty() const { return _size == 0; }
+
+  pointer data() const { return DV::h_view.data(); }
 
   iterator begin() const { return DV::h_view.data(); }
 
@@ -234,7 +233,7 @@ class vector : public DualView<Scalar*, LayoutLeft, Arg1Type> {
 
   const_reference back() const { return DV::h_view(_size - 1); }
 
-  /* std::algorithms wich work originally with iterators, here they are
+  /* std::algorithms which work originally with iterators, here they are
    * implemented as member functions */
 
   size_t lower_bound(const size_t& start, const size_t& theEnd,
@@ -310,7 +309,7 @@ class vector : public DualView<Scalar*, LayoutLeft, Arg1Type> {
 
  public:
   struct set_functor {
-    typedef typename DV::t_dev::execution_space execution_space;
+    using execution_space = typename DV::t_dev::execution_space;
     typename DV::t_dev _data;
     Scalar _val;
 
@@ -321,7 +320,7 @@ class vector : public DualView<Scalar*, LayoutLeft, Arg1Type> {
   };
 
   struct set_functor_host {
-    typedef typename DV::t_host::execution_space execution_space;
+    using execution_space = typename DV::t_host::execution_space;
     typename DV::t_host _data;
     Scalar _val;
 

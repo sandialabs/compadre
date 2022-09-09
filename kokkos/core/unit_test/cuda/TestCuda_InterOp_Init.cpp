@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -43,7 +43,9 @@
 */
 
 #include <Kokkos_Core.hpp>
-#include <cuda/TestCuda_Category.hpp>
+#include <TestCuda_Category.hpp>
+
+#include <array>
 
 namespace Test {
 
@@ -58,7 +60,7 @@ __global__ void offset(int* p) {
 // Cuda.
 TEST(cuda, raw_cuda_interop) {
   int* p;
-  cudaMalloc(&p, sizeof(int) * 100);
+  KOKKOS_IMPL_CUDA_SAFE_CALL(cudaMalloc(&p, sizeof(int) * 100));
   Kokkos::InitArguments arguments{-1, -1, -1, false};
   Kokkos::initialize(arguments);
 
@@ -68,11 +70,11 @@ TEST(cuda, raw_cuda_interop) {
   Kokkos::finalize();
 
   offset<<<100, 64>>>(p);
-  CUDA_SAFE_CALL(cudaDeviceSynchronize());
+  KOKKOS_IMPL_CUDA_SAFE_CALL(cudaDeviceSynchronize());
 
-  int* h_p = new int[100];
-  cudaMemcpy(h_p, p, sizeof(int) * 100, cudaMemcpyDefault);
-  CUDA_SAFE_CALL(cudaDeviceSynchronize());
+  std::array<int, 100> h_p;
+  cudaMemcpy(h_p.data(), p, sizeof(int) * 100, cudaMemcpyDefault);
+  KOKKOS_IMPL_CUDA_SAFE_CALL(cudaDeviceSynchronize());
   int64_t sum        = 0;
   int64_t sum_expect = 0;
   for (int i = 0; i < 100; i++) {
@@ -81,5 +83,6 @@ TEST(cuda, raw_cuda_interop) {
   }
 
   ASSERT_EQ(sum, sum_expect);
+  KOKKOS_IMPL_CUDA_SAFE_CALL(cudaFree(p));
 }
 }  // namespace Test

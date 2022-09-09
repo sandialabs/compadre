@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -66,7 +66,7 @@
 
 namespace Kokkos {
 
-enum { UnorderedMapInvalidIndex = ~0u };
+enum : unsigned { UnorderedMapInvalidIndex = ~0u };
 
 /// \brief First element of the return value of UnorderedMap::insert().
 ///
@@ -84,7 +84,7 @@ enum { UnorderedMapInvalidIndex = ~0u };
 
 class UnorderedMapInsertResult {
  private:
-  enum Status {
+  enum Status : uint32_t {
     SUCCESS          = 1u << 31,
     EXISTING         = 1u << 30,
     FREED_EXISTING   = 1u << 29,
@@ -100,7 +100,7 @@ class UnorderedMapInsertResult {
   KOKKOS_FORCEINLINE_FUNCTION
   bool existing() const { return (m_status & EXISTING); }
 
-  /// Did the map fail to insert the key due to insufficent capacity
+  /// Did the map fail to insert the key due to insufficient capacity
   KOKKOS_FORCEINLINE_FUNCTION
   bool failed() const { return m_index == UnorderedMapInvalidIndex; }
 
@@ -201,47 +201,45 @@ class UnorderedMapInsertResult {
 ///
 template <typename Key, typename Value,
           typename Device = Kokkos::DefaultExecutionSpace,
-          typename Hasher = pod_hash<typename Impl::remove_const<Key>::type>,
+          typename Hasher = pod_hash<typename std::remove_const<Key>::type>,
           typename EqualTo =
-              pod_equal_to<typename Impl::remove_const<Key>::type> >
+              pod_equal_to<typename std::remove_const<Key>::type>>
 class UnorderedMap {
  private:
-  typedef typename ViewTraits<Key, Device, void, void>::host_mirror_space
-      host_mirror_space;
+  using host_mirror_space =
+      typename ViewTraits<Key, Device, void, void>::host_mirror_space;
 
  public:
   //! \name Public types and constants
   //@{
 
   // key_types
-  typedef Key declared_key_type;
-  typedef typename Impl::remove_const<declared_key_type>::type key_type;
-  typedef typename Impl::add_const<key_type>::type const_key_type;
+  using declared_key_type = Key;
+  using key_type          = typename std::remove_const<declared_key_type>::type;
+  using const_key_type    = typename std::add_const<key_type>::type;
 
   // value_types
-  typedef Value declared_value_type;
-  typedef typename Impl::remove_const<declared_value_type>::type value_type;
-  typedef typename Impl::add_const<value_type>::type const_value_type;
+  using declared_value_type = Value;
+  using value_type = typename std::remove_const<declared_value_type>::type;
+  using const_value_type = typename std::add_const<value_type>::type;
 
-  typedef Device device_type;
-  typedef typename Device::execution_space execution_space;
-  typedef Hasher hasher_type;
-  typedef EqualTo equal_to_type;
-  typedef uint32_t size_type;
+  using device_type     = Device;
+  using execution_space = typename Device::execution_space;
+  using hasher_type     = Hasher;
+  using equal_to_type   = EqualTo;
+  using size_type       = uint32_t;
 
   // map_types
-  typedef UnorderedMap<declared_key_type, declared_value_type, device_type,
-                       hasher_type, equal_to_type>
-      declared_map_type;
-  typedef UnorderedMap<key_type, value_type, device_type, hasher_type,
-                       equal_to_type>
-      insertable_map_type;
-  typedef UnorderedMap<const_key_type, value_type, device_type, hasher_type,
-                       equal_to_type>
-      modifiable_map_type;
-  typedef UnorderedMap<const_key_type, const_value_type, device_type,
-                       hasher_type, equal_to_type>
-      const_map_type;
+  using declared_map_type =
+      UnorderedMap<declared_key_type, declared_value_type, device_type,
+                   hasher_type, equal_to_type>;
+  using insertable_map_type = UnorderedMap<key_type, value_type, device_type,
+                                           hasher_type, equal_to_type>;
+  using modifiable_map_type =
+      UnorderedMap<const_key_type, value_type, device_type, hasher_type,
+                   equal_to_type>;
+  using const_map_type = UnorderedMap<const_key_type, const_value_type,
+                                      device_type, hasher_type, equal_to_type>;
 
   static const bool is_set = std::is_same<void, value_type>::value;
   static const bool has_const_key =
@@ -254,59 +252,43 @@ class UnorderedMap {
   static const bool is_modifiable_map = has_const_key && !has_const_value;
   static const bool is_const_map      = has_const_key && has_const_value;
 
-  typedef UnorderedMapInsertResult insert_result;
+  using insert_result = UnorderedMapInsertResult;
 
-  typedef UnorderedMap<Key, Value, host_mirror_space, Hasher, EqualTo>
-      HostMirror;
+  using HostMirror =
+      UnorderedMap<Key, Value, host_mirror_space, Hasher, EqualTo>;
 
-  typedef Impl::UnorderedMapHistogram<const_map_type> histogram_type;
+  using histogram_type = Impl::UnorderedMapHistogram<const_map_type>;
 
   //@}
 
  private:
-  enum { invalid_index = ~static_cast<size_type>(0) };
+  enum : size_type { invalid_index = ~static_cast<size_type>(0) };
 
-  typedef typename Impl::if_c<is_set, int, declared_value_type>::type
-      impl_value_type;
+  using impl_value_type = std::conditional_t<is_set, int, declared_value_type>;
 
-  typedef typename Impl::if_c<
+  using key_type_view = std::conditional_t<
       is_insertable_map, View<key_type *, device_type>,
-      View<const key_type *, device_type, MemoryTraits<RandomAccess> > >::type
-      key_type_view;
+      View<const key_type *, device_type, MemoryTraits<RandomAccess>>>;
 
-  typedef typename Impl::if_c<is_insertable_map || is_modifiable_map,
-                              View<impl_value_type *, device_type>,
-                              View<const impl_value_type *, device_type,
-                                   MemoryTraits<RandomAccess> > >::type
-      value_type_view;
+  using value_type_view = std::conditional_t<
+      is_insertable_map || is_modifiable_map,
+      View<impl_value_type *, device_type>,
+      View<const impl_value_type *, device_type, MemoryTraits<RandomAccess>>>;
 
-  typedef typename Impl::if_c<
+  using size_type_view = std::conditional_t<
       is_insertable_map, View<size_type *, device_type>,
-      View<const size_type *, device_type, MemoryTraits<RandomAccess> > >::type
-      size_type_view;
+      View<const size_type *, device_type, MemoryTraits<RandomAccess>>>;
 
-  typedef typename Impl::if_c<is_insertable_map, Bitset<execution_space>,
-                              ConstBitset<execution_space> >::type bitset_type;
+  using bitset_type = std::conditional_t<is_insertable_map, Bitset<Device>,
+                                         ConstBitset<Device>>;
 
   enum { modified_idx = 0, erasable_idx = 1, failed_insert_idx = 2 };
   enum { num_scalars = 3 };
-  typedef View<int[num_scalars], LayoutLeft, device_type> scalars_view;
+  using scalars_view = View<int[num_scalars], LayoutLeft, device_type>;
 
  public:
   //! \name Public member functions
   //@{
-
-  UnorderedMap()
-      : m_bounded_insert(),
-        m_hasher(),
-        m_equal_to(),
-        m_size(),
-        m_available_indexes(),
-        m_hash_lists(),
-        m_next_index(),
-        m_keys(),
-        m_values(),
-        m_scalars() {}
 
   /// \brief Constructor
   ///
@@ -314,21 +296,26 @@ class UnorderedMap {
   /// inserted into the map \param hash [in] Hasher function for \c Key
   /// instances.  The
   ///   default value usually suffices.
-  UnorderedMap(size_type capacity_hint, hasher_type hasher = hasher_type(),
+  UnorderedMap(size_type capacity_hint = 0, hasher_type hasher = hasher_type(),
                equal_to_type equal_to = equal_to_type())
       : m_bounded_insert(true),
         m_hasher(hasher),
         m_equal_to(equal_to),
         m_size(),
         m_available_indexes(calculate_capacity(capacity_hint)),
-        m_hash_lists(ViewAllocateWithoutInitializing("UnorderedMap hash list"),
+        m_hash_lists(view_alloc(WithoutInitializing, "UnorderedMap hash list"),
                      Impl::find_hash_size(capacity())),
-        m_next_index(ViewAllocateWithoutInitializing("UnorderedMap next index"),
+        m_next_index(view_alloc(WithoutInitializing, "UnorderedMap next index"),
                      capacity() + 1)  // +1 so that the *_at functions can
                                       // always return a valid reference
         ,
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE_3
         m_keys("UnorderedMap keys", capacity() + 1),
         m_values("UnorderedMap values", (is_set ? 1 : capacity() + 1)),
+#else
+        m_keys("UnorderedMap keys", capacity()),
+        m_values("UnorderedMap values", (is_set ? 0 : capacity())),
+#endif
         m_scalars("UnorderedMap scalars") {
     if (!is_insertable_map) {
       throw std::runtime_error(
@@ -358,11 +345,24 @@ class UnorderedMap {
       const key_type tmp = key_type();
       Kokkos::deep_copy(m_keys, tmp);
     }
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE_3
     if (is_set) {
       const impl_value_type tmp = impl_value_type();
       Kokkos::deep_copy(m_values, tmp);
     }
-    { Kokkos::deep_copy(m_scalars, 0); }
+#endif
+    Kokkos::deep_copy(m_scalars, 0);
+    m_size = 0;
+  }
+
+  KOKKOS_INLINE_FUNCTION constexpr bool is_allocated() const {
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE_3
+    return (m_keys.is_allocated() && m_values.is_allocated() &&
+            m_scalars.is_allocated());
+#else
+    return (m_keys.is_allocated() && (is_set || m_values.is_allocated()) &&
+            m_scalars.is_allocated());
+#endif
   }
 
   /// \brief Change the capacity of the the map
@@ -405,9 +405,9 @@ class UnorderedMap {
   ///
   /// This method has undefined behavior when erasable() is true.
   ///
-  /// Note that this is not a device function; it cannot be called in
+  /// Note that this is <i>not</i> a device function; it cannot be called in
   /// a parallel kernel.  The value is not stored as a variable; it
-  /// must be computed.
+  /// must be computed. m_size is a mutable cache of that value.
   size_type size() const {
     if (capacity() == 0u) return 0u;
     if (modified()) {
@@ -431,9 +431,10 @@ class UnorderedMap {
   bool begin_erase() {
     bool result = !erasable();
     if (is_insertable_map && result) {
-      execution_space().fence();
+      execution_space().fence(
+          "Kokkos::UnorderedMap::begin_erase: fence before setting erasable "
+          "flag");
       set_flag(erasable_idx);
-      execution_space().fence();
     }
     return result;
   }
@@ -441,10 +442,12 @@ class UnorderedMap {
   bool end_erase() {
     bool result = erasable();
     if (is_insertable_map && result) {
-      execution_space().fence();
+      execution_space().fence(
+          "Kokkos::UnorderedMap::end_erase: fence before erasing");
       Impl::UnorderedMapErase<declared_map_type> f(*this);
       f.apply();
-      execution_space().fence();
+      execution_space().fence(
+          "Kokkos::UnorderedMap::end_erase: fence after erasing");
       reset_flag(erasable_idx);
     }
     return result;
@@ -525,19 +528,35 @@ class UnorderedMap {
       // Continue searching the unordered list for this key,
       // list will only be appended during insert phase.
       // Need volatile_load as other threads may be appending.
+
+      // FIXME_SYCL replacement for memory_fence
+#ifdef KOKKOS_ENABLE_SYCL
+      size_type curr = Kokkos::atomic_load(curr_ptr);
+#else
       size_type curr = volatile_load(curr_ptr);
+#endif
 
       KOKKOS_NONTEMPORAL_PREFETCH_LOAD(
           &m_keys[curr != invalid_index ? curr : 0]);
 #if defined(__MIC__)
 #pragma noprefetch
 #endif
-      while (curr != invalid_index &&
-             !m_equal_to(volatile_load(&m_keys[curr]), k)) {
+      while (curr != invalid_index && !m_equal_to(
+#ifdef KOKKOS_ENABLE_SYCL
+                                          Kokkos::atomic_load(&m_keys[curr])
+#else
+                                          volatile_load(&m_keys[curr])
+#endif
+                                              ,
+                                          k)) {
         result.increment_list_position();
         index_hint = curr;
         curr_ptr   = &m_next_index[curr];
-        curr       = volatile_load(curr_ptr);
+#ifdef KOKKOS_ENABLE_SYCL
+        curr = Kokkos::atomic_load(curr_ptr);
+#else
+        curr = volatile_load(curr_ptr);
+#endif
         KOKKOS_NONTEMPORAL_PREFETCH_LOAD(
             &m_keys[curr != invalid_index ? curr : 0]);
       }
@@ -550,7 +569,7 @@ class UnorderedMap {
           // Previously claimed an unused entry that was not inserted.
           // Release this unused entry immediately.
           if (!m_available_indexes.reset(new_index)) {
-            printf("Unable to free existing\n");
+            KOKKOS_IMPL_DO_NOT_USE_PRINTF("Unable to free existing\n");
           }
         }
 
@@ -577,15 +596,26 @@ class UnorderedMap {
             new_index = index_hint;
             // Set key and value
             KOKKOS_NONTEMPORAL_PREFETCH_STORE(&m_keys[new_index]);
+// FIXME_SYCL replacement for memory_fence
+#ifdef KOKKOS_ENABLE_SYCL
+            Kokkos::atomic_store(&m_keys[new_index], k);
+#else
             m_keys[new_index] = k;
+#endif
 
             if (!is_set) {
               KOKKOS_NONTEMPORAL_PREFETCH_STORE(&m_values[new_index]);
+#ifdef KOKKOS_ENABLE_SYCL
+              Kokkos::atomic_store(&m_values[new_index], v);
+#else
               m_values[new_index] = v;
+#endif
             }
 
+#ifndef KOKKOS_ENABLE_SYCL
             // Do not proceed until key and value are updated in global memory
             memory_fence();
+#endif
           }
         } else if (failed_insert_ref) {
           not_done = false;
@@ -665,12 +695,30 @@ class UnorderedMap {
   /// kernel.
   ///
   /// 'const value_type' via Cuda texture fetch must return by value.
-  KOKKOS_FORCEINLINE_FUNCTION
-  typename Impl::if_c<(is_set || has_const_value), impl_value_type,
-                      impl_value_type &>::type
+  template <typename Dummy = value_type>
+  KOKKOS_FORCEINLINE_FUNCTION std::enable_if_t<
+      !std::is_void<Dummy>::value,  // !is_set
+      std::conditional_t<has_const_value, impl_value_type, impl_value_type &>>
   value_at(size_type i) const {
-    return m_values[is_set ? 0 : (i < capacity() ? i : capacity())];
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE_3
+    return m_values[i < capacity() ? i : capacity()];
+#else
+    KOKKOS_EXPECTS(i < capacity());
+    return m_values[i];
+#endif
   }
+
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE_3
+  template <typename Dummy = value_type>
+  KOKKOS_DEPRECATED_WITH_COMMENT(
+      "Calling value_at for value_type==void is deprecated!")
+  KOKKOS_FORCEINLINE_FUNCTION std::enable_if_t<
+      std::is_void<Dummy>::value,  // is_set
+      std::conditional_t<has_const_value, impl_value_type,
+                         impl_value_type &>> value_at(size_type /*i*/) const {
+    return m_values[0];
+  }
+#endif
 
   /// \brief Get the key with \c i as its direct index.
   ///
@@ -680,7 +728,12 @@ class UnorderedMap {
   /// kernel.
   KOKKOS_FORCEINLINE_FUNCTION
   key_type key_at(size_type i) const {
+#ifdef KOKKOS_ENABLE_DEPRECATED_CODE_3
     return m_keys[i < capacity() ? i : capacity()];
+#else
+    KOKKOS_EXPECTS(i < capacity());
+    return m_keys[i];
+#endif
   }
 
   KOKKOS_FORCEINLINE_FUNCTION
@@ -689,7 +742,7 @@ class UnorderedMap {
   template <typename SKey, typename SValue>
   UnorderedMap(
       UnorderedMap<SKey, SValue, Device, Hasher, EqualTo> const &src,
-      typename Impl::enable_if<
+      typename std::enable_if<
           Impl::UnorderedMapCanAssign<declared_key_type, declared_value_type,
                                       SKey, SValue>::value,
           int>::type = 0)
@@ -705,7 +758,7 @@ class UnorderedMap {
         m_scalars(src.m_scalars) {}
 
   template <typename SKey, typename SValue>
-  typename Impl::enable_if<
+  typename std::enable_if<
       Impl::UnorderedMapCanAssign<declared_key_type, declared_value_type, SKey,
                                   SValue>::value,
       declared_map_type &>::type
@@ -724,9 +777,9 @@ class UnorderedMap {
   }
 
   template <typename SKey, typename SValue, typename SDevice>
-  typename Impl::enable_if<
-      std::is_same<typename Impl::remove_const<SKey>::type, key_type>::value &&
-      std::is_same<typename Impl::remove_const<SValue>::type,
+  typename std::enable_if<
+      std::is_same<typename std::remove_const<SKey>::type, key_type>::value &&
+      std::is_same<typename std::remove_const<SValue>::type,
                    value_type>::value>::type
   create_copy_view(
       UnorderedMap<SKey, SValue, SDevice, Hasher, EqualTo> const &src) {
@@ -739,24 +792,24 @@ class UnorderedMap {
       tmp.m_size              = src.size();
       tmp.m_available_indexes = bitset_type(src.capacity());
       tmp.m_hash_lists        = size_type_view(
-          ViewAllocateWithoutInitializing("UnorderedMap hash list"),
+          view_alloc(WithoutInitializing, "UnorderedMap hash list"),
           src.m_hash_lists.extent(0));
       tmp.m_next_index = size_type_view(
-          ViewAllocateWithoutInitializing("UnorderedMap next index"),
+          view_alloc(WithoutInitializing, "UnorderedMap next index"),
           src.m_next_index.extent(0));
       tmp.m_keys =
-          key_type_view(ViewAllocateWithoutInitializing("UnorderedMap keys"),
+          key_type_view(view_alloc(WithoutInitializing, "UnorderedMap keys"),
                         src.m_keys.extent(0));
       tmp.m_values = value_type_view(
-          ViewAllocateWithoutInitializing("UnorderedMap values"),
+          view_alloc(WithoutInitializing, "UnorderedMap values"),
           src.m_values.extent(0));
       tmp.m_scalars = scalars_view("UnorderedMap scalars");
 
       Kokkos::deep_copy(tmp.m_available_indexes, src.m_available_indexes);
 
-      typedef Kokkos::Impl::DeepCopy<typename device_type::memory_space,
-                                     typename SDevice::memory_space>
-          raw_deep_copy;
+      using raw_deep_copy =
+          Kokkos::Impl::DeepCopy<typename device_type::memory_space,
+                                 typename SDevice::memory_space>;
 
       raw_deep_copy(tmp.m_hash_lists.data(), src.m_hash_lists.data(),
                     sizeof(size_type) * src.m_hash_lists.extent(0));
@@ -771,6 +824,9 @@ class UnorderedMap {
       raw_deep_copy(tmp.m_scalars.data(), src.m_scalars.data(),
                     sizeof(int) * num_scalars);
 
+      Kokkos::fence(
+          "Kokkos::UnorderedMap::create_copy_view: fence after copy to tmp");
+
       *this = tmp;
     }
   }
@@ -780,27 +836,36 @@ class UnorderedMap {
   bool modified() const { return get_flag(modified_idx); }
 
   void set_flag(int flag) const {
-    typedef Kokkos::Impl::DeepCopy<typename device_type::memory_space,
-                                   Kokkos::HostSpace>
-        raw_deep_copy;
+    using raw_deep_copy =
+        Kokkos::Impl::DeepCopy<typename device_type::memory_space,
+                               Kokkos::HostSpace>;
     const int true_ = true;
     raw_deep_copy(m_scalars.data() + flag, &true_, sizeof(int));
+    Kokkos::fence(
+        "Kokkos::UnorderedMap::set_flag: fence after copying flag from "
+        "HostSpace");
   }
 
   void reset_flag(int flag) const {
-    typedef Kokkos::Impl::DeepCopy<typename device_type::memory_space,
-                                   Kokkos::HostSpace>
-        raw_deep_copy;
+    using raw_deep_copy =
+        Kokkos::Impl::DeepCopy<typename device_type::memory_space,
+                               Kokkos::HostSpace>;
     const int false_ = false;
     raw_deep_copy(m_scalars.data() + flag, &false_, sizeof(int));
+    Kokkos::fence(
+        "Kokkos::UnorderedMap::reset_flag: fence after copying flag from "
+        "HostSpace");
   }
 
   bool get_flag(int flag) const {
-    typedef Kokkos::Impl::DeepCopy<Kokkos::HostSpace,
-                                   typename device_type::memory_space>
-        raw_deep_copy;
+    using raw_deep_copy =
+        Kokkos::Impl::DeepCopy<Kokkos::HostSpace,
+                               typename device_type::memory_space>;
     int result = false;
     raw_deep_copy(&result, m_scalars.data() + flag, sizeof(int));
+    Kokkos::fence(
+        "Kokkos::UnorderedMap::get_flag: fence after copy to return value in "
+        "HostSpace");
     return result;
   }
 

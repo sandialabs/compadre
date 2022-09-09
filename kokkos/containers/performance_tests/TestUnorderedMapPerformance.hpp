@@ -23,10 +23,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -43,7 +43,7 @@
 #ifndef KOKKOS_TEST_UNORDERED_MAP_PERFORMANCE_HPP
 #define KOKKOS_TEST_UNORDERED_MAP_PERFORMANCE_HPP
 
-#include <impl/Kokkos_Timer.hpp>
+#include <Kokkos_Timer.hpp>
 
 #include <iostream>
 #include <iomanip>
@@ -55,9 +55,9 @@ namespace Perf {
 
 template <typename Device, bool Near>
 struct UnorderedMapTest {
-  typedef Device execution_space;
-  typedef Kokkos::UnorderedMap<uint32_t, uint32_t, execution_space> map_type;
-  typedef typename map_type::histogram_type histogram_type;
+  using execution_space = Device;
+  using map_type = Kokkos::UnorderedMap<uint32_t, uint32_t, execution_space>;
+  using histogram_type = typename map_type::histogram_type;
 
   struct value_type {
     uint32_t failed_count;

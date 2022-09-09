@@ -1740,7 +1740,7 @@ void computeTargetFunctionalsOnManifold(const TargetData& data, const member_typ
                 // loop over each two vertices 
                 XYZ relative_coord;
                 double entire_cell_area = 0.0;
-                for (size_t v=0; v<num_vertices; ++v) {
+                for (int v=0; v<num_vertices; ++v) {
                     int v1 = v;
                     int v2 = (v+1) % num_vertices;
 

@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -105,6 +105,7 @@ KOKKOS_FUNCTION void TaskQueue<ExecSpace, MemorySpace>::decrement(
   task_root_type volatile &t = *task;
 
   const int count = Kokkos::atomic_fetch_add(&(t.m_ref_count), -1);
+  Kokkos::memory_fence();
 
 #if KOKKOS_IMPL_DEBUG_TASKDAG_SCHEDULING
   if (1 == count) {
@@ -146,8 +147,9 @@ KOKKOS_FUNCTION void *TaskQueue<ExecSpace, MemorySpace>::allocate(size_t n) {
   void *const p = m_memory.allocate(n);
 
   if (p) {
-    // Kokkos::atomic_increment( & m_accum_alloc );
-    Kokkos::atomic_increment(&m_count_alloc);
+    Kokkos::Impl::desul_atomic_inc(
+        &m_count_alloc, Kokkos::Impl::MemoryOrderSeqCst(),
+        Kokkos::Impl::MemoryScopeDevice());  // TODO? memory_order_relaxed
 
     // if ( m_max_alloc < m_count_alloc ) m_max_alloc = m_count_alloc ;
   }
@@ -159,7 +161,9 @@ template <typename ExecSpace, typename MemorySpace>
 KOKKOS_FUNCTION void TaskQueue<ExecSpace, MemorySpace>::deallocate(void *p,
                                                                    size_t n) {
   m_memory.deallocate(p, n);
-  Kokkos::atomic_decrement(&m_count_alloc);
+  Kokkos::Impl::desul_atomic_dec(
+      &m_count_alloc, Kokkos::Impl::MemoryOrderSeqCst(),
+      Kokkos::Impl::MemoryScopeDevice());  // TODO? memory_order_relaxed
 }
 
 //----------------------------------------------------------------------------
@@ -181,7 +185,7 @@ KOKKOS_FUNCTION bool TaskQueue<ExecSpace, MemorySpace>::push_task(
          task->m_priority, task->m_ref_count);
 #endif
 
-  task_root_type *const zero = (task_root_type *)0;
+  task_root_type *const zero = nullptr;
   task_root_type *const lock = (task_root_type *)task_root_type::LockTag;
 
   task_root_type *volatile &next = task->m_next;
@@ -210,7 +214,9 @@ KOKKOS_FUNCTION bool TaskQueue<ExecSpace, MemorySpace>::push_task(
     //     *queue = task;
     //   }
     //   old_head = *queue;
-    old_head = Kokkos::atomic_compare_exchange(queue, old_head, task);
+    old_head = Kokkos::Impl::desul_atomic_compare_exchange(
+        const_cast<task_root_type **>(queue), old_head, task,
+        Kokkos::Impl::MemoryOrderSeqCst(), Kokkos::Impl::MemoryScopeDevice());
 
     if (old_head_tmp == old_head) return true;
   }
@@ -254,11 +260,14 @@ TaskQueue<ExecSpace, MemorySpace>::pop_ready_task(
     //
     // If queue is locked then just read by guaranteeing the CAS will fail.
 
-    if (lock == task) task = 0;
+    if (lock == task) task = nullptr;
 
     task_root_type *const x = task;
 
-    task = Kokkos::atomic_compare_exchange(queue, x, lock);
+    //    task = Kokkos::atomic_compare_exchange(queue, x, lock);
+    task = Kokkos::Impl::desul_atomic_compare_exchange(
+        const_cast<task_root_type **>(queue), x, lock,
+        Kokkos::Impl::MemoryOrderSeqCst(), Kokkos::Impl::MemoryScopeDevice());
 
     if (x == task) {
       // CAS succeeded and queue is locked
@@ -273,6 +282,8 @@ TaskQueue<ExecSpace, MemorySpace>::pop_ready_task(
       //
       // This thread has exclusive access to
       // the queue and the popped task's m_next.
+
+      Kokkos::memory_fence();
 
       task_root_type *volatile &next = task->m_next;
 
@@ -334,7 +345,7 @@ KOKKOS_FUNCTION void TaskQueue<ExecSpace, MemorySpace>::schedule_runnable(
          task->m_priority, task->m_ref_count);
 #endif
 
-  task_root_type *const zero = (task_root_type *)0;
+  task_root_type *const zero = nullptr;
   task_root_type *const lock = (task_root_type *)task_root_type::LockTag;
   task_root_type *const end  = (task_root_type *)task_root_type::EndTag;
 
@@ -381,17 +392,17 @@ KOKKOS_FUNCTION void TaskQueue<ExecSpace, MemorySpace>::schedule_runnable(
 
   // If we don't have a dependency, or if pushing onto the wait queue of that
   // dependency failed (since the only time that queue should be locked is when
-  // the task is transitioning to complete??!?)
-  const bool is_ready = (0 == dep) || (!push_task(&dep->m_wait, task));
+  // the task is transitioning to complete?)
+  const bool is_ready = (nullptr == dep) || (!push_task(&dep->m_wait, task));
 
-  if ((0 != dep) && respawn) {
+  if ((nullptr != dep) && respawn) {
     // Reference count for dep was incremented when
     // respawn assigned dependency to task->m_next
     // so that if dep completed prior to the
     // above push_task dep would not be destroyed.
     // dep reference count can now be decremented,
     // which may deallocate the task.
-    TaskQueue::assign(&dep, (task_root_type *)0);
+    TaskQueue::assign(&dep, nullptr);
   }
 
   if (is_ready) {
@@ -400,7 +411,9 @@ KOKKOS_FUNCTION void TaskQueue<ExecSpace, MemorySpace>::schedule_runnable(
     // to track number of ready + executing tasks.
     // The ready count will be decremented when the task is complete.
 
-    Kokkos::atomic_increment(&m_ready_count);
+    Kokkos::Impl::desul_atomic_inc(
+        &m_ready_count, Kokkos::Impl::MemoryOrderSeqCst(),
+        Kokkos::Impl::MemoryScopeDevice());  // TODO? memory_order_relaxed
 
     task_root_type *volatile *const ready_queue =
         &m_ready[t.m_priority][t.m_task_type];
@@ -452,7 +465,7 @@ KOKKOS_FUNCTION void TaskQueue<ExecSpace, MemorySpace>::schedule_aggregate(
          task->m_ref_count);
 #endif
 
-  task_root_type *const zero = (task_root_type *)0;
+  task_root_type *const zero = nullptr;
   task_root_type *const lock = (task_root_type *)task_root_type::LockTag;
   task_root_type *const end  = (task_root_type *)task_root_type::EndTag;
 
@@ -551,10 +564,11 @@ KOKKOS_FUNCTION void TaskQueue<ExecSpace, MemorySpace>::reschedule(
   //   task is in Executing-Respawn state
   //   task->m_next == 0 (no dependence)
 
-  task_root_type *const zero = (task_root_type *)0;
+  task_root_type *const zero = nullptr;
   task_root_type *const lock = (task_root_type *)task_root_type::LockTag;
-
-  if (lock != Kokkos::atomic_exchange(&task->m_next, zero)) {
+  if (lock != Kokkos::Impl::desul_atomic_exchange(
+                  &task->m_next, zero, Kokkos::Impl::MemoryOrderSeqCst(),
+                  Kokkos::Impl::MemoryScopeDevice())) {
     Kokkos::abort("TaskScheduler::respawn ERROR: already respawned");
   }
 }
@@ -567,7 +581,7 @@ KOKKOS_FUNCTION void TaskQueue<ExecSpace, MemorySpace>::complete(
   // Complete a runnable task that has finished executing
   // or a when_all task when all of its dependeneces are complete.
 
-  task_root_type *const zero = (task_root_type *)0;
+  task_root_type *const zero = nullptr;
   task_root_type *const lock = (task_root_type *)task_root_type::LockTag;
   task_root_type *const end  = (task_root_type *)task_root_type::EndTag;
 
@@ -597,12 +611,13 @@ KOKKOS_FUNCTION void TaskQueue<ExecSpace, MemorySpace>::complete(
     // If 'task' is an aggregate then any of the runnable tasks that
     // it depends upon may be attempting to complete this 'task'.
     // Must only transition a task once to complete status.
-    // This is controled by atomically locking the wait queue.
+    // This is controlled by atomically locking the wait queue.
 
     // Stop other tasks from adding themselves to this task's wait queue
     // by locking the head of this task's wait queue.
-
-    task_root_type *x = Kokkos::atomic_exchange(&t.m_wait, lock);
+    task_root_type *x = Kokkos::Impl::desul_atomic_exchange(
+        const_cast<task_root_type **>(&t.m_wait), lock,
+        Kokkos::Impl::MemoryOrderSeqCst(), Kokkos::Impl::MemoryScopeDevice());
 
     if (x != (task_root_type *)lock) {
       // This thread has transitioned this 'task' to complete.
@@ -624,14 +639,14 @@ KOKKOS_FUNCTION void TaskQueue<ExecSpace, MemorySpace>::complete(
         task_root_type volatile &vx = *x;
 
         task_root_type *const next = vx.m_next;
-        vx.m_next                  = 0;
+        vx.m_next                  = nullptr;
 
         Kokkos::memory_fence();
 
         if (task_root_type::Aggregate != vx.m_task_type) {
           schedule_runnable(x);
         } else {
-#if !defined(__HCC_ACCELERATOR__)
+#if !defined(__HIP_DEVICE_COMPILE__)
           schedule_aggregate(x);
 #endif
         }
@@ -645,7 +660,9 @@ KOKKOS_FUNCTION void TaskQueue<ExecSpace, MemorySpace>::complete(
     // A runnable task was popped from a ready queue and executed.
     // If respawned into a ready queue then the ready count was incremented
     // so decrement whether respawned or not.
-    Kokkos::atomic_decrement(&m_ready_count);
+    Kokkos::Impl::desul_atomic_dec(
+        &m_ready_count, Kokkos::Impl::MemoryOrderSeqCst(),
+        Kokkos::Impl::MemoryScopeDevice());  // TODO? memory_order_relaxed
   }
 }
 

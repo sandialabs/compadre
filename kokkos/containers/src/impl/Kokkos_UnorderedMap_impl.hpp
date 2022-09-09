@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -45,7 +45,7 @@
 #ifndef KOKKOS_UNORDERED_MAP_IMPL_HPP
 #define KOKKOS_UNORDERED_MAP_IMPL_HPP
 
-#include <Kokkos_Core_fwd.hpp>
+#include <Kokkos_Core.hpp>
 #include <cstdint>
 
 #include <cstdio>
@@ -60,10 +60,10 @@ uint32_t find_hash_size(uint32_t size);
 
 template <typename Map>
 struct UnorderedMapRehash {
-  typedef Map map_type;
-  typedef typename map_type::const_map_type const_map_type;
-  typedef typename map_type::execution_space execution_space;
-  typedef typename map_type::size_type size_type;
+  using map_type        = Map;
+  using const_map_type  = typename map_type::const_map_type;
+  using execution_space = typename map_type::execution_space;
+  using size_type       = typename map_type::size_type;
 
   map_type m_dst;
   const_map_type m_src;
@@ -71,7 +71,10 @@ struct UnorderedMapRehash {
   UnorderedMapRehash(map_type const& dst, const_map_type const& src)
       : m_dst(dst), m_src(src) {}
 
-  void apply() const { parallel_for(m_src.capacity(), *this); }
+  void apply() const {
+    parallel_for("Kokkos::Impl::UnorderedMapRehash::apply", m_src.capacity(),
+                 *this);
+  }
 
   KOKKOS_INLINE_FUNCTION
   void operator()(size_type i) const {
@@ -81,17 +84,20 @@ struct UnorderedMapRehash {
 
 template <typename UMap>
 struct UnorderedMapErase {
-  typedef UMap map_type;
-  typedef typename map_type::execution_space execution_space;
-  typedef typename map_type::size_type size_type;
-  typedef typename map_type::key_type key_type;
-  typedef typename map_type::impl_value_type value_type;
+  using map_type        = UMap;
+  using execution_space = typename map_type::execution_space;
+  using size_type       = typename map_type::size_type;
+  using key_type        = typename map_type::key_type;
+  using value_type      = typename map_type::impl_value_type;
 
   map_type m_map;
 
   UnorderedMapErase(map_type const& map) : m_map(map) {}
 
-  void apply() const { parallel_for(m_map.m_hash_lists.extent(0), *this); }
+  void apply() const {
+    parallel_for("Kokkos::Impl::UnorderedMapErase::apply",
+                 m_map.m_hash_lists.extent(0), *this);
+  }
 
   KOKKOS_INLINE_FUNCTION
   void operator()(size_type i) const {
@@ -134,12 +140,12 @@ struct UnorderedMapErase {
 
 template <typename UMap>
 struct UnorderedMapHistogram {
-  typedef UMap map_type;
-  typedef typename map_type::execution_space execution_space;
-  typedef typename map_type::size_type size_type;
+  using map_type        = UMap;
+  using execution_space = typename map_type::execution_space;
+  using size_type       = typename map_type::size_type;
 
-  typedef View<int[100], execution_space> histogram_view;
-  typedef typename histogram_view::HostMirror host_histogram_view;
+  using histogram_view      = View<int[100], typename map_type::device_type>;
+  using host_histogram_view = typename histogram_view::HostMirror;
 
   map_type m_map;
   histogram_view m_length;
@@ -152,7 +158,10 @@ struct UnorderedMapHistogram {
         m_distance("UnorderedMap Histogram"),
         m_block_distance("UnorderedMap Histogram") {}
 
-  void calculate() { parallel_for(m_map.m_hash_lists.extent(0), *this); }
+  void calculate() {
+    parallel_for("Kokkos::Impl::UnorderedMapHistogram::calculate",
+                 m_map.m_hash_lists.extent(0), *this);
+  }
 
   void clear() {
     Kokkos::deep_copy(m_length, 0);
@@ -161,8 +170,8 @@ struct UnorderedMapHistogram {
   }
 
   void print_length(std::ostream& out) {
-    host_histogram_view host_copy = create_mirror_view(m_length);
-    Kokkos::deep_copy(host_copy, m_length);
+    host_histogram_view host_copy =
+        create_mirror_view_and_copy(Kokkos::HostSpace{}, m_length);
 
     for (int i = 0, size = host_copy.extent(0); i < size; ++i) {
       out << host_copy[i] << " , ";
@@ -171,8 +180,8 @@ struct UnorderedMapHistogram {
   }
 
   void print_distance(std::ostream& out) {
-    host_histogram_view host_copy = create_mirror_view(m_distance);
-    Kokkos::deep_copy(host_copy, m_distance);
+    host_histogram_view host_copy =
+        create_mirror_view_and_copy(Kokkos::HostSpace{}, m_distance);
 
     for (int i = 0, size = host_copy.extent(0); i < size; ++i) {
       out << host_copy[i] << " , ";
@@ -181,8 +190,8 @@ struct UnorderedMapHistogram {
   }
 
   void print_block_distance(std::ostream& out) {
-    host_histogram_view host_copy = create_mirror_view(m_block_distance);
-    Kokkos::deep_copy(host_copy, m_block_distance);
+    host_histogram_view host_copy =
+        create_mirror_view_and_copy(Kokkos::HostSpace{}, m_block_distance);
 
     for (int i = 0, size = host_copy.extent(0); i < size; ++i) {
       out << host_copy[i] << " , ";
@@ -221,15 +230,18 @@ struct UnorderedMapHistogram {
 
 template <typename UMap>
 struct UnorderedMapPrint {
-  typedef UMap map_type;
-  typedef typename map_type::execution_space execution_space;
-  typedef typename map_type::size_type size_type;
+  using map_type        = UMap;
+  using execution_space = typename map_type::execution_space;
+  using size_type       = typename map_type::size_type;
 
   map_type m_map;
 
   UnorderedMapPrint(map_type const& map) : m_map(map) {}
 
-  void apply() { parallel_for(m_map.m_hash_lists.extent(0), *this); }
+  void apply() {
+    parallel_for("Kokkos::Impl::UnorderedMapPrint::apply",
+                 m_map.m_hash_lists.extent(0), *this);
+  }
 
   KOKKOS_INLINE_FUNCTION
   void operator()(size_type i) const {
@@ -238,28 +250,29 @@ struct UnorderedMapPrint {
     uint32_t list = m_map.m_hash_lists(i);
     for (size_type curr = list, ii = 0; curr != invalid_index;
          curr = m_map.m_next_index[curr], ++ii) {
-      printf("%d[%d]: %d->%d\n", list, ii, m_map.key_at(curr),
-             m_map.value_at(curr));
+      KOKKOS_IMPL_DO_NOT_USE_PRINTF("%d[%d]: %d->%d\n", list, ii,
+                                    m_map.key_at(curr), m_map.value_at(curr));
     }
   }
 };
 
 template <typename DKey, typename DValue, typename SKey, typename SValue>
-struct UnorderedMapCanAssign : public false_ {};
+struct UnorderedMapCanAssign : public std::false_type {};
 
 template <typename Key, typename Value>
-struct UnorderedMapCanAssign<Key, Value, Key, Value> : public true_ {};
+struct UnorderedMapCanAssign<Key, Value, Key, Value> : public std::true_type {};
 
 template <typename Key, typename Value>
-struct UnorderedMapCanAssign<const Key, Value, Key, Value> : public true_ {};
+struct UnorderedMapCanAssign<const Key, Value, Key, Value>
+    : public std::true_type {};
 
 template <typename Key, typename Value>
 struct UnorderedMapCanAssign<const Key, const Value, Key, Value>
-    : public true_ {};
+    : public std::true_type {};
 
 template <typename Key, typename Value>
 struct UnorderedMapCanAssign<const Key, const Value, const Key, Value>
-    : public true_ {};
+    : public std::true_type {};
 
 }  // namespace Impl
 }  // namespace Kokkos

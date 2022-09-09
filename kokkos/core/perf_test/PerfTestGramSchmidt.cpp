@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -58,7 +58,7 @@ namespace Test {
 // PostProcess : R(j,j) = result ; inv = 1 / result ;
 template <class VectorView, class ValueView>
 struct InvNorm2 : public Kokkos::DotSingle<VectorView> {
-  typedef typename Kokkos::DotSingle<VectorView>::value_type value_type;
+  using value_type = typename Kokkos::DotSingle<VectorView>::value_type;
 
   ValueView Rjj;
   ValueView inv;
@@ -69,7 +69,7 @@ struct InvNorm2 : public Kokkos::DotSingle<VectorView> {
 
   KOKKOS_INLINE_FUNCTION
   void final(value_type& result) const {
-    result = std::sqrt(result);
+    result = Kokkos::Experimental::sqrt(result);
     Rjj()  = result;
     inv()  = (0 < result) ? 1.0 / result : 0;
   }
@@ -85,7 +85,7 @@ inline void invnorm2(const VectorView& x, const ValueView& r,
 // PostProcess : tmp = - ( R(j,k) = result );
 template <class VectorView, class ValueView>
 struct DotM : public Kokkos::Dot<VectorView> {
-  typedef typename Kokkos::Dot<VectorView>::value_type value_type;
+  using value_type = typename Kokkos::Dot<VectorView>::value_type;
 
   ValueView Rjk;
   ValueView tmp;
@@ -110,16 +110,16 @@ inline void dot_neg(const VectorView& x, const VectorView& y,
 
 template <typename Scalar, class DeviceType>
 struct ModifiedGramSchmidt {
-  typedef DeviceType execution_space;
-  typedef typename execution_space::size_type size_type;
+  using execution_space = DeviceType;
+  using size_type       = typename execution_space::size_type;
 
-  typedef Kokkos::View<Scalar**, Kokkos::LayoutLeft, execution_space>
-      multivector_type;
+  using multivector_type =
+      Kokkos::View<Scalar**, Kokkos::LayoutLeft, execution_space>;
 
-  typedef Kokkos::View<Scalar*, Kokkos::LayoutLeft, execution_space>
-      vector_type;
+  using vector_type =
+      Kokkos::View<Scalar*, Kokkos::LayoutLeft, execution_space>;
 
-  typedef Kokkos::View<Scalar, Kokkos::LayoutLeft, execution_space> value_view;
+  using value_view = Kokkos::View<Scalar, Kokkos::LayoutLeft, execution_space>;
 
   multivector_type Q;
   multivector_type R;
@@ -145,7 +145,7 @@ struct ModifiedGramSchmidt {
       // Q(:,j) *= ( 1 / R(j,j) ); => Q(:,j) *= tmp ;
       Kokkos::scale(tmp, Qj);
 
-      for (size_t k = j + 1; k < count; ++k) {
+      for (size_type k = j + 1; k < count; ++k) {
         const vector_type Qk = Kokkos::subview(Q_, Kokkos::ALL(), k);
         const value_view Rjk = Kokkos::subview(R_, j, k);
 
@@ -165,7 +165,7 @@ struct ModifiedGramSchmidt {
 
   //--------------------------------------------------------------------------
 
-  static double test(const size_t length, const size_t count,
+  static double test(const size_type length, const size_type count,
                      const size_t iter = 1) {
     multivector_type Q_("Q", length, count);
     multivector_type R_("R", count, count);
@@ -231,7 +231,7 @@ void run_test_gramschmidt(int exp_beg, int exp_end, int num_trials,
 
     std::cout << label_gramschmidt << " , " << parallel_work_length << " , "
               << min_seconds << " , " << (min_seconds / parallel_work_length)
-              << std::endl;
+              << ", " << avg_seconds << std::endl;
   }
 }
 
@@ -240,9 +240,9 @@ TEST(default_exec, gramschmidt) {
   int exp_end    = 20;
   int num_trials = 5;
 
-  if (command_line_num_args() > 1) exp_beg = atoi(command_line_arg(1));
-  if (command_line_num_args() > 2) exp_end = atoi(command_line_arg(2));
-  if (command_line_num_args() > 3) num_trials = atoi(command_line_arg(3));
+  if (command_line_num_args() > 1) exp_beg = std::stoi(command_line_arg(1));
+  if (command_line_num_args() > 2) exp_end = std::stoi(command_line_arg(2));
+  if (command_line_num_args() > 3) num_trials = std::stoi(command_line_arg(3));
 
   EXPECT_NO_THROW(run_test_gramschmidt<Kokkos::DefaultExecutionSpace>(
       exp_beg, exp_end, num_trials, Kokkos::DefaultExecutionSpace::name()));

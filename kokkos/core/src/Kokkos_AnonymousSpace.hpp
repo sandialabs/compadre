@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -56,12 +56,12 @@ namespace Kokkos {
 class AnonymousSpace {
  public:
   //! Tag this class as a kokkos memory space
-  typedef AnonymousSpace memory_space;
-  typedef Kokkos::DefaultExecutionSpace execution_space;
-  typedef size_t size_type;
+  using memory_space    = AnonymousSpace;
+  using execution_space = Kokkos::DefaultExecutionSpace;
+  using size_type       = size_t;
 
   //! This memory space preferred device_type
-  typedef Kokkos::Device<execution_space, memory_space> device_type;
+  using device_type = Kokkos::Device<execution_space, memory_space>;
 
   /**\brief  Default memory space instance */
   AnonymousSpace()                          = default;
@@ -85,37 +85,23 @@ namespace Impl {
 
 template <typename OtherSpace>
 struct MemorySpaceAccess<Kokkos::AnonymousSpace, OtherSpace> {
-  enum { assignable = true };
-  enum { accessible = true };
-  enum { deepcopy = true };
+  enum : bool { assignable = true };
+  enum : bool { accessible = true };
+  enum : bool { deepcopy = true };
 };
 
 template <typename OtherSpace>
 struct MemorySpaceAccess<OtherSpace, Kokkos::AnonymousSpace> {
-  enum { assignable = true };
-  enum { accessible = true };
-  enum { deepcopy = true };
+  enum : bool { assignable = true };
+  enum : bool { accessible = true };
+  enum : bool { deepcopy = true };
 };
 
 template <>
 struct MemorySpaceAccess<Kokkos::AnonymousSpace, Kokkos::AnonymousSpace> {
-  enum { assignable = true };
-  enum { accessible = true };
-  enum { deepcopy = true };
-};
-
-template <typename OtherSpace>
-struct VerifyExecutionCanAccessMemorySpace<OtherSpace, Kokkos::AnonymousSpace> {
-  enum { value = 1 };
-  KOKKOS_INLINE_FUNCTION static void verify(void) {}
-  KOKKOS_INLINE_FUNCTION static void verify(const void *) {}
-};
-
-template <typename OtherSpace>
-struct VerifyExecutionCanAccessMemorySpace<Kokkos::AnonymousSpace, OtherSpace> {
-  enum { value = 1 };
-  KOKKOS_INLINE_FUNCTION static void verify(void) {}
-  KOKKOS_INLINE_FUNCTION static void verify(const void *) {}
+  enum : bool { assignable = true };
+  enum : bool { accessible = true };
+  enum : bool { deepcopy = true };
 };
 
 }  // namespace Impl

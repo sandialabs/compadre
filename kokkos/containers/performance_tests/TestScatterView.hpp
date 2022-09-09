@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -46,18 +46,18 @@
 #define KOKKOS_TEST_SCATTER_VIEW_HPP
 
 #include <Kokkos_ScatterView.hpp>
-#include <impl/Kokkos_Timer.hpp>
+#include <Kokkos_Timer.hpp>
 
 namespace Perf {
 
-template <typename ExecSpace, typename Layout, int duplication,
-          int contribution>
+template <typename ExecSpace, typename Layout, typename Duplication,
+          typename Contribution>
 void test_scatter_view(int m, int n) {
   Kokkos::View<double * [3], Layout, ExecSpace> original_view("original_view",
                                                               n);
   {
     auto scatter_view = Kokkos::Experimental::create_scatter_view<
-        Kokkos::Experimental::ScatterSum, duplication, contribution>(
+        Kokkos::Experimental::ScatterSum, Duplication, Contribution>(
         original_view);
     Kokkos::Experimental::UniqueToken<
         ExecSpace, Kokkos::Experimental::UniqueTokenScope::Global>

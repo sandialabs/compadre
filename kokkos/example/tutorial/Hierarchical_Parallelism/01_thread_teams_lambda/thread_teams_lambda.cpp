@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -56,8 +56,8 @@
 
 int main(int narg, char* args[]) {
   using Kokkos::parallel_reduce;
-  typedef Kokkos::TeamPolicy<> team_policy;
-  typedef typename team_policy::member_type team_member;
+  using team_policy = Kokkos::TeamPolicy<>;
+  using team_member = typename team_policy::member_type;
 
   Kokkos::initialize(narg, args);
 
@@ -85,11 +85,16 @@ int main(int narg, char* args[]) {
       policy,
       KOKKOS_LAMBDA(const team_member& thread, int& lsum) {
         lsum += 1;
-        // TeamPolicy<>::member_type provides functions to query the
-        // multidimensional index of a thread, as well as the number of
-        // thread teams and the size of each team.
+    // TeamPolicy<>::member_type provides functions to query the
+    // multidimensional index of a thread, as well as the number of
+    // thread teams and the size of each team.
+#ifndef __SYCL_DEVICE_ONLY__
+        // FIXME_SYCL needs workaround for printf
         printf("Hello World: %i %i // %i %i\n", thread.league_rank(),
                thread.team_rank(), thread.league_size(), thread.team_size());
+#else
+        (void)thread;
+#endif
       },
       sum);
 #endif

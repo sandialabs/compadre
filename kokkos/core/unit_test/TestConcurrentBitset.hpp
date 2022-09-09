@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -57,8 +57,8 @@ namespace Test {
 
 template <class DeviceType>
 struct ConcurrentBitset {
-  typedef Kokkos::View<uint32_t*, DeviceType> view_unsigned_type;
-  typedef Kokkos::View<int*, DeviceType> view_int_type;
+  using view_unsigned_type = Kokkos::View<uint32_t*, DeviceType>;
+  using view_int_type      = Kokkos::View<int*, DeviceType>;
 
   view_unsigned_type bitset;
   view_int_type acquired;
@@ -117,9 +117,9 @@ struct ConcurrentBitset {
 
 template <class DeviceType>
 void test_concurrent_bitset(int bit_count) {
-  typedef ConcurrentBitset<DeviceType> Functor;
-  typedef typename Functor::view_unsigned_type view_unsigned_type;
-  typedef typename Functor::view_int_type view_int_type;
+  using Functor            = ConcurrentBitset<DeviceType>;
+  using view_unsigned_type = typename Functor::view_unsigned_type;
+  using view_int_type      = typename Functor::view_int_type;
 
   int bit_count_lg2 = 1;
 

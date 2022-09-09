@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -48,20 +48,19 @@
 
 #if !defined(KOKKOS_ENABLE_CUDA) || defined(__CUDACC__)
 
-#include <default/TestDefaultDeviceType_Category.hpp>
+#include <TestDefaultDeviceType_Category.hpp>
 #include <TestUtilities.hpp>
 
 namespace Test {
 
-TEST(defaultdevicetype, test_utilities) { test_utilities(); }
-
 TEST(defaultdevicetype, malloc) {
-  int* data = (int*)Kokkos::kokkos_malloc(100 * sizeof(int));
-  ASSERT_NO_THROW(data = (int*)Kokkos::kokkos_realloc(data, 120 * sizeof(int)));
+  int* data = static_cast<int*>(Kokkos::kokkos_malloc(100 * sizeof(int)));
+  ASSERT_NO_THROW(data = static_cast<int*>(
+                      Kokkos::kokkos_realloc(data, 120 * sizeof(int))));
   Kokkos::kokkos_free(data);
 
-  int* data2 = (int*)Kokkos::kokkos_malloc(0);
-  ASSERT_TRUE(data2 == NULL);
+  int* data2 = static_cast<int*>(Kokkos::kokkos_malloc(0));
+  ASSERT_EQ(data2, nullptr);
   Kokkos::kokkos_free(data2);
 }
 

@@ -2,10 +2,11 @@
 //@HEADER
 // ************************************************************************
 //
-//               KokkosKernels 0.9: Linear Algebra and Graph Kernels
-//                 Copyright 2017 Sandia Corporation
+//                        Kokkos v. 3.0
+//       Copyright (2020) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
 //
-// Under the terms of Contract DE-AC04-94AL85000 with Sandia Corporation,
+// Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
 // Redistribution and use in source and binary forms, with or without
@@ -23,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -47,81 +48,160 @@
 namespace KokkosBlas {
 namespace Impl {
 // Specialization struct which defines whether a specialization exists
-template<class RV, class XMV, int Xrank = XMV::Rank>
+template <class RV, class XMV, int Xrank = XMV::Rank>
 struct iamax_tpl_spec_avail {
   enum : bool { value = false };
 };
-}
-}
+}  // namespace Impl
+}  // namespace KokkosBlas
 
 namespace KokkosBlas {
 namespace Impl {
 
 // Generic Host side BLAS (could be MKL or whatever)
-#ifdef KOKKOSKERNELS_ENABLE_TPL_BLAS
+#if defined(KOKKOSKERNELS_ENABLE_TPL_BLAS)
 // double
-#define KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_BLAS( INDEX_TYPE, SCALAR, LAYOUT, MEMSPACE ) \
-template<class ExecSpace> \
-struct iamax_tpl_spec_avail< \
-Kokkos::View<INDEX_TYPE, LAYOUT, Kokkos::HostSpace, \
-             Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-Kokkos::View<const SCALAR*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
-             Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-1> { enum : bool { value = true }; };
+#define KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_BLAS(INDEX_TYPE, SCALAR, LAYOUT,      \
+                                              MEMSPACE)                        \
+  template <class ExecSpace>                                                   \
+  struct iamax_tpl_spec_avail<                                                 \
+      Kokkos::View<INDEX_TYPE, LAYOUT, Kokkos::HostSpace,                      \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,                  \
+      Kokkos::View<const SCALAR*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,                  \
+      1> {                                                                     \
+    enum : bool { value = true };                                              \
+  };
 
-#if defined (KOKKOSKERNELS_INST_DOUBLE)
-KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_BLAS( unsigned long, double,                  Kokkos::LayoutLeft, Kokkos::HostSpace)
-#endif
-#if defined (KOKKOSKERNELS_INST_FLOAT)
-KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_BLAS( unsigned long, float,                   Kokkos::LayoutLeft, Kokkos::HostSpace)
-#endif
-#if defined (KOKKOSKERNELS_INST_KOKKOS_COMPLEX_DOUBLE_)
-KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_BLAS( unsigned long, Kokkos::complex<double>, Kokkos::LayoutLeft, Kokkos::HostSpace)
-#endif
-#if defined (KOKKOSKERNELS_INST_KOKKOS_COMPLEX_FLOAT_)
-KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_BLAS( unsigned long, Kokkos::complex<float>,  Kokkos::LayoutLeft, Kokkos::HostSpace)
-#endif
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_BLAS(unsigned long, double, Kokkos::LayoutLeft,
+                                      Kokkos::HostSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_BLAS(unsigned long, float, Kokkos::LayoutLeft,
+                                      Kokkos::HostSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_BLAS(unsigned long, Kokkos::complex<double>,
+                                      Kokkos::LayoutLeft, Kokkos::HostSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_BLAS(unsigned long, Kokkos::complex<float>,
+                                      Kokkos::LayoutLeft, Kokkos::HostSpace)
 
 #endif
 
 // cuBLAS
-#ifdef KOKKOSKERNELS_ENABLE_TPL_CUBLAS
+#if defined(KOKKOSKERNELS_ENABLE_TPL_CUBLAS)
 // double
-#define KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS( INDEX_TYPE, SCALAR, LAYOUT, MEMSPACE ) \
-template<class ExecSpace> \
-struct iamax_tpl_spec_avail< \
-Kokkos::View<INDEX_TYPE, LAYOUT, Kokkos::HostSpace, \
-             Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-Kokkos::View<const SCALAR*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
-             Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-1> { enum : bool { value = true }; }; \
-template<class ExecSpace> \
-struct iamax_tpl_spec_avail< \
-Kokkos::View<INDEX_TYPE, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
-             Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-Kokkos::View<const SCALAR*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
-             Kokkos::MemoryTraits<Kokkos::Unmanaged> >, \
-1> { enum : bool { value = true }; };
+#define KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS(INDEX_TYPE, SCALAR, LAYOUT,    \
+                                                MEMSPACE)                      \
+  template <class ExecSpace>                                                   \
+  struct iamax_tpl_spec_avail<                                                 \
+      Kokkos::View<INDEX_TYPE, LAYOUT, Kokkos::HostSpace,                      \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,                  \
+      Kokkos::View<const SCALAR*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,                  \
+      1> {                                                                     \
+    enum : bool { value = true };                                              \
+  };                                                                           \
+  template <class ExecSpace>                                                   \
+  struct iamax_tpl_spec_avail<                                                 \
+      Kokkos::View<INDEX_TYPE, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>,    \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,                  \
+      Kokkos::View<const SCALAR*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,                  \
+      1> {                                                                     \
+    enum : bool { value = true };                                              \
+  };
 
-#if defined (KOKKOSKERNELS_INST_DOUBLE)
-KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS( unsigned long, double,                 Kokkos::LayoutLeft, Kokkos::CudaSpace)
-KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS( unsigned int, double,                  Kokkos::LayoutLeft, Kokkos::CudaSpace)
-#endif
-#if defined (KOKKOSKERNELS_INST_FLOAT)
-KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS( unsigned long, float,                  Kokkos::LayoutLeft, Kokkos::CudaSpace)
-KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS( unsigned int, float,                   Kokkos::LayoutLeft, Kokkos::CudaSpace)
-#endif
-#if defined (KOKKOSKERNELS_INST_KOKKOS_COMPLEX_DOUBLE_)
-KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS( unsigned long, Kokkos::complex<double>,Kokkos::LayoutLeft, Kokkos::CudaSpace)
-KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS( unsigned int, Kokkos::complex<double>, Kokkos::LayoutLeft, Kokkos::CudaSpace)
-#endif
-#if defined (KOKKOSKERNELS_INST_KOKKOS_COMPLEX_FLOAT_)
-KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS( unsigned long, Kokkos::complex<float>, Kokkos::LayoutLeft, Kokkos::CudaSpace)
-KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS( unsigned int, Kokkos::complex<float>,  Kokkos::LayoutLeft, Kokkos::CudaSpace)
-#endif
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS(unsigned long, double,
+                                        Kokkos::LayoutLeft, Kokkos::CudaSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS(unsigned int, double,
+                                        Kokkos::LayoutLeft, Kokkos::CudaSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS(unsigned long, float,
+                                        Kokkos::LayoutLeft, Kokkos::CudaSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS(unsigned int, float, Kokkos::LayoutLeft,
+                                        Kokkos::CudaSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS(unsigned long, Kokkos::complex<double>,
+                                        Kokkos::LayoutLeft, Kokkos::CudaSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS(unsigned int, Kokkos::complex<double>,
+                                        Kokkos::LayoutLeft, Kokkos::CudaSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS(unsigned long, Kokkos::complex<float>,
+                                        Kokkos::LayoutLeft, Kokkos::CudaSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS(unsigned int, Kokkos::complex<float>,
+                                        Kokkos::LayoutLeft, Kokkos::CudaSpace)
+
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS(unsigned long, double,
+                                        Kokkos::LayoutLeft,
+                                        Kokkos::CudaUVMSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS(unsigned int, double,
+                                        Kokkos::LayoutLeft,
+                                        Kokkos::CudaUVMSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS(unsigned long, float,
+                                        Kokkos::LayoutLeft,
+                                        Kokkos::CudaUVMSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS(unsigned int, float, Kokkos::LayoutLeft,
+                                        Kokkos::CudaUVMSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS(unsigned long, Kokkos::complex<double>,
+                                        Kokkos::LayoutLeft,
+                                        Kokkos::CudaUVMSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS(unsigned int, Kokkos::complex<double>,
+                                        Kokkos::LayoutLeft,
+                                        Kokkos::CudaUVMSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS(unsigned long, Kokkos::complex<float>,
+                                        Kokkos::LayoutLeft,
+                                        Kokkos::CudaUVMSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_CUBLAS(unsigned int, Kokkos::complex<float>,
+                                        Kokkos::LayoutLeft,
+                                        Kokkos::CudaUVMSpace)
 
 #endif
 
-}
-}
+// rocBLAS
+#if defined(KOKKOSKERNELS_ENABLE_TPL_ROCBLAS)
+
+#define KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_ROCBLAS(INDEX_TYPE, SCALAR, LAYOUT,   \
+                                                 MEMSPACE)                     \
+  template <class ExecSpace>                                                   \
+  struct iamax_tpl_spec_avail<                                                 \
+      Kokkos::View<INDEX_TYPE, LAYOUT, Kokkos::HostSpace,                      \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,                  \
+      Kokkos::View<const SCALAR*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,                  \
+      1> {                                                                     \
+    enum : bool { value = true };                                              \
+  };                                                                           \
+  template <class ExecSpace>                                                   \
+  struct iamax_tpl_spec_avail<                                                 \
+      Kokkos::View<INDEX_TYPE, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>,    \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,                  \
+      Kokkos::View<const SCALAR*, LAYOUT, Kokkos::Device<ExecSpace, MEMSPACE>, \
+                   Kokkos::MemoryTraits<Kokkos::Unmanaged> >,                  \
+      1> {                                                                     \
+    enum : bool { value = true };                                              \
+  };
+
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_ROCBLAS(unsigned long, double,
+                                         Kokkos::LayoutLeft,
+                                         Kokkos::Experimental::HIPSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_ROCBLAS(unsigned int, double,
+                                         Kokkos::LayoutLeft,
+                                         Kokkos::Experimental::HIPSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_ROCBLAS(unsigned long, float,
+                                         Kokkos::LayoutLeft,
+                                         Kokkos::Experimental::HIPSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_ROCBLAS(unsigned int, float,
+                                         Kokkos::LayoutLeft,
+                                         Kokkos::Experimental::HIPSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_ROCBLAS(unsigned long, Kokkos::complex<double>,
+                                         Kokkos::LayoutLeft,
+                                         Kokkos::Experimental::HIPSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_ROCBLAS(unsigned int, Kokkos::complex<double>,
+                                         Kokkos::LayoutLeft,
+                                         Kokkos::Experimental::HIPSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_ROCBLAS(unsigned long, Kokkos::complex<float>,
+                                         Kokkos::LayoutLeft,
+                                         Kokkos::Experimental::HIPSpace)
+KOKKOSBLAS1_IAMAX_TPL_SPEC_AVAIL_ROCBLAS(unsigned int, Kokkos::complex<float>,
+                                         Kokkos::LayoutLeft,
+                                         Kokkos::Experimental::HIPSpace)
+
+#endif
+
+}  // namespace Impl
+}  // namespace KokkosBlas
 #endif

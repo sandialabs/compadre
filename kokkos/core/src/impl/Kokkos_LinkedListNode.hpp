@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -48,8 +48,7 @@
 #define KOKKOS_IMPL_LINKEDLISTNODE_HPP
 
 #include <Kokkos_Macros.hpp>
-#ifdef KOKKOS_ENABLE_TASKDAG  // Note: implies CUDA_VERSION >= 8000 if using
-                              // CUDA
+#ifdef KOKKOS_ENABLE_TASKDAG
 
 #include <Kokkos_Core_fwd.hpp>
 
@@ -111,7 +110,7 @@ struct SimpleSinglyLinkedListNode {
   friend struct LinkedListNodeAccess;
 
  public:
-  // KOKKOS_CONSTEXPR_14
+  // constexpr
   KOKKOS_INLINE_FUNCTION
   bool is_enqueued() const noexcept {
     // TODO @tasking @memory_order DSH make this an atomic load with memory
@@ -119,7 +118,7 @@ struct SimpleSinglyLinkedListNode {
     return m_next != reinterpret_cast<pointer_type>(NotEnqueuedValue);
   }
 
-  // KOKKOS_CONSTEXPR_14
+  // constexpr
   KOKKOS_INLINE_FUNCTION
   bool is_enqueued() const volatile noexcept {
     // TODO @tasking @memory_order DSH make this an atomic load with memory

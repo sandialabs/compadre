@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -43,6 +43,8 @@
 */
 
 #include <Kokkos_Core.hpp>
+#include <sstream>
+
 namespace Kokkos {
 namespace Impl {
 PerTeamValue::PerTeamValue(int arg) : value(arg) {}
@@ -54,6 +56,15 @@ Impl::PerTeamValue PerTeam(const int& arg) { return Impl::PerTeamValue(arg); }
 
 Impl::PerThreadValue PerThread(const int& arg) {
   return Impl::PerThreadValue(arg);
+}
+
+void team_policy_check_valid_storage_level_argument(int level) {
+  if (!(level == 0 || level == 1)) {
+    std::stringstream ss;
+    ss << "TeamPolicy::set_scratch_size(/*level*/ " << level
+       << ", ...) storage level argument must be 0 or 1 to be valid\n";
+    Impl::throw_runtime_exception(ss.str());
+  }
 }
 
 }  // namespace Kokkos

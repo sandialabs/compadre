@@ -24,10 +24,10 @@
 // contributors may be used to endorse or promote products derived from
 // this software without specific prior written permission.
 //
-// THIS SOFTWARE IS PROVIDED BY SANDIA CORPORATION "AS IS" AND ANY
+// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
 // EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
 // IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL SANDIA CORPORATION OR THE
+// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
 // CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
 // EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
 // PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
@@ -45,29 +45,31 @@
 #include <gtest/gtest.h>
 
 #include <Kokkos_Core.hpp>
-#include <default/TestDefaultDeviceType_Category.hpp>
+#include <TestDefaultDeviceType_Category.hpp>
+#include <TestHalfConversion.hpp>
+#include <TestHalfOperators.hpp>
 
 #if !defined(KOKKOS_ENABLE_CUDA) || defined(__CUDACC__)
 
 namespace Test {
 
 TEST(TEST_CATEGORY, host_space_access) {
-  typedef Kokkos::HostSpace::execution_space host_exec_space;
-  typedef Kokkos::Device<host_exec_space, Kokkos::HostSpace> device_space;
-  typedef Kokkos::Impl::HostMirror<Kokkos::DefaultExecutionSpace>::Space
-      mirror_space;
+  using host_exec_space = Kokkos::HostSpace::execution_space;
+  using device_space    = Kokkos::Device<host_exec_space, Kokkos::HostSpace>;
+  using mirror_space =
+      Kokkos::Impl::HostMirror<Kokkos::DefaultExecutionSpace>::Space;
 
-  static_assert(Kokkos::Impl::SpaceAccessibility<host_exec_space,
-                                                 Kokkos::HostSpace>::accessible,
+  static_assert(Kokkos::SpaceAccessibility<host_exec_space,
+                                           Kokkos::HostSpace>::accessible,
                 "");
 
-  static_assert(Kokkos::Impl::SpaceAccessibility<device_space,
-                                                 Kokkos::HostSpace>::accessible,
-                "");
+  static_assert(
+      Kokkos::SpaceAccessibility<device_space, Kokkos::HostSpace>::accessible,
+      "");
 
-  static_assert(Kokkos::Impl::SpaceAccessibility<mirror_space,
-                                                 Kokkos::HostSpace>::accessible,
-                "");
+  static_assert(
+      Kokkos::SpaceAccessibility<mirror_space, Kokkos::HostSpace>::accessible,
+      "");
 }
 
 }  // namespace Test
