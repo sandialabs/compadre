@@ -32,8 +32,6 @@ struct GMLSSolutionData;
 class GMLS {
 
 friend class Evaluator;
-friend const GMLSBasisData createGMLSBasisData(const GMLS& gmls);
-friend const GMLSSolutionData createGMLSSolutionData(const GMLS& gmls);
 
 public:
 
@@ -808,6 +806,12 @@ public:
 
     //! Check if GMLS solution set contains valid alpha values (has generateAlphas been called)
     bool containsValidAlphas() const { return this->_d_ss._contains_valid_alphas; }
+
+    //! Get GMLS solution data
+    const GMLSSolutionData extractSolutionData() const;
+
+    //! Get GMLS basis data
+    const GMLSBasisData extractBasisData() const;
 
 ///@}
 
