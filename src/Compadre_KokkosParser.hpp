@@ -13,12 +13,15 @@ class KokkosParser {
 
 private:
 
-  bool _called_initialize;
-
   // prevent default constructor
   KokkosParser();
 
+  Kokkos::ScopeGuard* ksg;
+
 public:
+
+  // call with command line arguments
+  KokkosParser(Kokkos::InitArguments args, bool print_status = false);
 
   // call with command line arguments
   KokkosParser(int argc, char* args[], bool print_status = false);
@@ -29,24 +32,12 @@ public:
   // call for default arguments
   KokkosParser(bool print_status = false);
 
-  // destructor
   ~KokkosParser() {
-      // clean-up Kokkos
-      if (_called_initialize) {
-          this->finalize();
-      } 
-  };
-
-  // initialize Kokkos if not already initialized using
-  // arguments provided at object construction
-  int initialize(int argc, char*[], bool print_status = false);
-  
-  // finalize Kokkos if this object initialized it
-  // or if hard_finalize is true
-  int finalize(bool hard_finalize = false);
+      delete ksg;
+  }
 
   // prints Kokkos configuration
-  void status() const;
+  static void status();
 
   // prohibit using the assignment constructor
   KokkosParser& operator=( const KokkosParser& ) = delete;

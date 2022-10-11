@@ -1058,11 +1058,26 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
         return convert_kokkos_to_np(quadrature.getSites());
     });
 
+    py::class_<Kokkos::InitArguments>(m, "KokkosInitArguments")
+    .def(py::init<int, int, int, bool, bool>(), 
+            py::arg("num_threads") = -1, py::arg("num_numa") = -1, py::arg("device_id") = -1,
+            py::arg("disable_warnings") = false, py::arg("tune_internals") = false);
+
     py::class_<KokkosParser>(m, "KokkosParser")
+    .def(py::init<Kokkos::InitArguments>(), py::arg("print") = false)
     .def(py::init<std::vector<std::string>,bool>(), py::arg("args"), py::arg("print") = false)
     .def(py::init<bool>(), py::arg("print") = false)
-    .def("finalize", &KokkosParser::finalize, py::arg("hard_finalize") = false)
-    .def("status", &KokkosParser::status);
+    .def_static("initialize", [](py::list args) {
+      std::vector<char*> char_args;
+      for (py::handle arg : args) {
+          char_args.push_back((char*)py::cast<std::string>(arg).data());
+      }
+      char_args.push_back(nullptr);
+      int argc = (int)args.size();
+      Kokkos::initialize(argc, char_args.data());     
+    })
+    .def_static("finalize", &Kokkos::finalize)
+    .def_static("status", &KokkosParser::status);
 
     m.def("getNP", &GMLS::getNP, R"pbdoc(
         Get size of basis.

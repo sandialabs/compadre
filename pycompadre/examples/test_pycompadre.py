@@ -1,4 +1,5 @@
 from kokkos_test_case import KokkosTestCase
+from unittest import TestCase
 import numpy as np
 import math
 import random
@@ -219,12 +220,30 @@ def remap(polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5,reco
         return l2_error, h1_seminorm_error, additional_sites_l2_error
     return l2_error, h1_seminorm_error
 
+class TestKokkosParser(TestCase):
+
+    def test_init_and_finalize(self):
+        pycompadre.KokkosParser.initialize(sys.argv)
+        pycompadre.KokkosParser.finalize()
+
+    def test_scope_guard(self):
+        pycompadre.KokkosParser(sys.argv)
+
+    def test_init_arguments(self):
+        kia = pycompadre.KokkosInitArguments()
+        pycompadre.KokkosParser(kia)
 
 class TestPyCOMPADRE(KokkosTestCase):
 
     # most tests are added from a dictionary below 
 
+    def test_kokkos_double_initialize(self):
+
+        # setup class for KokkosTestCase already initialized Kokkos
+        kp = pycompadre.KokkosParser(sys.argv)
+
     def test_1d_line_quadrature(self):
+
         # integrand
         f = lambda x: -3 + x - x**2
         # exact integral
