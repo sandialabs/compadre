@@ -1061,6 +1061,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     py::class_<KokkosParser>(m, "KokkosParser")
     .def(py::init<std::vector<std::string>,bool>(), py::arg("args"), py::arg("print") = false)
     .def(py::init<bool>(), py::arg("print") = false)
+    .def("finalize", &KokkosParser::finalize, py::arg("hard_finalize") = false)
     .def("status", &KokkosParser::status);
 
     m.def("getNP", &GMLS::getNP, R"pbdoc(
