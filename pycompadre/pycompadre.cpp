@@ -821,10 +821,12 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     // helper functions
     py::class_<ParticleHelper>(m, "ParticleHelper", R"pbdoc(
         Class to manage calling PointCloudSearch, moving data to/from Numpy arrays in Kokkos::Views,
-        and applying GMLS solutions to multidimensional data arrays
+        and applying GMLS solutions to multidimensional data arrays 
     )pbdoc")
-    .def(py::init<>())
-    .def(py::init<GMLS*>(),py::arg("gmls_instance"))
+    .def(py::init<>(), R"pbdoc(
+        Requires follow-on call to setGMLSObject(gmls_obj) before use
+    )pbdoc")
+    .def(py::init<GMLS*>(), py::arg("gmls_instance"))
     .def("generateKDTree", overload_cast_<py::array_t<double> >()(&ParticleHelper::generateKDTree))
     .def("generateNeighborListsFromKNNSearchAndSet", &ParticleHelper::generateNeighborListsFromKNNSearchAndSet, 
             py::arg("target_sites"), py::arg("poly_order"), py::arg("dimension") = 3, py::arg("epsilon_multiplier") = 1.6, 
@@ -1058,26 +1060,38 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
         return convert_kokkos_to_np(quadrature.getSites());
     });
 
-    py::class_<Kokkos::InitArguments>(m, "KokkosInitArguments")
+    auto m_kokkos = m.def_submodule("Kokkos", R"pbdoc(
+        Namespace with a subset of Kokkos functionality. KokkosParser class should be preferred.
+    )pbdoc");
+    py::class_<Kokkos::InitArguments>(m_kokkos, "InitArguments")
     .def(py::init<int, int, int, bool, bool>(), 
             py::arg("num_threads") = -1, py::arg("num_numa") = -1, py::arg("device_id") = -1,
             py::arg("disable_warnings") = false, py::arg("tune_internals") = false);
 
-    py::class_<KokkosParser>(m, "KokkosParser")
-    .def(py::init<Kokkos::InitArguments>(), py::arg("print") = false)
+    m_kokkos
+    .def("initialize", overload_cast_<Kokkos::InitArguments>()(&Kokkos::initialize), 
+            py::arg("init_args") = Kokkos::InitArguments())
+    .def("initialize", [](py::list args) {
+        std::vector<char*> char_args;
+        for (py::handle arg : args) {
+            char_args.push_back((char*)py::cast<std::string>(arg).data());
+        }
+        char_args.push_back(nullptr);
+        int argc = (int)args.size();
+        Kokkos::initialize(argc, char_args.data());     
+    })
+    .def("finalize", &Kokkos::finalize)
+    .def("status", &KokkosParser::status);
+
+    py::class_<KokkosParser>(m, "KokkosParser", R"pbdoc(
+        Class wrapping the functionality of Kokkos::ScopeGuard. Multiple instances can  
+        can be instantiated and go out of scope with only one instance initiating Kokkos
+        and the last instance finalizing Kokkos when it goes out of scope.
+    )pbdoc")
+    .def(py::init<Kokkos::InitArguments,bool>(), py::arg("init_args"), py::arg("print") = false)
     .def(py::init<std::vector<std::string>,bool>(), py::arg("args"), py::arg("print") = false)
     .def(py::init<bool>(), py::arg("print") = false)
-    .def_static("initialize", [](py::list args) {
-      std::vector<char*> char_args;
-      for (py::handle arg : args) {
-          char_args.push_back((char*)py::cast<std::string>(arg).data());
-      }
-      char_args.push_back(nullptr);
-      int argc = (int)args.size();
-      Kokkos::initialize(argc, char_args.data());     
-    })
-    .def_static("finalize", &Kokkos::finalize)
-    .def_static("status", &KokkosParser::status);
+    .def("status", &KokkosParser::status);
 
     m.def("getNP", &GMLS::getNP, R"pbdoc(
         Get size of basis.

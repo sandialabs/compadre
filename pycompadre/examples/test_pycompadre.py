@@ -222,16 +222,36 @@ def remap(polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5,reco
 
 class TestKokkosParser(TestCase):
 
-    def test_init_and_finalize(self):
-        pycompadre.KokkosParser.initialize(sys.argv)
-        pycompadre.KokkosParser.finalize()
+    def test_init_and_finalize_sysargv(self):
+        pycompadre.Kokkos.initialize(sys.argv)
+        pycompadre.Kokkos.finalize()
 
-    def test_scope_guard(self):
+    def test_init_and_finalize_empty(self):
+        pycompadre.Kokkos.initialize()
+        pycompadre.Kokkos.finalize()
+
+    def test_init_and_finalize_list(self):
+        pycompadre.Kokkos.initialize(["--kokkos-num-threads=4"])
+        pycompadre.Kokkos.finalize()
+
+    def test_init_and_finalize_initarguments(self):
+        kia = pycompadre.Kokkos.InitArguments()
+        pycompadre.Kokkos.initialize(kia)
+        pycompadre.Kokkos.finalize()
+
+    def test_scope_guard_sysargv(self):
         pycompadre.KokkosParser(sys.argv)
 
-    def test_init_arguments(self):
-        kia = pycompadre.KokkosInitArguments()
+    def test_scope_guard_empty(self):
+        pycompadre.KokkosParser()
+
+    def test_scope_guard_list(self):
+        pycompadre.KokkosParser(["--kokkos-num-threads=4"])
+
+    def test_scope_guard_initarguments(self):
+        kia = pycompadre.Kokkos.InitArguments()
         pycompadre.KokkosParser(kia)
+
 
 class TestPyCOMPADRE(KokkosTestCase):
 
