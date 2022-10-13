@@ -1091,7 +1091,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .def(py::init<Kokkos::InitArguments,bool>(), py::arg("init_args"), py::arg("print") = false)
     .def(py::init<std::vector<std::string>,bool>(), py::arg("args"), py::arg("print") = false)
     .def(py::init<bool>(), py::arg("print") = false)
-    .def("status", &KokkosParser::status);
+    .def_static("status", &KokkosParser::status);
 
     m.def("getNP", &GMLS::getNP, R"pbdoc(
         Get size of basis.

@@ -3,6 +3,7 @@
 
 #include "Compadre_Config.h"
 #include "Compadre_Typedefs.hpp"
+#include <sstream>
 
 namespace Compadre {
 
@@ -37,7 +38,7 @@ public:
   }
 
   // prints Kokkos configuration
-  static void status();
+  static std::string status();
 
   // prohibit using the assignment constructor
   KokkosParser& operator=( const KokkosParser& ) = delete;

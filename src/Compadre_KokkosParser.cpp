@@ -28,6 +28,9 @@ KokkosParser::KokkosParser(std::vector<std::string> stdvec_args, bool print_stat
 
 KokkosParser::KokkosParser(bool print_status) : KokkosParser(Kokkos::InitArguments(), print_status) {}
 
-void KokkosParser::status() {
-    Kokkos::print_configuration(std::cout, true);
+std::string KokkosParser::status() {
+    std::stringstream stream;
+    Kokkos::print_configuration(stream, true);
+    std::string status = stream.str();
+    return status;
 }
