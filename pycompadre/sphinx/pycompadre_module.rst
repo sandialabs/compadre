@@ -62,5 +62,5 @@ pycompadre.Quadrature
 pycompadre.Kokkos
 --------------------------------------------------
 .. automodule:: pycompadre.Kokkos
-   :members: initialize, finalize, status
+   :members: initialize, finalize, is_initialized, status
    :noindex:

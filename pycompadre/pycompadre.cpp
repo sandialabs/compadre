@@ -1081,6 +1081,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
         Kokkos::initialize(argc, char_args.data());     
     })
     .def("finalize", &Kokkos::finalize)
+    .def("is_initialized", &Kokkos::is_initialized)
     .def("status", &KokkosParser::status);
 
     py::class_<KokkosParser>(m, "KokkosParser", R"pbdoc(
