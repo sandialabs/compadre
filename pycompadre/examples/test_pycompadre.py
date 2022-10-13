@@ -1,4 +1,5 @@
 from kokkos_test_case import KokkosTestCase
+from unittest import TestCase, skipIf
 import numpy as np
 import math
 import random
@@ -20,7 +21,14 @@ try:
 except:
     from functools import partialmethod
 
-
+def skip_additional_initializes_for_kokkos():
+    # don't reinitialize with CUDA
+    # get status
+    st = pycompadre.Kokkos.status()
+    if "KOKKOS_ENABLE_CUDA: yes" in st:
+        return True
+    return False
+kokkos_skip_check = skipIf(skip_additional_initializes_for_kokkos(), "Can't reinitialize Kokkos with CUDA")
 
 # function used to generate sample data
 def exact(coord,order,dimension):
@@ -219,12 +227,58 @@ def remap(polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5,reco
         return l2_error, h1_seminorm_error, additional_sites_l2_error
     return l2_error, h1_seminorm_error
 
+class TestKokkosParser(TestCase):
+
+    @kokkos_skip_check
+    def test_init_and_finalize_sysargv(self):
+        pycompadre.Kokkos.initialize(sys.argv)
+        pycompadre.Kokkos.finalize()
+
+    @kokkos_skip_check
+    def test_init_and_finalize_empty(self):
+        pycompadre.Kokkos.initialize()
+        pycompadre.Kokkos.finalize()
+
+    @kokkos_skip_check
+    def test_init_and_finalize_list(self):
+        pycompadre.Kokkos.initialize(["--kokkos-num-threads=4"])
+        pycompadre.Kokkos.finalize()
+
+    @kokkos_skip_check
+    def test_init_and_finalize_initarguments(self):
+        kia = pycompadre.Kokkos.InitArguments()
+        pycompadre.Kokkos.initialize(kia)
+        pycompadre.Kokkos.finalize()
+
+    @kokkos_skip_check
+    def test_scope_guard_sysargv(self):
+        pycompadre.KokkosParser(sys.argv)
+
+    @kokkos_skip_check
+    def test_scope_guard_empty(self):
+        pycompadre.KokkosParser()
+
+    @kokkos_skip_check
+    def test_scope_guard_list(self):
+        pycompadre.KokkosParser(["--kokkos-num-threads=4"])
+
+    @kokkos_skip_check
+    def test_scope_guard_initarguments(self):
+        kia = pycompadre.Kokkos.InitArguments()
+        pycompadre.KokkosParser(kia)
+
 
 class TestPyCOMPADRE(KokkosTestCase):
 
     # most tests are added from a dictionary below 
 
+    def test_kokkos_double_initialize(self):
+
+        # setup class for KokkosTestCase already initialized Kokkos
+        kp = pycompadre.KokkosParser(sys.argv)
+
     def test_1d_line_quadrature(self):
+
         # integrand
         f = lambda x: -3 + x - x**2
         # exact integral

@@ -20,7 +20,6 @@ TEST (KokkosInitialize, NoArgsGiven) {
             // default constructor is hidden for KokkosParser
             // but still visible from this test
             auto kp = Compadre::KokkosParser(false);
-            kp.finalize();
     });
 }
 TEST (KokkosInitialize, NoCommandLineArgsGiven) { 
@@ -42,7 +41,6 @@ TEST (KokkosInitialize, NoCommandLineArgsGiven) {
 #endif
     ASSERT_NO_DEATH({
             auto kp = KokkosParser(arguments);
-            kp.finalize();
     });
 }
 
@@ -61,14 +59,14 @@ int main(int argc, char **argv) {
     int sig = RUN_ALL_TESTS();
 
     // initializes kokkos
-    auto kp = KokkosParser(argc, argv, true);
+    Kokkos::initialize(argc, argv);
 
     // execute all tests
     ::testing::GTEST_FLAG(filter) = "-Kokkos*";
     sig += RUN_ALL_TESTS();
 
     // finalize Kokkos and MPI (if available)
-    kp.finalize();
+    Kokkos::finalize();
 
     // finialize MPI (if available)
     #ifdef COMPADRE_USE_MPI

@@ -10,19 +10,22 @@ Classes
 pycompadre.KokkosParser
 --------------------------------------------------
 .. autoclass:: pycompadre.KokkosParser
-   :members:
+   :members: 
+   :special-members: __init__
    :noindex:
 
 pycompadre.GMLS
 --------------------------------------------------
 .. autoclass:: pycompadre.GMLS
-   :members:
+   :members: 
+   :special-members: __init__
    :noindex:
 
 pycompadre.ParticleHelper
 --------------------------------------------------
 .. autoclass:: pycompadre.ParticleHelper
    :members:
+   :special-members: __init__
    :noindex:
 
 pycompadre.ReconstructionSpace
@@ -47,4 +50,17 @@ pycompadre.NeighborLists
 --------------------------------------------------
 .. autoclass:: pycompadre.NeighborLists
    :members:
+   :noindex:
+
+pycompadre.Quadrature
+--------------------------------------------------
+.. autoclass:: pycompadre.Quadrature
+   :members:
+   :special-members: __init__
+   :noindex:
+
+pycompadre.Kokkos
+--------------------------------------------------
+.. automodule:: pycompadre.Kokkos
+   :members: initialize, finalize, is_initialized, status
    :noindex:
