@@ -207,8 +207,8 @@ int main (int argc, char* args[]) {
 
 
             //if (parameters->get<Teuchos::ParameterList>("remap").get<bool>("cell averaged")) {
-            //    Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
-            //    //Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+            //    Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
+            //    //Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
             //    //Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
             //    r0.setSourceExtraData(extra_data_name);
             //    r0.setTargetExtraData(extra_data_name);
@@ -216,8 +216,8 @@ int main (int argc, char* args[]) {
             //    r0.setOptimizationObject(opt_obj_0);
             //    rm_right_to_left->add(r0);
 
-            //    Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
-            //    //Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+            //    Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
+            //    //Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
             //    //Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
             //    r1.setSourceExtraData(extra_data_name);
             //    r1.setTargetExtraData(extra_data_name);
@@ -225,8 +225,8 @@ int main (int argc, char* args[]) {
             //    r1.setOptimizationObject(opt_obj_1);
             //    rm_right_to_left->add(r1);
 
-            //    Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
-            //    //Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+            //    Compadre::RemapObject r2("Topography", "Topography", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
+            //    //Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
             //    //Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
             //    r2.setSourceExtraData(extra_data_name);
             //    r2.setTargetExtraData(extra_data_name);
@@ -234,14 +234,14 @@ int main (int argc, char* args[]) {
             //    r2.setOptimizationObject(opt_obj_2);
             //    rm_right_to_left->add(r2);
 
-            //    Compadre::RemapObject r3("AnalyticalFun1", "AnalyticalFun1", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+            //    Compadre::RemapObject r3("AnalyticalFun1", "AnalyticalFun1", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
             //    r3.setSourceExtraData(extra_data_name);
             //    r3.setTargetExtraData(extra_data_name);
             //    Compadre::OptimizationObject opt_obj_3 = Compadre::OptimizationObject(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm"), true /*single linear bound*/, preserve_local_bounds);
             //    r3.setOptimizationObject(opt_obj_3);
             //    rm_right_to_left->add(r3);
 
-            //    Compadre::RemapObject r4("AnalyticalFun2", "AnalyticalFun2", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+            //    Compadre::RemapObject r4("AnalyticalFun2", "AnalyticalFun2", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
             //    r4.setSourceExtraData(extra_data_name);
             //    r4.setTargetExtraData(extra_data_name);
             //    Compadre::OptimizationObject opt_obj_4 = Compadre::OptimizationObject(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm"), true /*single linear bound*/, preserve_local_bounds);
@@ -280,8 +280,8 @@ int main (int argc, char* args[]) {
             std::string extra_data_name = parameters->get<Teuchos::ParameterList>("remap").get<std::string>("extra data field name");
 
             if (parameters->get<Teuchos::ParameterList>("remap").get<bool>("cell averaged")) {
-                Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
-                //Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
+                //Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
                 //Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                 r0.setSourceExtraData(extra_data_name);
                 r0.setTargetExtraData(extra_data_name);
@@ -291,8 +291,8 @@ int main (int argc, char* args[]) {
                 rm_left_to_right->add(r0);
                 rm_right_to_left->add(r0);
 
-                Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
-                //Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
+                //Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
                 //Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                 r1.setSourceExtraData(extra_data_name);
                 r1.setTargetExtraData(extra_data_name);
@@ -302,8 +302,8 @@ int main (int argc, char* args[]) {
                 rm_left_to_right->add(r1);
                 rm_right_to_left->add(r1);
 
-                Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
-                //Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                Compadre::RemapObject r2("Topography", "Topography", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
+                //Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
                 //Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                 r2.setSourceExtraData(extra_data_name);
                 r2.setTargetExtraData(extra_data_name);
@@ -313,7 +313,7 @@ int main (int argc, char* args[]) {
                 rm_left_to_right->add(r2);
                 rm_right_to_left->add(r2);
 
-                Compadre::RemapObject r3("AnalyticalFun1", "AnalyticalFun1", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                Compadre::RemapObject r3("AnalyticalFun1", "AnalyticalFun1", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
                 r3.setSourceExtraData(extra_data_name);
                 r3.setTargetExtraData(extra_data_name);
                 //r3.setNormalDirections("tangent_bundle");
@@ -322,7 +322,7 @@ int main (int argc, char* args[]) {
                 rm_left_to_right->add(r3);
                 rm_right_to_left->add(r3);
 
-                Compadre::RemapObject r4("AnalyticalFun2", "AnalyticalFun2", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                Compadre::RemapObject r4("AnalyticalFun2", "AnalyticalFun2", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
                 r4.setSourceExtraData(extra_data_name);
                 r4.setTargetExtraData(extra_data_name);
                 //r4.setNormalDirections("tangent_bundle");

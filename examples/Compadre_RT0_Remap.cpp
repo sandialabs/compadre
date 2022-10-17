@@ -147,15 +147,15 @@ int main (int argc, char* args[]) {
                 ro.setSourceExtraData("combined_extra_data");
                 rm->add(ro);
             } else if (remap_type == "face normal point") {
-                Compadre::RemapObject ro("u_point_normal", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, FaceNormalPointSample, PointSample);
+                Compadre::RemapObject ro("u_point_normal", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, FaceNormalAverageSample, PointSample);
                 ro.setSourceExtraData("combined_extra_data");
                 rm->add(ro);
             } else if (remap_type == "face tangent integrated") {
-                Compadre::RemapObject ro("u_integrated_tangent", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, FaceTangentIntegralSample, PointSample);
+                Compadre::RemapObject ro("u_integrated_tangent", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, EdgeTangentIntegralSample, PointSample);
                 ro.setSourceExtraData("combined_extra_data");
                 rm->add(ro);
             } else if (remap_type == "face tangent point") {
-                Compadre::RemapObject ro("u_point_tangent", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, FaceTangentPointSample, PointSample);
+                Compadre::RemapObject ro("u_point_tangent", "velocity", TargetOperation::VectorPointEvaluation, ReconstructionSpace::VectorTaylorPolynomial, EdgeTangentAverageSample, PointSample);
                 ro.setSourceExtraData("combined_extra_data");
                 rm->add(ro);
             }
@@ -168,7 +168,8 @@ int main (int argc, char* args[]) {
             NormTime->start();
 
             Teuchos::RCP<Compadre::AnalyticFunction> function;
-            function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2)));
+            //function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2)));
+            function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::FirstOrderBasis(2)));
 
             ST physical_coordinate_weighted_l2_norm = 0;
             ST exact_coordinate_weighted_l2_norm = 0;

@@ -268,12 +268,15 @@ if (CompadreHarness_EXAMPLES)
     ADD_TEST(NAME UnitTests COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 1 ${CMAKE_CURRENT_BINARY_DIR}/unitTests.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/explicit/parameters_rk_exact.xml" "--kokkos-threads=2")
     SET_TESTS_PROPERTIES(UnitTests PROPERTIES LABELS "unit;")
 
-    ## RT0 REMAP TO VECTOR TEST
-    #ADD_TEST(NAME RT0Remap COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/RT0Remap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_RT0.yml" "--kokkos-threads=2")
-    #SET_TESTS_PROPERTIES(RT0Remap PROPERTIES LABELS "rt0")
+    # RT0 REMAP TO VECTOR TEST
+    ADD_TEST(NAME RT0Remap COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/RT0Remap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_RT0.yml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(RT0Remap PROPERTIES LABELS "rt0")
 
-    ADD_TEST(NAME FVRemap COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/FVRemap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_FV.yml" "--kokkos-threads=2")
-    SET_TESTS_PROPERTIES(FVRemap PROPERTIES LABELS "fv")
+    ADD_TEST(NAME FVRemapAverage COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/FVRemap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_FV.yml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(FVRemapAverage PROPERTIES LABELS "fv")
+
+    ADD_TEST(NAME FVRemapIntegral COMMAND "mpirun" ${OPENMPI_FLAG} "-np" 4 ${CMAKE_CURRENT_BINARY_DIR}/FVRemap.exe "--i=${CMAKE_CURRENT_SOURCE_DIR}/../test_data/parameter_lists/remap/parameters_FV_integral.yml" "--kokkos-threads=2")
+    SET_TESTS_PROPERTIES(FVRemapIntegral PROPERTIES LABELS "fv")
 
     # ADVECTION DIFFUSION TESTS
     

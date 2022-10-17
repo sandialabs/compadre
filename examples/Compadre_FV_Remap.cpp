@@ -62,6 +62,11 @@ int main (int argc, char* args[]) {
     Teuchos::RCP<Teuchos::Time> WriteTime = Teuchos::TimeMonitor::getNewCounter ("Write Time");
     Teuchos::RCP<Teuchos::Time> NormTime = Teuchos::TimeMonitor::getNewCounter ("Norm calculation");
 
+    bool average_by_area = true;
+    try { 
+        average_by_area = parameters->get<Teuchos::ParameterList>("remap").get<bool>("average by area");
+    } catch (...) {}
+
             Teuchos::RCP<Compadre::AnalyticFunction> function;
             //function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(2)));
             function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ThirdOrderBasis(2)));
@@ -157,7 +162,9 @@ int main (int argc, char* args[]) {
 
                     }
                 }
-                u_cell_average_view(j,0) /= area;
+                if (average_by_area) {
+                    u_cell_average_view(j,0) /= area;
+                }
                 
                 // evaluate at target sites
                 xyz_type xyz = coords->getLocalCoords(j);
@@ -171,13 +178,23 @@ int main (int argc, char* args[]) {
 
             std::string remap_type = parameters->get<std::string>("remap type");
 
-            Compadre::RemapObject ro("u_cell_average", "pressure", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
-            ro.setSourceExtraData("vertex_points");
-            rm->add(ro);
+            if (average_by_area) {
+                Compadre::RemapObject ro("u_cell_average", "pressure", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
+                ro.setSourceExtraData("vertex_points");
+                rm->add(ro);
 
-            Compadre::RemapObject ro2("u_point_value", "u_remap_cell_average", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, PointSample);
-            ro2.setTargetExtraData("vertex_points");
-            rm->add(ro2);
+                Compadre::RemapObject ro2("u_point_value", "u_remap_cell_average", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, PointSample);
+                ro2.setTargetExtraData("vertex_points");
+                rm->add(ro2);
+            } else {
+                Compadre::RemapObject ro("u_cell_average", "pressure", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellIntegralSample, PointSample);
+                ro.setSourceExtraData("vertex_points");
+                rm->add(ro);
+
+                Compadre::RemapObject ro2("u_point_value", "u_remap_cell_average", TargetOperation::CellIntegralEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, PointSample);
+                ro2.setTargetExtraData("vertex_points");
+                rm->add(ro2);
+            }
 
             rm->execute();
 

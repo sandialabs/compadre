@@ -16,7 +16,9 @@ def x2my(coordinate):
 
 def get_velocity(coordinate):
     #return np.array((np.sin(coordinate[0]), np.cos(coordinate[1])))
-    return np.array((sinx_siny(coordinate), -sinx_siny(coordinate))) # make sure same solution used in remap
+    #return np.array((sinx_siny(coordinate), -sinx_siny(coordinate))) # make sure same solution used in remap
+    #return np.array((x2my(coordinate), -3.0*x2my(coordinate))) # make sure same solution used in remap
+    return np.array((coordinate[0] + coordinate[1], -coordinate[0] - coordinate[1])) # make sure same solution used in remap
 
 def get_unit_normal_vector(line_coordinates):
     # (x0,y0,x1,y1) are given
@@ -49,7 +51,8 @@ def integrand(x, line_coordinates, unit_normal_vector):
     # need transformation from [0,1] to the line segment from (x0,y0) to (x1,y1)
 
     # calculate quadrature_coordinate
-    quadrature_coordinate = x*line_coordinates[0:2] + (1-x)*line_coordinates[2:4]
+    #quadrature_coordinate = x*line_coordinates[0:2] + (1-x)*line_coordinates[2:4]
+    quadrature_coordinate = line_coordinates[0:2] + x*(line_coordinates[2:4]-line_coordinates[0:2])
     
     # diagnostics
     # first get the quadrature
@@ -83,7 +86,7 @@ def dot_with_normal_vector(unit_normal_vector, unit_tangent_vector, line_coordin
  
     return (np.dot(unit_normal_vector, velocity), np.dot(unit_tangent_vector, velocity))
 
-vis = False
+vis = True
 
 # geometry
 height = 1.0
