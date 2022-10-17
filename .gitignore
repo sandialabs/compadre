@@ -5,4 +5,8 @@ toolkit/kokkos/*
 toolkit/kokkos-kernels/*
 toolkit/scripts/trilinos-configure.sh
 toolkit/src/CMakeLists.tribits.cmake
+toolkit/.github
+toolkit/build
+toolkit/pycompadre*
+**/.DS_Store
 build/*

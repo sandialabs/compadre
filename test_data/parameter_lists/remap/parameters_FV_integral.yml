@@ -23,7 +23,7 @@ Compadre:
     'quadrature order': 4
     'quadrature dimension': 2
     'dimensions': 2
-    'average by area': true
+    'average by area': false
   'neighborhood':
     'method': nanoflann
     'size': 0.25

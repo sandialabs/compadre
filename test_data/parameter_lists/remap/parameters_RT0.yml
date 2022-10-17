@@ -2,7 +2,7 @@
 ---
 Compadre:
   'remap type': 'face normal integrated'
-  #'remap type': 'face normal point'
+  #remap type': 'face normal point'
   #'remap type': 'face tangent integrated'
   #'remap type': 'face tangent point'
   'io':
@@ -13,15 +13,17 @@ Compadre:
     'input file2': 'native_1.nc'
     'output file prefix': '../test_data/'
     # data reconstructed on target
-    'output file': 'vector_out.pvtu'
+    'output file': 'vector_out.nc'
     # source data as pvtu
-    'output file2': 'vector_in.pvtu'
+    'output file2': 'vector_in.nc'
   'remap':
     'porder': 3
     'curvature porder': 3
     'weighting parameter 0': 12
     'curvature weighting parameter 0': 12
-    'quadrature points': 4
+    'quadrature order': 3
+    'quadrature dimension': 1
+    'quadrature type': 'LINE'
     'dimensions': 2
   'neighborhood':
     'method': nanoflann
@@ -29,5 +31,5 @@ Compadre:
     'cutoff multiplier': 2.5
   'halo':
     'dynamic': true
-    'multiplier': 4.0
+    'multiplier': 16.0
 ...
