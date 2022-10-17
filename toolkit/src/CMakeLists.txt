@@ -29,14 +29,6 @@ target_include_directories(compadre PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOU
 target_include_directories(compadre PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/constraints>)
 target_include_directories(compadre PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/tpl>)
 
-# openmp if needed
-if (Compadre_USE_OPENMP)
-  find_package(OpenMP QUIET)
-  if(OpenMP_CXX_FOUND)
-      target_link_libraries(compadre PUBLIC OpenMP::OpenMP_CXX)
-  endif()
-endif()
-
 # link to Kokkos
 if (KOKKOS_EXISTING_ELSEWHERE) # user points to Kokkos installation
   target_link_libraries(compadre PUBLIC Kokkos::kokkoscore)

@@ -226,28 +226,33 @@ struct NeighborLists {
 
     //! Get number of neighbors for a given target (host)
     int getNumberOfNeighborsHost(int target_index) const {
+        compadre_assert_extreme_debug(target_index < this->getNumberOfTargets());
         return _host_number_of_neighbors_list(target_index);
     }
 
     //! Get number of neighbors for a given target (device)
     KOKKOS_INLINE_FUNCTION
     int getNumberOfNeighborsDevice(int target_index) const {
+        compadre_kernel_assert_extreme_debug(target_index < this->getNumberOfTargets());
         return _number_of_neighbors_list(target_index);
     }
 
     //! Get offset into compressed row neighbor lists (host)
     global_index_type getRowOffsetHost(int target_index) const {
+        compadre_assert_extreme_debug(target_index < this->getNumberOfTargets());
         return _host_row_offsets(target_index);
     }
 
     //! Get offset into compressed row neighbor lists (device)
     KOKKOS_INLINE_FUNCTION
     global_index_type getRowOffsetDevice(int target_index) const {
+        compadre_kernel_assert_extreme_debug(target_index < this->getNumberOfTargets());
         return _row_offsets(target_index);
     }
 
     //! Offers N(i,j) indexing where N(i,j) is the index of the jth neighbor of i (host)
     int getNeighborHost(int target_index, int neighbor_num) const {
+        compadre_assert_extreme_debug(target_index < this->getNumberOfTargets());
         compadre_assert_debug((!_needs_sync_to_host) 
                 && "Stale information in host_cr_neighbor_lists. Call CopyDeviceDataToHost() to refresh.");
         compadre_assert_debug((neighbor_num<_host_number_of_neighbors_list(target_index))
@@ -258,6 +263,9 @@ struct NeighborLists {
     //! Offers N(i,j) indexing where N(i,j) is the index of the jth neighbor of i (device)
     KOKKOS_INLINE_FUNCTION
     int getNeighborDevice(int target_index, int neighbor_num) const {
+        compadre_kernel_assert_extreme_debug((neighbor_num<_number_of_neighbors_list(target_index))
+                && "neighor_num exceeds number of neighbors for this target_index.");
+        compadre_kernel_assert_extreme_debug(target_index < this->getNumberOfTargets());
         return _cr_neighbor_lists(_row_offsets(target_index)+neighbor_num);
     }
 

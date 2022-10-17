@@ -179,19 +179,19 @@ int main (int argc, char* args[]) {
             std::string remap_type = parameters->get<std::string>("remap type");
 
             if (average_by_area) {
-                Compadre::RemapObject ro("u_cell_average", "pressure", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                Compadre::RemapObject ro("u_cell_average", "pressure", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
                 ro.setSourceExtraData("vertex_points");
                 rm->add(ro);
 
-                Compadre::RemapObject ro2("u_point_value", "u_remap_cell_average", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, PointSample);
+                Compadre::RemapObject ro2("u_point_value", "u_remap_cell_average", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, PointSample);
                 ro2.setTargetExtraData("vertex_points");
                 rm->add(ro2);
             } else {
-                Compadre::RemapObject ro("u_cell_average", "pressure", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceIntegralSample, PointSample);
+                Compadre::RemapObject ro("u_cell_average", "pressure", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellIntegralSample, PointSample);
                 ro.setSourceExtraData("vertex_points");
                 rm->add(ro);
 
-                Compadre::RemapObject ro2("u_point_value", "u_remap_cell_average", TargetOperation::ScalarFaceIntegralEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, PointSample);
+                Compadre::RemapObject ro2("u_point_value", "u_remap_cell_average", TargetOperation::CellIntegralEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample, PointSample);
                 ro2.setTargetExtraData("vertex_points");
                 rm->add(ro2);
             }

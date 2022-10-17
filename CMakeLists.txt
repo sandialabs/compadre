@@ -1,11 +1,11 @@
-cmake_minimum_required(VERSION 3.14.0)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.16.0 FATAL_ERROR)
 
 ##########
 #
 #   CompadreHarness Details
 #
 ########## 
-PROJECT(CompadreHarness VERSION 1.3.1 LANGUAGES CXX)
+PROJECT(CompadreHarness VERSION 1.5.3 LANGUAGES CXX)
 
 # cmake helper functions
 include(${CMAKE_CURRENT_LIST_DIR}/toolkit/cmake/bob.cmake)
@@ -39,7 +39,10 @@ bob_option(CompadreHarness_USE_Trilinos_Solvers "Use Trilinos Linear Algebra cap
 bob_option(CompadreHarness_USE_Trilinos_CXX_Flags "Use Trilinos CXX flags" ON)
 
 SET(TRILINOS_LINEAR_SOLVES OFF)
-FIND_PACKAGE(Trilinos)
+FIND_PACKAGE(Trilinos REQUIRED)
+if (Trilinos_VERSION VERSION_LESS 13.0 OR Trilinos_VERSION VERSION_GREATER 13.2)
+    message(FATAL_ERROR "Trilinos version must be in [13.0.0,13.0.2], range inclusive")
+endif()
 
 LIST(REVERSE Trilinos_INCLUDE_DIRS)
 LIST(REMOVE_DUPLICATES Trilinos_INCLUDE_DIRS)

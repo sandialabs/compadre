@@ -304,35 +304,35 @@ int main (int argc, char* args[]) {
                 } else if (my_coloring == 33) {
                     if (parameters->get<Teuchos::ParameterList>("remap").get<bool>("cell averaged")) {
                          std::string extra_data_name = parameters->get<Teuchos::ParameterList>("remap").get<std::string>("extra data field name");
-                        Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
-                        //Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                        Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
+                        //Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
                         //Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                         r0.setSourceExtraData(extra_data_name);
                         Compadre::OptimizationObject opt_obj_0 = Compadre::OptimizationObject(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm"), true /*single linear bound*/, true /*bounds preservation*/, 0, 1.0e+15);
                         r0.setOptimizationObject(opt_obj_0);
                         remap_vec.push_back(r0);
 
-                        Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
-                        //Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                        Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
+                        //Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
                         //Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                         r1.setSourceExtraData(extra_data_name);
                         Compadre::OptimizationObject opt_obj_1 = Compadre::OptimizationObject(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm"), true /*single linear bound*/, true /*bounds preservation*/, 0, 1);
                         r1.setOptimizationObject(opt_obj_1);
                         remap_vec.push_back(r1);
 
-                        Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
-                        //Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                        Compadre::RemapObject r2("Topography", "Topography", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
+                        //Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
                         //Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                         r2.setSourceExtraData(extra_data_name);
                         Compadre::OptimizationObject opt_obj_2 = Compadre::OptimizationObject(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm"), true /*single linear bound*/, true /*bounds preservation*/, -1.0e+15, 1.0e+15);
                         r2.setOptimizationObject(opt_obj_2);
                         remap_vec.push_back(r2);
 
-                        Compadre::RemapObject r3("AnalyticalFun1", "AnalyticalFun1", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                        Compadre::RemapObject r3("AnalyticalFun1", "AnalyticalFun1", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
                         r3.setSourceExtraData(extra_data_name);
                         remap_vec.push_back(r3);
 
-                        Compadre::RemapObject r4("AnalyticalFun2", "AnalyticalFun2", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                        Compadre::RemapObject r4("AnalyticalFun2", "AnalyticalFun2", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
                         r4.setSourceExtraData(extra_data_name);
                         remap_vec.push_back(r4);
 
@@ -384,35 +384,35 @@ int main (int argc, char* args[]) {
                 } else if (my_coloring == 25) {
                     if (parameters->get<Teuchos::ParameterList>("remap").get<bool>("cell averaged")) {
                          std::string extra_data_name = parameters->get<Teuchos::ParameterList>("remap").get<std::string>("extra data field name");
-                        Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
-                        //Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                        Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
+                        //Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
                         //Compadre::RemapObject r0("TotalPrecipWater", "TotalPrecipWater", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                         r0.setSourceExtraData(extra_data_name);
                         Compadre::OptimizationObject opt_obj_0 = Compadre::OptimizationObject(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm"), true /*single linear bound*/, true /*bounds preservation*/, 0, 1.0e+15);
                         r0.setOptimizationObject(opt_obj_0);
                         remap_vec.push_back(r0);
 
-                        Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
-                        //Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                        Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
+                        //Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
                         //Compadre::RemapObject r1("CloudFraction", "CloudFraction", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                         r1.setSourceExtraData(extra_data_name);
                         Compadre::OptimizationObject opt_obj_1 = Compadre::OptimizationObject(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm"), true /*single linear bound*/, true /*bounds preservation*/, 0, 1);
                         r1.setOptimizationObject(opt_obj_1);
                         remap_vec.push_back(r1);
 
-                        Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
-                        //Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                        Compadre::RemapObject r2("Topography", "Topography", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
+                        //Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
                         //Compadre::RemapObject r2("Topography", "Topography", TargetOperation::ScalarPointEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, PointSample);
                         r2.setSourceExtraData(extra_data_name);
                         Compadre::OptimizationObject opt_obj_2 = Compadre::OptimizationObject(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("optimization algorithm"), true /*single linear bound*/, true /*bounds preservation*/, -1.0e+15, 1.0e+15);
                         r2.setOptimizationObject(opt_obj_2);
                         remap_vec.push_back(r2);
 
-                        Compadre::RemapObject r3("AnalyticalFun1", "AnalyticalFun1", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                        Compadre::RemapObject r3("AnalyticalFun1", "AnalyticalFun1", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
                         r3.setSourceExtraData(extra_data_name);
                         remap_vec.push_back(r3);
 
-                        Compadre::RemapObject r4("AnalyticalFun2", "AnalyticalFun2", TargetOperation::ScalarFaceAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, ScalarFaceAverageSample, PointSample);
+                        Compadre::RemapObject r4("AnalyticalFun2", "AnalyticalFun2", TargetOperation::CellAverageEvaluation, ReconstructionSpace::ScalarTaylorPolynomial, CellAverageSample, PointSample);
                         r4.setSourceExtraData(extra_data_name);
                         remap_vec.push_back(r4);
 
