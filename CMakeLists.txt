@@ -41,7 +41,7 @@ bob_option(CompadreHarness_USE_Trilinos_CXX_Flags "Use Trilinos CXX flags" ON)
 SET(TRILINOS_LINEAR_SOLVES OFF)
 FIND_PACKAGE(Trilinos REQUIRED)
 if (Trilinos_VERSION VERSION_LESS 13.0 OR Trilinos_VERSION VERSION_GREATER 13.2)
-    message(FATAL_ERROR "Trilinos version must be in [13.0.0,13.0.2], range inclusive")
+    message(FATAL_ERROR "Trilinos version must in 13.0.0...13.0.2")
 endif()
 
 LIST(REVERSE Trilinos_INCLUDE_DIRS)
