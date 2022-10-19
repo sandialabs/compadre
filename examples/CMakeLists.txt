@@ -40,7 +40,11 @@ if (Compadre_EXAMPLES)
   if (Compadre_TESTS)
 
     add_exe_w_compadre(UnitTests Compadre_UnitTests.cpp)
-    TARGET_LINK_LIBRARIES(UnitTests PRIVATE gtest)
+    if (Trilinos_PREFIX AND Trilinos_VERSION VERSION_GREATER_EQUAL 13.5)
+      TARGET_LINK_LIBRARIES(UnitTests PRIVATE Gtest::all_libs)
+    else()
+      TARGET_LINK_LIBRARIES(UnitTests PRIVATE gtest)
+    endif()
     ADD_TEST(UnitTests UnitTests)
     SET_TESTS_PROPERTIES(UnitTests PROPERTIES LABELS "UnitTest;unittest;Unit;unit")
 

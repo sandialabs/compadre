@@ -7,6 +7,24 @@
 
 namespace Compadre {
 
+// KOKKOS_VERSION % 100 is the patch level
+// KOKKOS_VERSION / 100 % 100 is the minor version
+// KOKKOS_VERSION / 10000 is the major version
+#ifdef KOKKOS_VERSION
+  #define KOKKOS_VERSION_MAJOR KOKKOS_VERSION / 10000
+  #define KOKKOS_VERSION_MINOR KOKKOS_VERSION / 100 % 100 
+  #if KOKKOS_VERSION_MAJOR  < 4
+    #if KOKKOS_VERSION_MINOR >= 7
+        using KokkosInitArguments = Kokkos::InitializationSettings;
+        #define KOKKOS_GREATEREQUAL_3_7
+    #elif KOKKOS_VERSION_MINOR < 7
+        using KokkosInitArguments = Kokkos::InitArguments;
+    #endif
+  #endif
+#else // older version
+  using KokkosInitArguments = Kokkos::InitArguments;
+#endif
+
 /*! \class KokkosParser
     \brief Class handling Kokkos command line arguments and returning parameters.
 */
@@ -22,7 +40,7 @@ private:
 public:
 
   // call with command line arguments
-  KokkosParser(Kokkos::InitArguments args, bool print_status = false);
+  KokkosParser(KokkosInitArguments args, bool print_status = false);
 
   // call with command line arguments
   KokkosParser(int argc, char* args[], bool print_status = false);

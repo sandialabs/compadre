@@ -3,14 +3,24 @@
 using namespace Compadre;
 
 // for InitArguments, pass them directly in to Kokkos
-KokkosParser::KokkosParser(Kokkos::InitArguments args, bool print_status) {
-    this->ksg = new Kokkos::ScopeGuard(args);
+KokkosParser::KokkosParser(KokkosInitArguments args, bool print_status) {
+    this->ksg = !Kokkos::is_initialized()
+#ifdef KOKKOS_GREATEREQUAL_3_7
+                && !Kokkos::is_finalized()
+#endif
+                ?
+                new Kokkos::ScopeGuard(args) : nullptr;
     if (print_status) this->status();
 }
 
 // for command line arguments, pass them directly in to Kokkos
 KokkosParser::KokkosParser(int narg, char* args[], bool print_status) {
-    this->ksg = new Kokkos::ScopeGuard(narg, args);
+    this->ksg = !Kokkos::is_initialized()
+#ifdef KOKKOS_GREATEREQUAL_3_7
+                && !Kokkos::is_finalized()
+#endif
+                ?
+                new Kokkos::ScopeGuard(narg, args) : nullptr;
     if (print_status) this->status();
 }
 
@@ -22,11 +32,16 @@ KokkosParser::KokkosParser(std::vector<std::string> stdvec_args, bool print_stat
     char_args.push_back(nullptr);
     int narg = (int)stdvec_args.size();
 
-    this->ksg = new Kokkos::ScopeGuard(narg, char_args.data());
+    this->ksg = !Kokkos::is_initialized()
+#ifdef KOKKOS_GREATEREQUAL_3_7
+                && !Kokkos::is_finalized()
+#endif
+                ?
+                new Kokkos::ScopeGuard(narg, char_args.data()) : nullptr;
     if (print_status) this->status();
 }
 
-KokkosParser::KokkosParser(bool print_status) : KokkosParser(Kokkos::InitArguments(), print_status) {}
+KokkosParser::KokkosParser(bool print_status) : KokkosParser(KokkosInitArguments(), print_status) {}
 
 std::string KokkosParser::status() {
     std::stringstream stream;
