@@ -303,6 +303,11 @@ else() # Raw CMake Project
       get_directory_property(Kokkos_VERSION DIRECTORY kokkos DEFINITION Kokkos_VERSION)
       message(STATUS "Kokkos Version: ${Kokkos_VERSION}")
   endif()
+  if(Kokkos_VERSION VERSION_LESS "3.7")
+    set(KOKKOS_THREADS_ARG "--kokkos-threads")
+  else()
+    set(KOKKOS_THREADS_ARG "--kokkos-num-threads")
+  endif()
 
   if (KOKKOSKERNELS_IN_TRILINOS)
     if (Compadre_USE_CUDA)
