@@ -282,8 +282,9 @@ else() # Raw CMake Project
       # Existing KokkosCore indicated by user by setting KokkosCore_PREFIX, so we look for it
       # where specified (only)
       find_package(Kokkos PATHS "${KokkosCore_PREFIX}" NO_DEFAULT_PATH REQUIRED)
+      message(STATUS "Kokkos Version: ${Kokkos_VERSION}")
       if (Kokkos_VERSION VERSION_LESS "${KOKKOS_MIN}")
-          message(FATAL_ERROR "${Kokkos_VERSION}: Requires Trilinos with Kokkos version ${KOKKOS_MIN} or greater")
+          message(FATAL_ERROR "${Kokkos_VERSION}: Requires Kokkos version ${KOKKOS_MIN} or greater")
       endif()
       set(KOKKOS_EXISTING_ELSEWHERE ON)
       # set Compadre_USE_ to whatever is enabled in Kokkos build
@@ -299,6 +300,8 @@ else() # Raw CMake Project
 
   if (NOT(KOKKOS_IN_TRILINOS) AND (KokkosCore_PREFIX STREQUAL ""))
       add_subdirectory(kokkos)
+      get_directory_property(Kokkos_VERSION DIRECTORY kokkos DEFINITION Kokkos_VERSION)
+      message(STATUS "Kokkos Version: ${Kokkos_VERSION}")
   endif()
 
   if (KOKKOSKERNELS_IN_TRILINOS)
