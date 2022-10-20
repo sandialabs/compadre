@@ -1063,14 +1063,8 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     auto m_kokkos = m.def_submodule("Kokkos", R"pbdoc(
         Namespace with a subset of Kokkos functionality. KokkosParser class should be preferred.
     )pbdoc");
-    py::class_<Kokkos::InitArguments>(m_kokkos, "InitArguments")
-    .def(py::init<int, int, int, bool, bool>(), 
-            py::arg("num_threads") = -1, py::arg("num_numa") = -1, py::arg("device_id") = -1,
-            py::arg("disable_warnings") = false, py::arg("tune_internals") = false);
 
     m_kokkos
-    .def("initialize", overload_cast_<Kokkos::InitArguments>()(&Kokkos::initialize), 
-            py::arg("init_args") = Kokkos::InitArguments())
     .def("initialize", [](py::list args) {
         std::vector<char*> char_args;
         for (py::handle arg : args) {
@@ -1089,7 +1083,6 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
         can be instantiated and go out of scope with only one instance initiating Kokkos
         and the last instance finalizing Kokkos when it goes out of scope.
     )pbdoc")
-    .def(py::init<Kokkos::InitArguments,bool>(), py::arg("init_args"), py::arg("print") = false)
     .def(py::init<std::vector<std::string>,bool>(), py::arg("args"), py::arg("print") = false)
     .def(py::init<bool>(), py::arg("print") = false)
     .def_static("status", &KokkosParser::status);

@@ -22,7 +22,7 @@ private:
 public:
 
   // call with command line arguments
-  KokkosParser(Kokkos::InitArguments args, bool print_status = false);
+  KokkosParser(KokkosInitArguments args, bool print_status = false);
 
   // call with command line arguments
   KokkosParser(int argc, char* args[], bool print_status = false);

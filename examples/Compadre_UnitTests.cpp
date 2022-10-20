@@ -23,22 +23,7 @@ TEST (KokkosInitialize, NoArgsGiven) {
     });
 }
 TEST (KokkosInitialize, NoCommandLineArgsGiven) { 
-// KOKKOS_VERSION % 100 is the patch level
-// KOKKOS_VERSION / 100 % 100 is the minor version
-// KOKKOS_VERSION / 10000 is the major version
-#ifdef KOKKOS_VERSION
-  #define KOKKOS_VERSION_MAJOR KOKKOS_VERSION / 10000
-  #define KOKKOS_VERSION_MINOR KOKKOS_VERSION / 100 % 100 
-  #if KOKKOS_VERSION_MAJOR  < 4
-    #if KOKKOS_VERSION_MINOR >= 7
-            std::vector<std::string> arguments = {"--kokkos-num-threads=4"};
-    #elif KOKKOS_VERSION_MINOR < 7
-            std::vector<std::string> arguments = {"--kokkos-threads=4"};
-    #endif
-  #endif
-#else // older version
-            std::vector<std::string> arguments = {"--kokkos-threads=4"};
-#endif
+    std::vector<std::string> arguments = {KOKKOS_THREADS_ARG+std::string("=4")};
     ASSERT_NO_DEATH({
             auto kp = KokkosParser(arguments);
     });
