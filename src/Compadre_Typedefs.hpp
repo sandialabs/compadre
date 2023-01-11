@@ -101,7 +101,7 @@ typedef typename pool_type::generator_type generator_type;
 // KOKKOS_VERSION % 100 is the patch level
 // KOKKOS_VERSION / 100 % 100 is the minor version
 // KOKKOS_VERSION / 10000 is the major version
-#ifdef COMPADRE_KOKKOS_VERSION
+#ifdef KOKKOS_VERSION
   #define COMPADRE_KOKKOS_VERSION_MAJOR KOKKOS_VERSION / 10000
   #define COMPADRE_KOKKOS_VERSION_MINOR KOKKOS_VERSION / 100 % 100 
   #if COMPADRE_KOKKOS_VERSION_MAJOR  < 4
