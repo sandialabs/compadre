@@ -164,8 +164,12 @@ class CMakeBuild(build_ext):
         if (cmake_config != ""):
             cmake_arg_list = [line.rstrip('\n') for line in open(cmake_config)]
             for arg in cmake_arg_list:
+                # handle non-support of '-march=native' on arm with apple-clang
+                if platform.processor()=="arm" and "-march=native" in arg:
+                    arg = arg.replace("-march=native", "")
+                    print("Warning: -march=native incompatible with arm so flag was removed")
                 cmake_args.append('-D'+arg)
-            print('Custom CMake Args: ', cmake_arg_list)
+            print('Provided Custom CMake Args: ', cmake_arg_list)
 
         # turn off examples and tests unless specified in a file
         tests_in_cmake_args = False
