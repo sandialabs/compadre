@@ -104,7 +104,7 @@ typedef typename pool_type::generator_type generator_type;
 #ifdef KOKKOS_VERSION
   #define COMPADRE_KOKKOS_VERSION_MAJOR KOKKOS_VERSION / 10000
   #define COMPADRE_KOKKOS_VERSION_MINOR KOKKOS_VERSION / 100 % 100 
-  #if COMPADRE_KOKKOS_VERSION_MAJOR  < 4
+  #if COMPADRE_KOKKOS_VERSION_MAJOR < 4
     #if COMPADRE_KOKKOS_VERSION_MINOR >= 7
         using KokkosInitArguments = Kokkos::InitializationSettings;
         #define COMPADRE_KOKKOS_GREATEREQUAL_3_7
