@@ -120,14 +120,14 @@ struct cknp2d {
     py::array_t<typename T::value_type> result;
     cknp2d (T kokkos_array_host) {
 
-        auto dim_out_0 = kokkos_array_host.extent(0);
-        auto dim_out_1 = kokkos_array_host.extent(1);
+        size_t dim_out_0 = kokkos_array_host.extent(0);
+        size_t dim_out_1 = kokkos_array_host.extent(1);
 
         result = py::array_t<typename T::value_type>(dim_out_0*dim_out_1);
         result.resize({dim_out_0,dim_out_1});
         auto data = result.template mutable_unchecked<T::rank>();
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
-            for (int j=0; j<dim_out_1; ++j) {
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](size_t i) {
+            for (size_t j=0; j<dim_out_1; ++j) {
                 data(i,j) = kokkos_array_host(i,j);
             }
         });
@@ -618,9 +618,8 @@ public:
             (source_data, lro, sro, true /*scalar_as_vector_if_needed*/, 0);
 
         // get maximum number of additional sites plus target site (+1) per target site
-        int max_additional_sites = gmls_object->getAdditionalEvaluationIndices()->getMaxNumNeighbors() + 1;
+        size_t max_additional_sites = gmls_object->getAdditionalEvaluationIndices()->getMaxNumNeighbors() + 1;
         gmls_object->getAdditionalEvaluationIndices()->computeMinNumNeighbors();
-        int min_additional_sites = gmls_object->getAdditionalEvaluationIndices()->getMinNumNeighbors();
 
         // set dim_out_0 to 1 if setAdditionalEvaluationSitesData never called
         auto additional_evaluation_coords_size = gmls_object->getAdditionalPointConnections()->_source_coordinates.size();
@@ -937,7 +936,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             auto lro    = Kokkos::create_mirror_view(d_lro);
             Kokkos::deep_copy(lro, d_lro);
             auto lro_list = py::list();
-            for (int i=0; i<lro.extent(0); ++i) {
+            for (int i=0; i<lro.extent_int(0); ++i) {
                 lro_list.append(lro[i]);
             }
 
