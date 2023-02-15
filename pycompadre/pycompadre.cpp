@@ -352,7 +352,7 @@ public:
         }
 
         if (gmls_object->getGlobalDimensions()!=input.shape(2)) {
-            throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
+            throw std::runtime_error("Third dimension must be the same as GMLS spatial dimension");
         }
         
         auto device_tangent_bundle = convert_np_to_kokkos_3d<device_memory_space>(input);
