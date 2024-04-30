@@ -81,10 +81,10 @@ void GMLS_StokesPhysics::initialize() {
     const std::vector<Teuchos::RCP<fields_type>>& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
     const neighborhood_type* neighborhood = this->_particles->getNeighborhoodConst();
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
-    const host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
-    const host_view_type nx_vectors = this->_particles->getFieldManager()->getFieldByName("nx")->getMultiVectorPtrConst()->getLocalView<host_view_type>();
-    const host_view_type ny_vectors = this->_particles->getFieldManager()->getFieldByName("ny")->getMultiVectorPtrConst()->getLocalView<host_view_type>();
-    const host_view_type nz_vectors = this->_particles->getFieldManager()->getFieldByName("nz")->getMultiVectorPtrConst()->getLocalView<host_view_type>();
+    auto bc_id = this->_particles->getFlags()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto nx_vectors = this->_particles->getFieldManager()->getFieldByName("nx")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto ny_vectors = this->_particles->getFieldManager()->getFieldByName("ny")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto nz_vectors = this->_particles->getFieldManager()->getFieldByName("nz")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
     //***************
     //
@@ -129,7 +129,7 @@ void GMLS_StokesPhysics::initialize() {
         kokkos_target_coordinates_host(i,2) = coordinate.z;
     });
 
-    auto epsilons = neighborhood->getHSupportSizes()->getLocalView<const host_view_type>();
+    auto epsilons = neighborhood->getHSupportSizes()->getLocalViewHost(Tpetra::Access::ReadOnly);
     Kokkos::View<double*> kokkos_epsilons("epsilons", target_coords->nLocal());
     Kokkos::View<double*>::HostMirror kokkos_epsilons_host = Kokkos::create_mirror_view(kokkos_epsilons);
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
@@ -271,7 +271,7 @@ Teuchos::RCP<crs_graph_type> GMLS_StokesPhysics::computeGraph(local_index_type f
         auto existing_row_map = _row_map;
         auto existing_col_map = _col_map;
 
-        size_t max_entries_per_row = this->_A_graph->getNodeMaxNumRowEntries();
+        size_t max_entries_per_row = this->_A_graph->getLocalMaxNumRowEntries();
 
         auto row_map_index_base = existing_row_map->getIndexBase();
         auto row_map_entries = existing_row_map->getMyGlobalIndices();
@@ -314,14 +314,14 @@ Teuchos::RCP<crs_graph_type> GMLS_StokesPhysics::computeGraph(local_index_type f
         Kokkos::deep_copy(host_view_entries, entries);
         dual_view_entries.modify<Kokkos::DefaultHostExecutionSpace>();
         dual_view_entries.sync<Kokkos::DefaultExecutionSpace>();
-        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries, Tpetra::StaticProfile));
+        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries));
     } else if (field_one == pressure_field_id && field_two == lm_pressure_field_id) {
         // create a new graph from the existing one, but with an updated col map augmented by a single global dof
         // for the Lagrange multiplier
         auto existing_row_map = _row_map;
         auto existing_col_map = _col_map;
 
-        size_t max_entries_per_row = this->_A_graph->getNodeMaxNumRowEntries();
+        size_t max_entries_per_row = this->_A_graph->getLocalMaxNumRowEntries();
 
         auto col_map_index_base = existing_col_map->getIndexBase();
         auto col_map_entries = existing_col_map->getMyGlobalIndices();
@@ -365,7 +365,7 @@ Teuchos::RCP<crs_graph_type> GMLS_StokesPhysics::computeGraph(local_index_type f
         Kokkos::deep_copy(host_view_entries, entries);
             dual_view_entries.modify<Kokkos::DefaultHostExecutionSpace>();
         dual_view_entries.sync<Kokkos::DefaultExecutionSpace>();
-        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries, Tpetra::StaticProfile));
+        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries));
     }
 
     if (_A_graph.is_null()) {
@@ -375,7 +375,7 @@ Teuchos::RCP<crs_graph_type> GMLS_StokesPhysics::computeGraph(local_index_type f
         Kokkos::deep_copy(host_view_entries, entries);
         dual_view_entries.modify<Kokkos::DefaultHostExecutionSpace>();
         dual_view_entries.sync<Kokkos::DefaultHostExecutionSpace>();
-        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries, Tpetra::StaticProfile));
+        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries));
     }
 
     if (!_A_graph->isFillActive()) _A_graph->resumeFill();
@@ -498,7 +498,7 @@ void GMLS_StokesPhysics::computeMatrix(local_index_type field_one, local_index_t
 
     size_t max_num_neighbors = neighborhood->computeMaxNumNeighbors(false /*local processor max*/);
     const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
-    const host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
+    auto bc_id = this->_particles->getFlags()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
     // get maximum number of neighbors*fields[field_two]->nDim()
     int team_scratch_size = host_scratch_vector_scalar_type::shmem_size(max_num_neighbors*fields[field_two]->nDim()); // values

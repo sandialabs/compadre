@@ -30,9 +30,9 @@ void GMLS_Staggered_PoissonNeumannSources::evaluateRHS(local_index_type field_on
         field_two = field_one;
     }
 
-    host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
-    host_view_type rhs_vals = this->_b->getLocalView<host_view_type>();
-    host_view_type pts = this->_coords->getPts()->getLocalView<host_view_type>();
+    auto bc_id = this->_particles->getFlags()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto rhs_vals = this->_b->getLocalViewHost(Tpetra::Access::OverwriteAll);
+    auto pts = this->_coords->getPts()->getLocalViewHost(Tpetra::Access::ReadOnly);
     const neighborhood_type* neighborhood = this->_particles->getNeighborhoodConst();
 
     const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());

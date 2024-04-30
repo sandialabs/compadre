@@ -27,7 +27,7 @@ local_index_type CoordsT::nLocal(bool include_halo) const {
 	return include_halo ? _nLocal + _nHalo : _nLocal;}
 local_index_type CoordsT::nHalo() const {return _nHalo;}
 void CoordsT::setLocalN(const local_index_type newN, bool for_halo) { if (for_halo) _nHalo = newN; else _nLocal = newN;}
-void CoordsT::setLocalNFromMap(bool for_halo) { if (for_halo) _nHalo = halo_map->getNodeNumElements(); else _nLocal = map->getNodeNumElements();}
+void CoordsT::setLocalNFromMap(bool for_halo) { if (for_halo) _nHalo = halo_map->getLocalNumElements(); else _nLocal = map->getLocalNumElements();}
 global_index_type CoordsT::nGlobalMax() const {return this->pts->getGlobalLength();}
 global_index_type CoordsT::nGlobal() const {
 // 	global_index_type sum = 0;
@@ -143,14 +143,14 @@ void CoordsT::insertCoords(const std::vector<xyz_type>& new_pts_vector, const st
 	Teuchos::RCP<mvec_type> new_pts_physical;
 	if (_is_lagrangian) new_pts_physical = Teuchos::rcp(new mvec_type(new_map, _nDim, setToZero));
 
-	host_view_type new_pts_vals = new_pts->getLocalView<host_view_type>();
-	host_view_type old_pts_vals = pts->getLocalView<host_view_type>();
+	auto new_pts_vals = new_pts->getLocalViewHost(Tpetra::Access::OverwriteAll);
+	auto old_pts_vals = pts->getLocalViewHost(Tpetra::Access::ReadOnly);
 
-	host_view_type new_pts_physical_vals;
-	host_view_type old_pts_physical_vals;
+	decltype(new_pts_physical->getLocalViewHost(Tpetra::Access::OverwriteAll)) new_pts_physical_vals;
+	decltype(pts_physical->getLocalViewHost(Tpetra::Access::OverwriteAll)) old_pts_physical_vals;
 	if (_is_lagrangian) {
-		new_pts_physical_vals = new_pts_physical->getLocalView<host_view_type>();
-		old_pts_physical_vals = pts_physical->getLocalView<host_view_type>();
+		new_pts_physical_vals = new_pts_physical->getLocalViewHost(Tpetra::Access::OverwriteAll);
+		old_pts_physical_vals = pts_physical->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	}
 
 	// copy old data
@@ -223,8 +223,8 @@ void CoordsT::removeCoords(const std::vector<local_index_type>& coord_ids) {
 
 	const bool setToZero = false;
 	Teuchos::RCP<mvec_type> new_pts = Teuchos::rcp(new mvec_type(new_map, _nDim, setToZero));
-	host_view_type new_pts_vals = new_pts->getLocalView<host_view_type>();
-	host_view_type old_pts_vals = pts->getLocalView<host_view_type>();
+	host_view_type new_pts_vals = new_pts->getLocalViewHost(Tpetra::Access::OverwriteAll);
+	host_view_type old_pts_vals = pts->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,old_pts_vals.extent(0)), KOKKOS_LAMBDA(const int i) {
 		bool deleted = false;
 		local_index_type offset = num_remove_coords;
@@ -249,8 +249,8 @@ void CoordsT::removeCoords(const std::vector<local_index_type>& coord_ids) {
 	if (_is_lagrangian) {
 		const bool setToZero = false;
 		new_pts_physical = Teuchos::rcp(new mvec_type(new_map, _nDim, setToZero));
-		host_view_type new_pts_physical_vals = new_pts_physical->getLocalView<host_view_type>();
-		host_view_type old_pts_physical_vals = pts_physical->getLocalView<host_view_type>();
+		host_view_type new_pts_physical_vals = new_pts_physical->getLocalViewHost(Tpetra::Access::OverwriteAll);
+		host_view_type old_pts_physical_vals = pts_physical->getLocalViewHost(Tpetra::Access::OverwriteAll);
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,old_pts_physical_vals.extent(0)), KOKKOS_LAMBDA(const int i) {
 			bool deleted = false;
 			local_index_type offset = num_remove_coords;
@@ -292,8 +292,8 @@ void CoordsT::removeCoords(const std::vector<local_index_type>& coord_ids) {
 void CoordsT::snapLagrangianCoordsToPhysicalCoords() {
 	// snaps Lagrangian coordinates to physical coordinates
 	if (_is_lagrangian) {
-		host_view_type lagrangian_pts = pts->getLocalView<host_view_type>();
-		host_view_type physical_pts = pts_physical->getLocalView<host_view_type>();
+		host_view_type lagrangian_pts = pts->getLocalViewHost(Tpetra::Access::OverwriteAll);
+		host_view_type physical_pts = pts_physical->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,lagrangian_pts.extent(0)), KOKKOS_LAMBDA(const int i) {
 			for (local_index_type j=0; j<_nDim; j++) {
@@ -308,8 +308,8 @@ void CoordsT::snapLagrangianCoordsToPhysicalCoords() {
 void CoordsT::snapPhysicalCoordsToLagrangianCoords() {
 	// snaps physical coordinates back to Lagrangian coordinates
 	if (_is_lagrangian) {
-		host_view_type lagrangian_pts = pts->getLocalView<host_view_type>();
-		host_view_type physical_pts = pts_physical->getLocalView<host_view_type>();
+		host_view_type lagrangian_pts = pts->getLocalViewHost(Tpetra::Access::OverwriteAll);
+		host_view_type physical_pts = pts_physical->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
 		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,lagrangian_pts.extent(0)), KOKKOS_LAMBDA(const int i) {
 			for (local_index_type j=0; j<_nDim; j++) {
@@ -326,8 +326,8 @@ void CoordsT::snapPhysicalCoordsToLagrangianCoords() {
 //	 * Updates Lagrangian coords with physical points if update_vector is not specified
 //	 */
 //	if (_is_lagrangian && use_physical_coords) {
-//		host_view_type lagrangian_pts = pts->getLocalView<host_view_type>();
-//		host_view_type physical_pts = pts_physical->getLocalView<host_view_type>();
+//		host_view_type lagrangian_pts = pts->getLocalViewHost(Tpetra::Access::OverwriteAll);
+//		host_view_type physical_pts = pts_physical->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //
 //		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,lagrangian_pts.extent(0)), KOKKOS_LAMBDA(const int i) {
 //			for (local_index_type j=0; j<_nDim; j++) {
@@ -483,7 +483,7 @@ Teuchos::RCP<const importer_type> CoordsT::getHaloImporterConst() const { return
 CoordsT::xyz_type CoordsT::localCrossProduct(const local_index_type idx1, const CoordsT::xyz_type& queryPt, bool use_physical_coords) const {
     TEUCHOS_ASSERT(_nDim==3);
 	mvec_type* pts_vec = (_is_lagrangian && use_physical_coords) ? pts_physical.getRawPtr() : pts.getRawPtr();
-	host_view_type ptsView = pts_vec->getLocalView<host_view_type>();
+	host_view_type ptsView = pts_vec->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	return CoordsT::xyz_type( ptsView(idx1, 1) * queryPt.z -
 					   ptsView(idx1, 2) * queryPt.y,
 					   ptsView(idx1, 2) * queryPt.x -
@@ -496,23 +496,23 @@ CoordsT::xyz_type CoordsT::localCrossProduct(const local_index_type idx1, const 
 scalar_type CoordsT::localDotProduct( const local_index_type idx1, const CoordsT::xyz_type& queryPt, bool use_physical_coords) const {
     TEUCHOS_ASSERT(_nDim==3);
 	mvec_type* pts_vec = (_is_lagrangian && use_physical_coords) ? pts_physical.getRawPtr() : pts.getRawPtr();
-	host_view_type ptsView = pts_vec->getLocalView<host_view_type>();
+	host_view_type ptsView = pts_vec->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	return ptsView(idx1, 0) * queryPt.x +
 		   ptsView(idx1, 1) * queryPt.y +
 		   ptsView(idx1, 2) * queryPt.z;
 }
 
-void CoordsT::syncMemory() {
-	pts->sync<device_view_type>();
-	pts->sync<host_view_type>();
-	if (_is_lagrangian) {
-		pts_physical->sync<device_view_type>();
-		pts_physical->sync<host_view_type>();
-	}
-}
-
-bool CoordsT::hostNeedsUpdate() const {return pts->need_sync<host_memory_space>(); }
-bool CoordsT::deviceNeedsUpdate() const {return pts->need_sync<device_view_type>();}
+//void CoordsT::syncMemory() {
+//	pts->sync_device();
+//	pts->sync_host();
+//	if (_is_lagrangian) {
+//		pts->sync_device();
+//		pts->sync_host();
+//	}
+//}
+//
+//bool CoordsT::hostNeedsUpdate() const {return pts->need_sync<host_memory_space>(); }
+//bool CoordsT::deviceNeedsUpdate() const {return pts->need_sync_device();}
 
 void CoordsT::zoltan2Init(bool use_physical_coords) {
 	Teuchos::ParameterList params("zoltan2 params");
@@ -604,7 +604,7 @@ std::vector<scalar_type> CoordsT::boundingBoxMaxOnProcessor(const local_index_ty
 
 void CoordsT::writeToMatlab(std::ostream& fs, const std::string coordsName, const int procRank, bool use_physical_coords) const {
 	mvec_type* pt_vec = (_is_lagrangian && use_physical_coords) ? pts_physical.getRawPtr() : pts.getRawPtr();
-	host_view_type ptsHostView = pt_vec->getLocalView<host_view_type>();
+	host_view_type ptsHostView = pt_vec->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	fs << coordsName << "Xyz" << procRank << " = [";
 	for (local_index_type i = 0; i < _nLocal - 1; ++i){
 		fs << ptsHostView(i,0) << ", " << ptsHostView(i,1) << ", " << ptsHostView(i,2) << "; ..." << std::endl;
@@ -614,7 +614,7 @@ void CoordsT::writeToMatlab(std::ostream& fs, const std::string coordsName, cons
 
 void CoordsT::writeHaloToMatlab(std::ostream& fs, const std::string coordsName, const int procRank, bool use_physical_coords) const {
 	mvec_type* halo_pt_vec = (_is_lagrangian && use_physical_coords) ? halo_pts_physical.getRawPtr() : halo_pts.getRawPtr();
-	host_view_type haloPtsHostView = halo_pt_vec->getLocalView<host_view_type>();
+	host_view_type haloPtsHostView = halo_pt_vec->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	if (halo_pt_vec->getLocalLength() > 0) {
 		fs << coordsName << "Xyz" << procRank << " = [";
 		for (size_t i = 0; i < halo_pt_vec->getLocalLength() - 1; ++i){
@@ -796,7 +796,7 @@ void CoordsT::buildHalo(scalar_type h_size, bool use_physical_coords) {
 	haloSearchTime->start();
 
 	host_view_type ptsView = (_is_lagrangian && use_physical_coords)
-			? pts_physical->getLocalView<host_view_type>() : pts->getLocalView<host_view_type>();
+			? pts_physical->getLocalViewHost(Tpetra::Access::OverwriteAll) : pts->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
     auto p_count = 0;
 	for (auto peer_processor_num : proc_neighbors) {
@@ -1016,10 +1016,10 @@ void CoordsT::setLagrangian(bool val) {
 			_is_lagrangian = true;
 			// insert code here to copy from pts to physical_pts since this is the first time the coordinates became Lagrangian
 
-			host_view_type lagrangian_coords = pts->getLocalView<host_view_type>();
+			host_view_type lagrangian_coords = pts->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
 			pts_physical = Teuchos::rcp(new mvec_type(map, _nDim, false /*set to zero*/));
-			host_view_type physical_coords = pts_physical->getLocalView<host_view_type>();
+			host_view_type physical_coords = pts_physical->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
 			Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,lagrangian_coords.extent(0)), KOKKOS_LAMBDA(const int i) {
 				lagrangian_coords(i,0) = physical_coords(i,0);
@@ -1036,8 +1036,8 @@ void CoordsT::setLagrangian(bool val) {
 void CoordsT::deltaUpdatePhysicalCoordsFromVector(const mvec_type* update_vector) {
 	// to_vec should generally be physical coords (pts_physical)
 	mvec_type* pts_evaluate_to_vec = (_is_lagrangian) ? pts_physical.getRawPtr() : pts.getRawPtr();
-	host_view_type updateVals = update_vector->getLocalView<host_view_type>();
-	host_view_type ptsViewTo = pts_evaluate_to_vec->getLocalView<host_view_type>();
+	auto updateVals = update_vector->getLocalViewHost(Tpetra::Access::ReadOnly);
+	auto ptsViewTo = pts_evaluate_to_vec->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.extent(0)),  KOKKOS_LAMBDA(const int i) {
 		for (int j=0; j<_nDim; j++) ptsViewTo(i,j) += updateVals(i,j);
 	});
@@ -1048,8 +1048,8 @@ void CoordsT::deltaUpdatePhysicalCoordsFromVector(const mvec_type* update_vector
 void CoordsT::deltaUpdatePhysicalCoordsFromVectorByTimestep(const double dt, const mvec_type* update_vector) {
 	// to_vec should generally be physical coords (pts_physical)
 	mvec_type* pts_evaluate_to_vec = (_is_lagrangian) ? pts_physical.getRawPtr() : pts.getRawPtr();
-	host_view_type updateVals = update_vector->getLocalView<host_view_type>();
-	host_view_type ptsViewTo = pts_evaluate_to_vec->getLocalView<host_view_type>();
+	auto updateVals = update_vector->getLocalViewHost(Tpetra::Access::ReadOnly);
+	auto ptsViewTo = pts_evaluate_to_vec->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.extent(0)),  KOKKOS_LAMBDA(const int i) {
 		for (int j=0; j<_nDim; j++) ptsViewTo(i,j) += dt*updateVals(i,j);
 	});
@@ -1062,8 +1062,8 @@ void CoordsT::deltaUpdatePhysicalCoordsFromVectorFunction(function_type* fn, boo
 	mvec_type* pts_evaluate_from_vec = (_is_lagrangian && !evaluate_using_lagrangian_coordinates) ? pts_physical.getRawPtr() : pts.getRawPtr();
 	// to_vec should generally be physical coords (pts_physical)
 	mvec_type* pts_evaluate_to_vec = (_is_lagrangian) ? pts_physical.getRawPtr() : pts.getRawPtr();
-	host_view_type ptsViewFrom = pts_evaluate_from_vec->getLocalView<host_view_type>();
-	host_view_type ptsViewTo = pts_evaluate_to_vec->getLocalView<host_view_type>();
+	host_view_type ptsViewFrom = pts_evaluate_from_vec->getLocalViewHost(Tpetra::Access::OverwriteAll);
+	host_view_type ptsViewTo = pts_evaluate_to_vec->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.extent(0)),
 		incrementByEvaluateVector(ptsViewTo, ptsViewFrom, fn));
 
@@ -1073,8 +1073,8 @@ void CoordsT::deltaUpdatePhysicalCoordsFromVectorFunction(function_type* fn, boo
 void CoordsT::overwriteCoordinates(const mvec_type* data, bool use_physical_coords) {
 	// to_vec should generally be physical coords (pts_physical)
 	mvec_type* pts_evaluate_to_vec = (_is_lagrangian && use_physical_coords) ? pts_physical.getRawPtr() : pts.getRawPtr();
-	host_view_type ptsViewTo = pts_evaluate_to_vec->getLocalView<host_view_type>();
-	host_view_type fieldData = data->getLocalView<host_view_type>();
+	auto ptsViewTo = pts_evaluate_to_vec->getLocalViewHost(Tpetra::Access::OverwriteAll);
+	auto fieldData = data->getLocalViewHost(Tpetra::Access::ReadOnly);
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.extent(0)), KOKKOS_LAMBDA(const int i) {
 		ptsViewTo(i,0) = fieldData(i,0);
 		ptsViewTo(i,1) = fieldData(i,1);
@@ -1088,7 +1088,7 @@ void CoordsT::snapToSphere(const double radius, bool use_physical_coords) {
 
 	// to_vec should generally be physical coords (pts_physical)
 	mvec_type* pts_evaluate_to_vec = (_is_lagrangian && use_physical_coords) ? pts_physical.getRawPtr() : pts.getRawPtr();
-	host_view_type ptsViewTo = pts_evaluate_to_vec->getLocalView<host_view_type>();
+	host_view_type ptsViewTo = pts_evaluate_to_vec->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.extent(0)),  KOKKOS_LAMBDA(const int i) {
 		double this_norm = 0;
 		for (int j=0; j<_nDim; j++) this_norm += ptsViewTo(i,j)*ptsViewTo(i,j);
@@ -1104,8 +1104,8 @@ void CoordsT::transformLagrangianCoordsToPhysicalCoordsByVectorFunction(function
 	mvec_type* pts_evaluate_from_vec = pts.getRawPtr();
 	// to_vec should generally be physical coords (pts_physical)
 	mvec_type* pts_evaluate_to_vec = (_is_lagrangian) ? pts_physical.getRawPtr() : pts.getRawPtr();
-	host_view_type ptsViewFrom = pts_evaluate_from_vec->getLocalView<host_view_type>();
-	host_view_type ptsViewTo = pts_evaluate_to_vec->getLocalView<host_view_type>();
+	host_view_type ptsViewFrom = pts_evaluate_from_vec->getLocalViewHost(Tpetra::Access::OverwriteAll);
+	host_view_type ptsViewTo = pts_evaluate_to_vec->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,ptsViewTo.extent(0)),
 		evaluateVector(ptsViewTo, ptsViewFrom, fn));
 
@@ -1113,10 +1113,10 @@ void CoordsT::transformLagrangianCoordsToPhysicalCoordsByVectorFunction(function
 }
 
 void CoordsT::updateAllHostViews() {
-	if (!pts.is_null()) pts_view = pts->getLocalView<host_view_type>();
-	if (!pts_physical.is_null()) pts_physical_view = pts_physical->getLocalView<host_view_type>();
-	if (!halo_pts.is_null()) halo_pts_view = halo_pts->getLocalView<host_view_type>();
-	if (!halo_pts_physical.is_null()) halo_pts_physical_view = halo_pts_physical->getLocalView<host_view_type>();
+	if (!pts.is_null()) pts_view = pts->getLocalViewHost(Tpetra::Access::OverwriteAll);
+	if (!pts_physical.is_null()) pts_physical_view = pts_physical->getLocalViewHost(Tpetra::Access::OverwriteAll);
+	if (!halo_pts.is_null()) halo_pts_view = halo_pts->getLocalViewHost(Tpetra::Access::OverwriteAll);
+	if (!halo_pts_physical.is_null()) halo_pts_physical_view = halo_pts_physical->getLocalViewHost(Tpetra::Access::OverwriteAll);
 }
 
 }

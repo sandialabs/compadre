@@ -14,7 +14,7 @@ typedef Compadre::FieldT fields_type;
 typedef Compadre::XyzVector xyz_type;
 
 void LagrangianShallowWaterBoundaryConditions::flagBoundaries() {
-	device_view_type pts = this->_coords->getPts()->getLocalView<device_view_type>();
+	auto pts = this->_coords->getPts()->getLocalViewDevice(Tpetra::Access::ReadOnly);
 	local_index_type bc_id_size = this->_particles->getFlags()->getLocalLength();
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,bc_id_size), KOKKOS_LAMBDA(const int i) {
 		scalar_type epsilon_ball = 1e-6;

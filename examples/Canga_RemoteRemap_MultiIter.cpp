@@ -30,13 +30,13 @@ void calculateErrorNorms(Teuchos::RCP<Compadre::ParticlesT> particles, Teuchos::
 
     CT* coords = (CT*)particles->getCoords();
 
-    auto grid_area_field = particles->getFieldManager()->getFieldByName(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("target weighting field name"))->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-    auto exact_cloudfraction = particles->getFieldManager()->getFieldByName("exact CloudFraction")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-    auto computed_cloudfraction = particles->getFieldManager()->getFieldByName("CloudFraction")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-    auto exact_totalprecipwater = particles->getFieldManager()->getFieldByName("exact TotalPrecipWater")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-    auto computed_totalprecipwater = particles->getFieldManager()->getFieldByName("TotalPrecipWater")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-    auto exact_topography = particles->getFieldManager()->getFieldByName("exact Topography")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-    auto computed_topography = particles->getFieldManager()->getFieldByName("Topography")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+    auto grid_area_field = particles->getFieldManager()->getFieldByName(parameters->get<Teuchos::ParameterList>("remap").get<std::string>("target weighting field name"))->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto exact_cloudfraction = particles->getFieldManager()->getFieldByName("exact CloudFraction")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto computed_cloudfraction = particles->getFieldManager()->getFieldByName("CloudFraction")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+    auto exact_totalprecipwater = particles->getFieldManager()->getFieldByName("exact TotalPrecipWater")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto computed_totalprecipwater = particles->getFieldManager()->getFieldByName("TotalPrecipWater")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+    auto exact_topography = particles->getFieldManager()->getFieldByName("exact Topography")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto computed_topography = particles->getFieldManager()->getFieldByName("Topography")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
     LO local_dof = coords->nLocal();
     LO global_dof = 0;
@@ -216,7 +216,7 @@ int main (int argc, char* args[]) {
     //} else {
     //    particles->getFieldManager()->createField(5,"extra_data_name","m^2/1a");
     //}
-    //auto vals = particles->getFieldManager()->getFieldByName("extra_data_name")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+    //auto vals = particles->getFieldManager()->getFieldByName("extra_data_name")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::OverwriteAll);
     //if (my_coloring == 25) {
     //    for (size_t i=0; i<vals.extent(0); ++i) {
     //        for (size_t j=0; j<vals.extent(1); ++j) {
@@ -245,16 +245,16 @@ int main (int argc, char* args[]) {
                 particles->getFieldManager()->createField(1,"exact Topography","m^2/1a");
                 particles->getFieldManager()->createField(1,"exact AnalyticalFun1","m^2/1a");
                 particles->getFieldManager()->createField(1,"exact AnalyticalFun2","m^2/1a");
-                Kokkos::deep_copy(particles->getFieldManager()->getFieldByName("exact CloudFraction")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>(),
-                    particles->getFieldManager()->getFieldByName("CloudFraction")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>());
-                Kokkos::deep_copy(particles->getFieldManager()->getFieldByName("exact TotalPrecipWater")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>(),
-                    particles->getFieldManager()->getFieldByName("TotalPrecipWater")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>());
-                Kokkos::deep_copy(particles->getFieldManager()->getFieldByName("exact Topography")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>(),
-                    particles->getFieldManager()->getFieldByName("Topography")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>());
-                Kokkos::deep_copy(particles->getFieldManager()->getFieldByName("exact AnalyticalFun1")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>(),
-                    particles->getFieldManager()->getFieldByName("AnalyticalFun1")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>());
-                Kokkos::deep_copy(particles->getFieldManager()->getFieldByName("exact AnalyticalFun2")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>(),
-                    particles->getFieldManager()->getFieldByName("AnalyticalFun2")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>());
+                Kokkos::deep_copy(particles->getFieldManager()->getFieldByName("exact CloudFraction")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll),
+                    particles->getFieldManager()->getFieldByName("CloudFraction")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly));
+                Kokkos::deep_copy(particles->getFieldManager()->getFieldByName("exact TotalPrecipWater")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll),
+                    particles->getFieldManager()->getFieldByName("TotalPrecipWater")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly));
+                Kokkos::deep_copy(particles->getFieldManager()->getFieldByName("exact Topography")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll),
+                    particles->getFieldManager()->getFieldByName("Topography")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly));
+                Kokkos::deep_copy(particles->getFieldManager()->getFieldByName("exact AnalyticalFun1")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll),
+                    particles->getFieldManager()->getFieldByName("AnalyticalFun1")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly));
+                Kokkos::deep_copy(particles->getFieldManager()->getFieldByName("exact AnalyticalFun2")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll),
+                    particles->getFieldManager()->getFieldByName("AnalyticalFun2")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly));
                 if (my_coloring == 25) {
 			        particles->getFieldManager()->createField(1,"exact Smooth","m^2/1a");
 			        particles->getFieldManager()->getFieldByName("exact Smooth")->

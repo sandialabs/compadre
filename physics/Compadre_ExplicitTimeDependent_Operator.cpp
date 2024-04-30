@@ -40,10 +40,10 @@ void ExplicitTimeDependentPhysics::computeVector(local_index_type field_one, loc
 	 * Example for velocity = cos(t), and height = -sin(t)
 	 */
 
-	host_view_type b_data = _b->getLocalView<host_view_type>();
-	// get field_one and check which one it is
-	int my_field = field_one;
-	host_view_type other_data = _particles->getFieldManager()->getFieldByID(field_two)->getMultiVectorPtr()->getLocalView<host_view_type>();
+	//host_view_type b_data = _b->getLocalView<host_view_type>();
+	//// get field_one and check which one it is
+	//int my_field = field_one;
+	//host_view_type other_data = _particles->getFieldManager()->getFieldByID(field_two)->getMultiVectorPtr()->getLocalView<host_view_type>();
 
 	//if (field_two != field_one) {
 	//	if (_particles->getFieldManager()->getIDOfFieldFromName("velocity") == my_field) {

@@ -86,7 +86,7 @@ void ReactionDiffusionPhysics::initialize() {
     }
     
     // this quantity refers to global elements, so it's local number can be found by getting neighbor with same global number
-    auto adjacent_elements = _cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalView<host_view_type>();
+    auto adjacent_elements = _cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
     auto num_sides = adjacent_elements.extent(1);
     TEUCHOS_TEST_FOR_EXCEPT_MSG(adjacent_elements.extent(1)!=(size_t)(_ndim_requested+1), "'adjacent_elements' field in file has wrong number of columns. Should be 'input dimension' + 1.");
 
@@ -349,11 +349,11 @@ void ReactionDiffusionPhysics::initialize() {
     _cells->getFieldManager()->createField(_weights_ndim, "quadrature_weights");
     _cells->getFieldManager()->createField(_weights_ndim, "interior");
     _cells->getFieldManager()->createField(element_dim*_weights_ndim, "unit_normal");
-    auto quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
-    auto quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
-    auto quadrature_type = _cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
-    auto unit_normals = _cells->getFieldManager()->getFieldByName("unit_normal")->getMultiVectorPtr()->getLocalView<host_view_type>();
-    auto cell_vertices = _cells->getFieldManager()->getFieldByName("vertex_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
+    auto quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto quadrature_type = _cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto unit_normals = _cells->getFieldManager()->getFieldByName("unit_normal")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto cell_vertices = _cells->getFieldManager()->getFieldByName("vertex_points")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
     Intrepid::FieldContainer<double> element_cub_points(num_element_cub_points, element_dim);
     Intrepid::FieldContainer<double> element_cub_weights(num_element_cub_points);
@@ -775,13 +775,13 @@ void ReactionDiffusionPhysics::initialize() {
     //    // halo version of _cell_particles_neighborhood
     //    {
     //        // quantities contained on cells (mesh)
-    //        auto halo_quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
-    //        auto halo_quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
-    //        auto halo_quadrature_type = _cells->getFieldManager()->getFieldByName("interior")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
-    //        auto halo_unit_normals = _cells->getFieldManager()->getFieldByName("unit_normal")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
+    //        auto halo_quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    //        auto halo_quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    //        auto halo_quadrature_type = _cells->getFieldManager()->getFieldByName("interior")->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    //        auto halo_unit_normals = _cells->getFieldManager()->getFieldByName("unit_normal")->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
     //        
     //        // this quantity refers to global elements, so it's local number can be found by getting neighbor with same global number
-    //        auto halo_adjacent_elements = _cells->getFieldManager()->getFieldByName("adjacent_elements")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
+    //        auto halo_adjacent_elements = _cells->getFieldManager()->getFieldByName("adjacent_elements")->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
     //        auto halo_needed = host_view_local_index_type("halo index needed", nhalo, 1);
     //        Kokkos::deep_copy(halo_needed, 0);
@@ -1040,7 +1040,7 @@ Teuchos::RCP<crs_graph_type> ReactionDiffusionPhysics::computeGraph(local_index_
         auto existing_row_map = _row_map;
         auto existing_col_map = _col_map;
 
-        size_t max_entries_per_row = this->_A_graph->getNodeMaxNumRowEntries();
+        size_t max_entries_per_row = this->_A_graph->getLocalMaxNumRowEntries();
 
         auto row_map_index_base = existing_row_map->getIndexBase();
         auto row_map_entries = existing_row_map->getMyGlobalIndices();
@@ -1086,7 +1086,7 @@ Teuchos::RCP<crs_graph_type> ReactionDiffusionPhysics::computeGraph(local_index_
         Kokkos::deep_copy(host_view_entries, entries);
         dual_view_entries.modify<Kokkos::DefaultHostExecutionSpace>();
         dual_view_entries.sync<Kokkos::DefaultExecutionSpace>();
-        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries, Tpetra::StaticProfile));
+        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries));
 
     } else if (field_one == _pressure_field_id && field_two == _lagrange_field_id) {
 
@@ -1095,7 +1095,7 @@ Teuchos::RCP<crs_graph_type> ReactionDiffusionPhysics::computeGraph(local_index_
         auto existing_row_map = _row_map;
         auto existing_col_map = _col_map;
 
-        size_t max_entries_per_row = this->_A_graph->getNodeMaxNumRowEntries();
+        size_t max_entries_per_row = this->_A_graph->getLocalMaxNumRowEntries();
 
         auto col_map_index_base = existing_col_map->getIndexBase();
         auto col_map_entries = existing_col_map->getMyGlobalIndices();
@@ -1141,7 +1141,7 @@ Teuchos::RCP<crs_graph_type> ReactionDiffusionPhysics::computeGraph(local_index_
         Kokkos::deep_copy(host_view_entries, entries);
         dual_view_entries.modify<Kokkos::DefaultHostExecutionSpace>();
         dual_view_entries.sync<Kokkos::DefaultExecutionSpace>();
-        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries, Tpetra::StaticProfile));
+        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries));
 
     }
 
@@ -1253,20 +1253,20 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     const local_index_type nlocal_particles = static_cast<local_index_type>(_particles->getCoords()->nLocal());
     const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
-    const host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
+    auto bc_id = this->_particles->getFlags()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
     // quantities contained on cells (mesh)
-    auto quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
-    auto quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
-    auto quadrature_type = _cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
-    auto unit_normals = _cells->getFieldManager()->getFieldByName("unit_normal")->getMultiVectorPtr()->getLocalView<host_view_type>();
-    auto adjacent_elements = _cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalView<host_view_type>();
+    auto quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto quadrature_type = _cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto unit_normals = _cells->getFieldManager()->getFieldByName("unit_normal")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto adjacent_elements = _cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
-    auto halo_quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
-    auto halo_quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
-    auto halo_quadrature_type = _cells->getFieldManager()->getFieldByName("interior")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
-    auto halo_unit_normals = _cells->getFieldManager()->getFieldByName("unit_normal")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
-    auto halo_adjacent_elements = _cells->getFieldManager()->getFieldByName("adjacent_elements")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
+    auto halo_quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto halo_quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto halo_quadrature_type = _cells->getFieldManager()->getFieldByName("interior")->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto halo_unit_normals = _cells->getFieldManager()->getFieldByName("unit_normal")->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto halo_adjacent_elements = _cells->getFieldManager()->getFieldByName("adjacent_elements")->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
 
     auto base_penalty = (_parameters->get<Teuchos::ParameterList>("remap").get<int>("porder")+1)*_parameters->get<Teuchos::ParameterList>("physics").get<double>("penalty");///_cell_particles_max_h;
@@ -1293,7 +1293,7 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     }
     if (_ndim_requested==3) printf("Assembly started.\n");
 
-    auto cell_vertices = _cells->getFieldManager()->getFieldByName("vertex_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
+    auto cell_vertices = _cells->getFieldManager()->getFieldByName("vertex_points")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
     if (((field_one == _velocity_field_id) || (field_one == _pressure_field_id)) && ((field_two == _velocity_field_id) || (field_two == _pressure_field_id))) {
     // loop over cells including halo cells 

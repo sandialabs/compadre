@@ -67,9 +67,9 @@ void FieldManager::applyZoltan2PartitionToAll() {
 	}
 }
 
-void FieldManager::insertParticlesToAll(const coords_type * coords, const std::vector<xyz_type>& new_pts_vector, const particles_type* other_particles) {//host_view_type& inserted_field_values) {
+void FieldManager::insertParticlesToAll(const coords_type * coords, const std::vector<xyz_type>& new_pts_vector, const particles_type* other_particles) {//auto& inserted_field_values) {
 	for (size_t i=0; i<_fields.size(); i++) {
-		const host_view_type& field_vals = other_particles->getFieldManagerConst()->getFieldByID(i)->getMultiVectorPtrConst()->getLocalView<host_view_type>();
+		auto field_vals = other_particles->getFieldManagerConst()->getFieldByID(i)->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
 		_fields[i]->insertParticles(coords, new_pts_vector, field_vals);
 	}
 }
@@ -182,9 +182,9 @@ void FieldManager::updateFieldsFromVector(Teuchos::RCP<mvec_type> source, local_
 
 	// blocked update (vector used to update only contains this field)
 
-	host_view_type field_vals = _fields[field_num]->getLocalVectorVals()->getLocalView<host_view_type>(); // just this fields current info
+	auto field_vals = _fields[field_num]->getLocalVectorVals()->getLocalViewHost(Tpetra::Access::OverwriteAll); // just this fields current info
 
-	host_view_type source_data = source->getLocalView<host_view_type>(); // this field's new info
+	auto source_data = source->getLocalViewHost(Tpetra::Access::OverwriteAll); // this field's new info
 
 	// copy data from source to field_vals
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,particle_gids_locally_owned.extent(0)), KOKKOS_LAMBDA(const int i) {
@@ -213,9 +213,9 @@ void FieldManager::updateVectorFromFields(Teuchos::RCP<mvec_type> target, local_
 
 	// blocked update (vector used to update only contains this field)
 
-	host_view_type field_vals = _fields[field_num]->getLocalVectorVals()->getLocalView<host_view_type>(); // just this fields current info
+	auto field_vals = _fields[field_num]->getLocalVectorVals()->getLocalViewHost(Tpetra::Access::OverwriteAll); // just this fields current info
 
-	host_view_type target_data = target->getLocalView<host_view_type>(); // this field's new info
+	auto target_data = target->getLocalViewHost(Tpetra::Access::OverwriteAll); // this field's new info
 
 	// copy data from source to field_vals
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,particle_gids_locally_owned.extent(0)), KOKKOS_LAMBDA(const int i) {
