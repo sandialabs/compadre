@@ -556,6 +556,14 @@ public:
             // invariant to p and n
             double x = std::abs(r/h);
             return ((1-x)+x*(1-x)*(1-2*x)) * double(x<=1.0);
+        } else if (weighting_type == WeightingFunctionType::CardinalCubicBSpline) {
+            // compactly supported on [0,h]
+            // invariant to p and n
+            // Calculate the value using a cardinal cubic b-spline kernel (often just called cubic b spline)
+            double x = std::abs(r/h);
+            if (x < 0.5) return 1.0 + 6.0 * x * x * (-1.0 + x);
+            if (x < 1.0) return 2.0 * (1.0 + x * (-3.0 + 3.0 * x - 1.0 * x * x));
+            return 0.0;
         } else if (weighting_type == WeightingFunctionType::Cosine) {
             // compactly supported on [0,h]
             double pi = 3.14159265358979323846;
@@ -1161,6 +1169,8 @@ public:
             _weighting_type = WeightingFunctionType::Gaussian;
         } else if (wt_to_lower == "cubicspline") {
             _weighting_type = WeightingFunctionType::CubicSpline;
+        } else if (wt_to_lower == "cardinalcubicbspline") {
+            _weighting_type = WeightingFunctionType::CardinalCubicBSpline;
         } else if (wt_to_lower == "cosine") {
             _weighting_type = WeightingFunctionType::Cosine;
         } else if (wt_to_lower == "sigmoid") {
@@ -1188,6 +1198,8 @@ public:
             _curvature_weighting_type = WeightingFunctionType::Gaussian;
         } else if (wt_to_lower == "cubicspline") {
             _curvature_weighting_type = WeightingFunctionType::CubicSpline;
+        } else if (wt_to_lower == "cardinalcubicbspline") {
+            _curvature_weighting_type = WeightingFunctionType::CardinalCubicBSpline;
         } else if (wt_to_lower == "cosine") {
             _curvature_weighting_type = WeightingFunctionType::Cosine;
         } else if (wt_to_lower == "sigmoid") {
