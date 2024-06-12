@@ -61,16 +61,17 @@ fontsize=10.0/800*plot_size[0]
 t_power = plt.text(0.02, 0.05, '$$\\left(1-\\left(\\frac{|r|}{h}\\right)^N\\right)^P$$', fontsize=fontsize, transform=plt.gcf().transFigure,usetex=True)
 t_gaussian = plt.text(0.02, 0.05, '$$\\frac{1}{\\frac{h}{P} \\sqrt(2 \\pi)} e^{\\frac{-1}{2}r^2/{\\left(\\frac{h}{P}\\right)^2}}$$', fontsize=fontsize, transform=plt.gcf().transFigure,usetex=True)
 t_cubic = plt.text(0.02, 0.05, '$$((1-\\frac{r}{h})+\\frac{r}{h} (1-\\frac{r}{h}) (1-2 \\frac{r}{h}))$$', fontsize=fontsize, transform=plt.gcf().transFigure,usetex=True)
+t_cubic_b = plt.text(0.02, 0.05, '$$(1 + 6x^2(-1 + x)), \\frac{r}{h} \\le 0.5\\\\;\\; 2(1 + x(-3 + 3x - x^2)), 0.5< \\frac{r}{h} < 1.0$$', fontsize=fontsize, transform=plt.gcf().transFigure,usetex=True)
 t_cosine = plt.text(0.02, 0.05, '$$\\cos(\\frac{\\pi r}{2h})$$', fontsize=fontsize, transform=plt.gcf().transFigure,usetex=True)
 t_sigmoid = plt.text(0.02, 0.05, '$$\\frac{1}{e^{Pr} + e^{-Pr} + N}$$', fontsize=fontsize, transform=plt.gcf().transFigure,usetex=True)
 
-t_labels = {'Power':t_power, 'Gaussian':t_gaussian, 'Cubic Spl.':t_cubic, 'Cosine':t_cosine, 'Sigmoid':t_sigmoid}
+t_labels = {'Power':t_power, 'Gaussian':t_gaussian, 'Cubic Spl.':t_cubic, 'Cubic B-Spl.':t_cubic_b, 'Cosine':t_cosine, 'Sigmoid':t_sigmoid}
 for item in t_labels.keys():
     if item!='Power':
         t_labels[item].update({'visible':False})
 
 #radios
-rad_weighting_type = RadioButtons(ax_weighting_type, ('Power', 'Cubic Spl.', 'Cosine', 'Gaussian', 'Sigmoid'), active=0)
+rad_weighting_type = RadioButtons(ax_weighting_type, ('Power', 'Cubic Spl.', 'Cubic B-Spl.', 'Cosine', 'Gaussian', 'Sigmoid'), active=0)
 
 def update(val):
     global wt
@@ -83,7 +84,7 @@ sl_p.on_changed(update)
 sl_n.on_changed(update)
 
 def weighting_type_update(label):
-    weighting_type_dict = {'Power': pycompadre.WeightingFunctionType.Power, 'Cubic Spl.': pycompadre.WeightingFunctionType.CubicSpline, 'Cosine': pycompadre.WeightingFunctionType.Cosine, 'Gaussian': pycompadre.WeightingFunctionType.Gaussian, 'Sigmoid': pycompadre.WeightingFunctionType.Sigmoid}
+    weighting_type_dict = {'Power': pycompadre.WeightingFunctionType.Power, 'Cubic Spl.': pycompadre.WeightingFunctionType.CubicSpline, 'Cosine': pycompadre.WeightingFunctionType.Cosine, 'Gaussian': pycompadre.WeightingFunctionType.Gaussian, 'Sigmoid': pycompadre.WeightingFunctionType.Sigmoid, 'Cubic B-Spl.': pycompadre.WeightingFunctionType.CardinalCubicBSpline}
     global wt
     wt = weighting_type_dict[label]
     for item in t_labels.keys():
@@ -93,6 +94,9 @@ def weighting_type_update(label):
         ax_p.set_visible(True)
         ax_n.set_visible(True)
     elif (label=='Cubic Spl.'):
+        ax_p.set_visible(False)
+        ax_n.set_visible(False)
+    elif (label=='Cubic B-Spl.'):
         ax_p.set_visible(False)
         ax_n.set_visible(False)
     elif (label=='Cosine'):
