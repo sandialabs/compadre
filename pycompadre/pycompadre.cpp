@@ -784,6 +784,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .value("Power", WeightingFunctionType::Power)
     .value("Gaussian", WeightingFunctionType::Gaussian)
     .value("CubicSpline", WeightingFunctionType::CubicSpline)
+    .value("CardinalCubicBSpline", WeightingFunctionType::CardinalCubicBSpline)
     .value("Cosine", WeightingFunctionType::Cosine)
     .value("Sigmoid", WeightingFunctionType::Sigmoid)
     .export_values();
