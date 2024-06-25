@@ -288,7 +288,7 @@ void ReactionDiffusionPhysics::initialize() {
     });
     Kokkos::fence();
 
-    auto epsilons = _cell_particles_neighborhood->getHSupportSizes()->getLocalView<const host_view_type>();
+    auto epsilons = _cell_particles_neighborhood->getHSupportSizes()->getLocalViewHost(Tpetra::Access::ReadOnly);
     Kokkos::View<double*> kokkos_epsilons("epsilons", target_coords->nLocal());
     _kokkos_epsilons_host = Kokkos::create_mirror_view(kokkos_epsilons);
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
@@ -349,10 +349,10 @@ void ReactionDiffusionPhysics::initialize() {
     _cells->getFieldManager()->createField(_weights_ndim, "quadrature_weights");
     _cells->getFieldManager()->createField(_weights_ndim, "interior");
     _cells->getFieldManager()->createField(element_dim*_weights_ndim, "unit_normal");
-    auto quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
-    auto quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
-    auto quadrature_type = _cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
-    auto unit_normals = _cells->getFieldManager()->getFieldByName("unit_normal")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadWrite);
+    auto quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadWrite);
+    auto quadrature_type = _cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadWrite);
+    auto unit_normals = _cells->getFieldManager()->getFieldByName("unit_normal")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadWrite);
     auto cell_vertices = _cells->getFieldManager()->getFieldByName("vertex_points")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
     Intrepid::FieldContainer<double> element_cub_points(num_element_cub_points, element_dim);
@@ -1256,10 +1256,10 @@ void ReactionDiffusionPhysics::computeMatrix(local_index_type field_one, local_i
     auto bc_id = this->_particles->getFlags()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
     // quantities contained on cells (mesh)
-    auto quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
-    auto quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
-    auto quadrature_type = _cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
-    auto unit_normals = _cells->getFieldManager()->getFieldByName("unit_normal")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadWrite);
+    auto quadrature_weights = _cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadWrite);
+    auto quadrature_type = _cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadWrite);
+    auto unit_normals = _cells->getFieldManager()->getFieldByName("unit_normal")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadWrite);
     auto adjacent_elements = _cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
     auto halo_quadrature_points = _cells->getFieldManager()->getFieldByName("quadrature_points")->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);

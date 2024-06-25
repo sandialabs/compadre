@@ -224,7 +224,7 @@ int main (int argc, char* args[]) {
 
         Teuchos::RCP<Compadre::AnalyticFunction> velocity_function;
         Teuchos::RCP<Compadre::AnalyticFunction> pressure_function;
-        if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_1") {
+        if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_1") {
             velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::FirstOrderBasis(input_dim /*dimension*/)));
         } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_2") {
             velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(input_dim /*dimension*/)));
@@ -241,6 +241,8 @@ int main (int argc, char* args[]) {
                             parameters->get<Teuchos::ParameterList>("physics").get<double>("shear"),
                             parameters->get<Teuchos::ParameterList>("physics").get<double>("lambda"), 
                             input_dim /*dimension*/)));
+        } else {
+            TEUCHOS_ASSERT(false);
         }
         if (st_op) { // mix_le_op uses pressure from divergence of velocity
             if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_1") {
@@ -253,6 +255,8 @@ int main (int argc, char* args[]) {
                 pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ConstantEachDimension(0, 0, 0)));
             } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="sine") {
                 pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(input_dim /*dimension*/)));
+            } else {
+                TEUCHOS_ASSERT(false);
             }
         }
 
@@ -1236,7 +1240,6 @@ int main (int argc, char* args[]) {
     }
     Teuchos::TimeMonitor::summarize();
     }
-    Kokkos::finalize();
     #endif
     return 0;
 }
