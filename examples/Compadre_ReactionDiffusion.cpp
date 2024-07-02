@@ -193,7 +193,7 @@ int main (int argc, char* args[]) {
                 pressure_name = "solution_pressure";
                 particles->getFieldManager()->createField(input_dim, velocity_name, "m/s");
                 particles->getFieldManager()->createField(1, pressure_name, "m/s");
-				if (use_lm) particles->getFieldManager()->createField(1, "lagrange multiplier", "NA");
+                if (use_lm) particles->getFieldManager()->createField(1, "lagrange multiplier", "NA");
             } else if (le_op || vl_op) {
                 velocity_name = "solution";
                 particles->getFieldManager()->createField(input_dim, velocity_name, "m/s");
@@ -981,7 +981,7 @@ int main (int argc, char* args[]) {
                                 }
 
 
-				// VMS "jump" error norm (instead of sipg penalty)
+                                // VMS "jump" error norm (instead of sipg penalty)
                                 if (use_vms){
                                     // VMSDG tau (penalty-like) parameter
                                     // in this script, i is the cubature point number (instead of q or qn)
@@ -989,19 +989,19 @@ int main (int argc, char* args[]) {
                                     //const int current_edge_num_in_current_cell = (i - num_interior_quadrature)/num_exterior_quadrature_per_edge; //should be same as "current_side_num"
                                     Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_edge(input_dim, input_dim);
                                     Teuchos :: SerialDenseSolver <local_index_type, scalar_type> vmsdg_solver;
-				    tau_edge.putScalar(0.0);
+                                    tau_edge.putScalar(0.0);
 
-				    for (int j1 = 0; j1 < input_dim; ++j1) {
-				        for (int j2 = 0; j2 < input_dim; ++j2) {
-				            tau_edge(j1, j2) = physics->_tau(j, current_side_num, j1, j2); //tau^(1)_s from 'current' elem
-				        }
-				    }
+                                    for (int j1 = 0; j1 < input_dim; ++j1) {
+                                        for (int j2 = 0; j2 < input_dim; ++j2) {
+                                            tau_edge(j1, j2) = physics->_tau(j, current_side_num, j1, j2); //tau^(1)_s from 'current' elem
+                                        }
+                                    }
                   
                                     vmsdg_solver.setMatrix(Teuchos::rcp(&tau_edge, false));
                                     auto info = vmsdg_solver.invert();
 
-				    double tau_times_jump_u = 0.0;
-				    for (int m_temp=0; m_temp<velocity_dof_view.extent(1); ++m_temp){
+                                    double tau_times_jump_u = 0.0;
+                                    for (int m_temp=0; m_temp<velocity_dof_view.extent(1); ++m_temp){
                                         double temp_u_val = 0.0;
                                         // needs reconstruction at this quadrature point // replace m_out with m_temp in this code block, m_temp is index for dot product with tau_edge
                                         // LO num_neighbors = neighborhood->getNumNeighbors(j); //num_neighbors already defined in this scope
@@ -1016,17 +1016,17 @@ int main (int argc, char* args[]) {
                                                 else v = vel_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
                                                 temp_u_val += dof_val * v;
                                             }
-				        }
+                                        }
                                         double temp_u_exact = 0.0;
                                         temp_u_exact = velocity_function->evalVector(xyz)[m_temp]; // NOTE: reconstruction uses index m_temp because contraction with tau_edge
                                         tau_times_jump_u += tau_edge(m_out, m_temp) * (temp_u_val - temp_u_exact);
-				    }
+                                    }
 
-				    jump_error_on_cell += quadrature_weights(j,i) * (u_val - u_exact) * tau_times_jump_u;
-				} else { // sipg by default
+                                    jump_error_on_cell += quadrature_weights(j,i) * (u_val - u_exact) * tau_times_jump_u;
+                                } else { // sipg by default
                                     jump_error_on_cell += penalty * quadrature_weights(j,i) * (u_val - u_exact) * (u_val - u_exact);
-				}
-				if (plot_quadrature) {
+                                }
+                                if (plot_quadrature) {
                                     jump_view(count+i,m_out) += penalty * quadrature_weights(j,i) * (u_val - u_exact) * (u_val - u_exact);
                                 }
                             } else if (quadrature_type(j,i)==0) { // interior edge
