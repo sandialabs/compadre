@@ -276,20 +276,21 @@ int main (int argc, char* args[]) {
 
             CT* coords = (CT*)particles->getCoords();
 
-            Compadre::host_view_type initial_coords = 
-                particles->getCoords()->getPts(false /*halo*/, false /*use_physical_coords*/)->getLocalView<Compadre::host_view_type>();
+            auto initial_coords = 
+                particles->getCoords()->getPts(false /*halo*/, false /*use_physical_coords*/)->getLocalViewHost(Tpetra::Access::ReadOnly);
 
-            Compadre::host_view_type velocity_field, height_field;
+            decltype(particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly))
+                velocity_field, height_field;
             if (timestepper_type=="rk") {
                 velocity_field = 
-                    particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                    particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
                 height_field = 
-                    particles->getFieldManager()->getFieldByName("height")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                    particles->getFieldManager()->getFieldByName("height")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
             } else if (timestepper_type=="newmark") {
                 velocity_field = 
-                    particles->getFieldManager()->getFieldByName("d_velocity")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                    particles->getFieldManager()->getFieldByName("d_velocity")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
                 height_field = 
-                    particles->getFieldManager()->getFieldByName("d")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                    particles->getFieldManager()->getFieldByName("d")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
             }
             //auto integral_vel_function = Compadre::CosT(parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"),-1)+1;
             //auto integral_h_function = Compadre::CosT(parameters->get<Teuchos::ParameterList>("time").get<double>("t_end"),-1)+1;

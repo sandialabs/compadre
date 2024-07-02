@@ -169,7 +169,7 @@ void SolverT::amalgamateBlockMatrices(std::vector<std::vector<Teuchos::RCP<crs_m
     }
 
     // create giant graph using new maps
-    auto A_single_block_graph = Teuchos::rcp(new crs_graph_type(new_row_map, new_col_map, max_entries_per_row_over_all_rows, Tpetra::StaticProfile));
+    auto A_single_block_graph = Teuchos::rcp(new crs_graph_type(new_row_map, new_col_map, max_entries_per_row_over_all_rows));
 
     _row_exporters.resize(A.size()); // from each block row to global
     _range_exporters.resize(A.size()); // from each block row to global
@@ -523,8 +523,8 @@ Teuchos::RCP<mvec_type> SolverT::getSolution(local_index_type idx) const {
 
 void SolverT::setSolution(local_index_type idx, Teuchos::RCP<mvec_type> vec) {
 
-    auto _x_tpetra_view = _x_tpetra[idx]->getLocalView<host_view_scalar_type>();
-    auto vec_view = vec->getLocalView<host_view_scalar_type>();
+    auto _x_tpetra_view = _x_tpetra[idx]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+    auto vec_view = vec->getLocalViewHost(Tpetra::Access::ReadOnly);
 
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_x_tpetra_view.extent(0)!=vec_view.extent(0), "Number of rows differs between vectors.");
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_x_tpetra_view.extent(1)!=vec_view.extent(1), "Number of cols differs between vectors.");

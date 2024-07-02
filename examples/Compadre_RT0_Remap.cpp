@@ -120,10 +120,10 @@ int main (int argc, char* args[]) {
 
             particles->getFieldManager()->createField(8, "combined_extra_data", "none"); // 2 endpts * 2 dimensions for coordinatess + normal direction in 2D
 
-            auto related_coordinates_view = particles->getFieldManager()->getFieldByName("related_coordinates")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-            auto unit_normals_view = particles->getFieldManager()->getFieldByName("unit_normals")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-            auto unit_tangents_view = particles->getFieldManager()->getFieldByName("unit_tangents")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-            auto combined_extra_data_view = particles->getFieldManager()->getFieldByName("combined_extra_data")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+            auto related_coordinates_view = particles->getFieldManager()->getFieldByName("related_coordinates")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+            auto unit_normals_view = particles->getFieldManager()->getFieldByName("unit_normals")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+            auto unit_tangents_view = particles->getFieldManager()->getFieldByName("unit_tangents")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+            auto combined_extra_data_view = particles->getFieldManager()->getFieldByName("combined_extra_data")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
             for(int j=0; j<coords->nLocal(); j++){
                 for(int k=0; k<4; k++){
@@ -174,9 +174,8 @@ int main (int argc, char* args[]) {
             ST physical_coordinate_weighted_l2_norm = 0;
             ST exact_coordinate_weighted_l2_norm = 0;
 
-            Compadre::host_view_type solution_field;
-            solution_field = new_particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-            Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            auto solution_field = new_particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+            Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
             for(int j=0; j<coords->nLocal(); j++){
                 xyz_type xyz = coords->getLocalCoords(j);

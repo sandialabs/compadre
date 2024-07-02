@@ -224,7 +224,7 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 	typedef typename gid_view_type::HostMirror host_gid_view_type;
 	typedef Kokkos::View<local_index_type> count_type;
 
-	host_view_type ptsView = our_coords->getPts(false /*halo*/, use_physical_coords)->getLocalView<host_view_type>();
+	host_view_type ptsView = our_coords->getPts(false /*halo*/, use_physical_coords)->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	std::vector<Teuchos::RCP<host_gid_view_type> > coords_to_send(peer_processors_i_overlap.size());
 
 	const_gid_view_type gids = our_coords->getMapConst()->getMyGlobalIndices();
@@ -566,12 +566,12 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 //	host_view_type lower_pt_vals;
 //	host_view_type upper_pt_vals;
 //	if (_amLower) {
-//		upper_pt_vals = lower_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
+//		upper_pt_vals = lower_processors_view_of_upper_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //		for (int i=0; i<upper_pt_vals.extent(0); i++) {
 //			upper_pt_vals(i,0) = 50;
 //		}
 //	} else {
-//		lower_pt_vals = upper_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
+//		lower_pt_vals = upper_processors_view_of_lower_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //		for (int i=0; i<lower_pt_vals.extent(0); i++) {
 //			lower_pt_vals(i,0) = -1;
 //		}
@@ -581,12 +581,12 @@ RemoteDataManager::RemoteDataManager(Teuchos::RCP<const Teuchos::Comm<local_inde
 //	upper_processors_view_of_upper_processors_data->doImport(*lower_processors_view_of_upper_processors_data, *_upper_importer, Tpetra::CombineMode::REPLACE);
 //
 //	if (_amLower) {
-//		lower_pt_vals = lower_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
+//		lower_pt_vals = lower_processors_view_of_lower_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //		for (int i=0; i<lower_pt_vals.extent(0); i++) {
 //			std::cout << _amLower << " " << global_comm->getRank() << " " << gids(i) << " " << lower_pt_vals(i,0) << std::endl;
 //		}
 //	} else {
-//		upper_pt_vals = upper_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
+//		upper_pt_vals = upper_processors_view_of_upper_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //		for (int i=0; i<upper_pt_vals.extent(0); i++) {
 //			std::cout << _amLower << " " << global_comm->getRank() << " " << gids(i) << " " << upper_pt_vals(i,0) << std::endl;
 //		}
@@ -604,9 +604,9 @@ void RemoteDataManager::putRemoteCoordinatesInParticleSet(particles_type* partic
 
 	// initialize the particle set to have the correct number of coordinates on each processor
 	if (_amLower) {
-		particles_to_overwrite->resize(_lower_map_for_upper_data->getNodeNumElements(),true);
+		particles_to_overwrite->resize(_lower_map_for_upper_data->getLocalNumElements(),true);
 	} else {
-		particles_to_overwrite->resize(_upper_map_for_lower_data->getNodeNumElements(),true);
+		particles_to_overwrite->resize(_upper_map_for_lower_data->getLocalNumElements(),true);
 	}
 
 	Teuchos::RCP<mvec_type>	lower_processors_view_of_lower_processors_data = Teuchos::rcp(new mvec_type(_lower_map_for_lower_data, _ndim, true /* set to zero*/ ));
@@ -614,17 +614,17 @@ void RemoteDataManager::putRemoteCoordinatesInParticleSet(particles_type* partic
 	Teuchos::RCP<mvec_type>	upper_processors_view_of_lower_processors_data = Teuchos::rcp(new mvec_type(_upper_map_for_lower_data, _ndim, true /* set to zero*/ ));
 	Teuchos::RCP<mvec_type>	upper_processors_view_of_upper_processors_data = Teuchos::rcp(new mvec_type(_upper_map_for_upper_data, _ndim, true /* set to zero*/ ));
 
-	host_view_type original_pt_vals = _our_coords->getPts(false /*halo*/, use_physical_coords)->getLocalView<host_view_type>();
+	host_view_type original_pt_vals = _our_coords->getPts(false /*halo*/, use_physical_coords)->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	host_view_type duplicated_pt_vals;
 	if (_amLower) {
-		duplicated_pt_vals = lower_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
+		duplicated_pt_vals = lower_processors_view_of_lower_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 		for (size_t i=0; i<duplicated_pt_vals.extent(0); i++) {
 			for (local_index_type j=0; j<_ndim; j++) {
 				duplicated_pt_vals(i,j) = original_pt_vals(i,j);
 			}
 		}
 	} else {
-		duplicated_pt_vals = upper_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
+		duplicated_pt_vals = upper_processors_view_of_upper_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 		for (size_t i=0; i<duplicated_pt_vals.extent(0); i++) {
 			for (local_index_type j=0; j<_ndim; j++) {
 				duplicated_pt_vals(i,j) = original_pt_vals(i,j);
@@ -641,9 +641,9 @@ void RemoteDataManager::putRemoteCoordinatesInParticleSet(particles_type* partic
 	// now it is time to move this data from the vector used for transfer to the vector for in the particle set
 	host_view_type coordinates_to_move_into_particles;
 	if (_amLower) {
-		coordinates_to_move_into_particles = lower_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
+		coordinates_to_move_into_particles = lower_processors_view_of_upper_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	} else {
-		coordinates_to_move_into_particles = upper_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
+		coordinates_to_move_into_particles = upper_processors_view_of_lower_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	}
 
 	for (size_t i=0; i<coordinates_to_move_into_particles.extent(0); i++) {
@@ -668,18 +668,18 @@ void RemoteDataManager::putRemoteCoordinatesInParticleSet(particles_type* partic
 //						localInitFromVectorFunction(&constant_choice);
 //
 //
-//	host_view_type rank_data_of_who_received_to_send = particles_to_overwrite->getFieldManager()->getFieldByName("processor")->getMultiVectorPtr()->getLocalView<host_view_type>();
+//	host_view_type rank_data_of_who_received_to_send = particles_to_overwrite->getFieldManager()->getFieldByName("processor")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //	// copy data into vector
 //	host_view_type duplicated_field_vals;
 //	if (_amLower) {
-//		duplicated_field_vals = lower_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
+//		duplicated_field_vals = lower_processors_view_of_upper_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //		for (local_index_type i=0; i<duplicated_field_vals.extent(0); i++) {
 //			for (local_index_type j=0; j<1; j++) {
 //				duplicated_field_vals(i,j) = rank_data_of_who_received_to_send(i,j);
 //			}
 //		}
 //	} else {
-//		duplicated_field_vals = upper_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
+//		duplicated_field_vals = upper_processors_view_of_lower_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //		for (local_index_type i=0; i<duplicated_field_vals.extent(0); i++) {
 //			for (local_index_type j=0; j<1; j++) {
 //				duplicated_field_vals(i,j) = rank_data_of_who_received_to_send(i,j);
@@ -702,16 +702,16 @@ void RemoteDataManager::putRemoteCoordinatesInParticleSet(particles_type* partic
 //	// temporarily make a particle set, create a field, and initialize values, then print
 //	// initialize the particle set to have the correct number of coordinates on each processor
 //	if (_amLower) {
-//		particles_to_overwrite->resize(_lower_map_for_lower_data->getNodeNumElements(),true);
+//		particles_to_overwrite->resize(_lower_map_for_lower_data->getLocalNumElements(),true);
 //	} else {
-//		particles_to_overwrite->resize(_upper_map_for_upper_data->getNodeNumElements(),true);
+//		particles_to_overwrite->resize(_upper_map_for_upper_data->getLocalNumElements(),true);
 //	}
 //
 //	// now it is time to move this data from the vector used for transfer to the vector for in the particle set
 //	if (_amLower) {
-//		coordinates_to_move_into_particles = _our_coords->getPts()->getLocalView<host_view_type>();
+//		coordinates_to_move_into_particles = _our_coords->getPts()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //	} else {
-//		coordinates_to_move_into_particles = _our_coords->getPts()->getLocalView<host_view_type>();
+//		coordinates_to_move_into_particles = _our_coords->getPts()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //	}
 //
 //	for (local_index_type i=0; i<coordinates_to_move_into_particles.extent(0); i++) {
@@ -721,17 +721,17 @@ void RemoteDataManager::putRemoteCoordinatesInParticleSet(particles_type* partic
 //															coordinates_to_move_into_particles(i,2));
 //	}
 //
-//	rank_data_of_who_received_to_send = particles_to_overwrite->getFieldManager()->getFieldByName("processor")->getMultiVectorPtr()->getLocalView<host_view_type>();
+//	rank_data_of_who_received_to_send = particles_to_overwrite->getFieldManager()->getFieldByName("processor")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //	// copy data into vector
 //	if (_amLower) {
-//		duplicated_field_vals = lower_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
+//		duplicated_field_vals = lower_processors_view_of_lower_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //		for (local_index_type i=0; i<duplicated_field_vals.extent(0); i++) {
 //			for (local_index_type j=0; j<1; j++) {
 //				rank_data_of_who_received_to_send(i,j) = duplicated_field_vals(i,j);
 //			}
 //		}
 //	} else {
-//		duplicated_field_vals = upper_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
+//		duplicated_field_vals = upper_processors_view_of_upper_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //		for (local_index_type i=0; i<duplicated_field_vals.extent(0); i++) {
 //			for (local_index_type j=0; j<1; j++) {
 //				rank_data_of_who_received_to_send(i,j) = duplicated_field_vals(i,j);
@@ -751,16 +751,16 @@ void RemoteDataManager::putRemoteWeightsInParticleSet(const particles_type* sour
 	Teuchos::RCP<mvec_type>	upper_processors_view_of_lower_processors_data = Teuchos::rcp(new mvec_type(_upper_map_for_lower_data, 1, true /* set to zero*/ ));
 	Teuchos::RCP<mvec_type>	upper_processors_view_of_upper_processors_data = Teuchos::rcp(new mvec_type(_upper_map_for_upper_data, 1, true /* set to zero*/ ));
 
-	host_view_type original_weighting_vals = source_particles->getFieldManagerConst()->getFieldByName(weighting_field_name)->getMultiVectorPtrConst()->getLocalView<host_view_type>();
+	auto original_weighting_vals = source_particles->getFieldManagerConst()->getFieldByName(weighting_field_name)->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
 	host_view_type duplicated_weighting_vals;
 
 	if (_amLower) {
-		duplicated_weighting_vals = lower_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
+		duplicated_weighting_vals = lower_processors_view_of_lower_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 		for (size_t i=0; i<duplicated_weighting_vals.extent(0); i++) {
 			duplicated_weighting_vals(i,0) = original_weighting_vals(i,0);
 		}
 	} else {
-		duplicated_weighting_vals = upper_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
+		duplicated_weighting_vals = upper_processors_view_of_upper_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 		for (size_t i=0; i<duplicated_weighting_vals.extent(0); i++) {
 			duplicated_weighting_vals(i,0) = original_weighting_vals(i,0);
 		}
@@ -774,20 +774,20 @@ void RemoteDataManager::putRemoteWeightsInParticleSet(const particles_type* sour
 	// now it is time to move this data from the vector used for transfer to the vector for in the particle set
 	host_view_type weights_to_move_into_particles;
 	if (_amLower) {
-		weights_to_move_into_particles = lower_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
+		weights_to_move_into_particles = lower_processors_view_of_upper_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	} else {
-		weights_to_move_into_particles = upper_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
+		weights_to_move_into_particles = upper_processors_view_of_lower_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	}
 
 	// get access to the field
 	host_view_type weights_inside_particles;
 	// check if field is already registered (verify it is not)
 	try {
-		weights_inside_particles = particles_to_overwrite->getFieldManager()->getFieldByName(weighting_field_name)->getMultiVectorPtr()->getLocalView<host_view_type>();
+		weights_inside_particles = particles_to_overwrite->getFieldManager()->getFieldByName(weighting_field_name)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	} catch (...) {
 		// register it
 		particles_to_overwrite->getFieldManager()->createField(1, weighting_field_name, "na");
-		weights_inside_particles = particles_to_overwrite->getFieldManager()->getFieldByName(weighting_field_name)->getMultiVectorPtr()->getLocalView<host_view_type>();
+		weights_inside_particles = particles_to_overwrite->getFieldManager()->getFieldByName(weighting_field_name)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	}
 
 	for (size_t i=0; i<weights_to_move_into_particles.extent(0); i++) {
@@ -800,7 +800,7 @@ void RemoteDataManager::putExtraRemapDataInParticleSet(const particles_type* sou
 
     _extra_data_for_remap_field_name = extra_data_for_remap_field_name;
 
-	host_view_type original_extra_data_vals = source_particles->getFieldManagerConst()->getFieldByName(extra_data_for_remap_field_name)->getMultiVectorPtrConst()->getLocalView<host_view_type>();
+	auto original_extra_data_vals = source_particles->getFieldManagerConst()->getFieldByName(extra_data_for_remap_field_name)->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
     local_index_type original_num_components = static_cast<local_index_type>(original_extra_data_vals.extent(1));
     local_index_type peer_num_components = 0;
 
@@ -831,18 +831,18 @@ void RemoteDataManager::putExtraRemapDataInParticleSet(const particles_type* sou
 	    upper_processors_view_of_upper_processors_data = Teuchos::rcp(new mvec_type(_upper_map_for_upper_data, original_num_components, true /* set to zero*/ ));
     }
 
-	host_view_type original_extra_vals = source_particles->getFieldManagerConst()->getFieldByName(extra_data_for_remap_field_name)->getMultiVectorPtrConst()->getLocalView<host_view_type>();
-	host_view_type duplicated_extra_vals;
+	auto original_extra_vals = source_particles->getFieldManagerConst()->getFieldByName(extra_data_for_remap_field_name)->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+	decltype(lower_processors_view_of_lower_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll)) duplicated_extra_vals;
 
 	if (_amLower) {
-		duplicated_extra_vals = lower_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
+		duplicated_extra_vals = lower_processors_view_of_lower_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 		for (size_t i=0; i<duplicated_extra_vals.extent(0); i++) {
 	        for (size_t j=0; j<duplicated_extra_vals.extent(1); j++) {
 			    duplicated_extra_vals(i,j) = original_extra_vals(i,j);
             }
 		}
 	} else {
-		duplicated_extra_vals = upper_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
+		duplicated_extra_vals = upper_processors_view_of_upper_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 		for (size_t i=0; i<duplicated_extra_vals.extent(0); i++) {
 	        for (size_t j=0; j<duplicated_extra_vals.extent(1); j++) {
 			    duplicated_extra_vals(i,j) = original_extra_vals(i,j);
@@ -868,19 +868,19 @@ void RemoteDataManager::putExtraRemapDataInParticleSet(const particles_type* sou
 	// now it is time to move this data from the vector used for transfer to the vector for in the particle set
 	host_view_type extra_remap_data_to_move_into_particles;
 	if (_amLower) {
-		extra_remap_data_to_move_into_particles = lower_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
+		extra_remap_data_to_move_into_particles = lower_processors_view_of_upper_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	} else {
-		extra_remap_data_to_move_into_particles = upper_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
+		extra_remap_data_to_move_into_particles = upper_processors_view_of_lower_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	}
 
 	// get access to the field
 	host_view_type extra_remap_data_inside_particles;
 	try {
-		extra_remap_data_inside_particles = particles_to_overwrite->getFieldManager()->getFieldByName(extra_data_for_remap_field_name)->getMultiVectorPtr()->getLocalView<host_view_type>();
+		extra_remap_data_inside_particles = particles_to_overwrite->getFieldManager()->getFieldByName(extra_data_for_remap_field_name)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	} catch (...) {
 		// register it
 		particles_to_overwrite->getFieldManager()->createField(peer_num_components, extra_data_for_remap_field_name, "na");
-		extra_remap_data_inside_particles = particles_to_overwrite->getFieldManager()->getFieldByName(extra_data_for_remap_field_name)->getMultiVectorPtr()->getLocalView<host_view_type>();
+		extra_remap_data_inside_particles = particles_to_overwrite->getFieldManager()->getFieldByName(extra_data_for_remap_field_name)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	}
 
 	for (size_t i=0; i<extra_remap_data_to_move_into_particles.extent(0); i++) {
@@ -1307,14 +1307,14 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 	local_index_type offset = 0;
 	for (local_index_type i=0; i<peer_num_fields_for_swap; ++i) {
 
-		host_view_type this_peer_fields_values = particles_to_overwrite->getFieldManager()->getFieldByName(peer_field_names[i])->getMultiVectorPtr()->getLocalView<host_view_type>();
+		host_view_type this_peer_fields_values = particles_to_overwrite->getFieldManager()->getFieldByName(peer_field_names[i])->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
 		// copy data into vector
 		host_view_type field_vals_to_send;
 		if (_amLower) {
-			field_vals_to_send = lower_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
+			field_vals_to_send = lower_processors_view_of_upper_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 		} else {
-			field_vals_to_send = upper_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
+			field_vals_to_send = upper_processors_view_of_lower_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 		}
 		for (size_t j=0; j<field_vals_to_send.extent(0); j++) {
 			for (local_index_type k=0; k<each_peer_field_dim[i]; k++) {
@@ -1358,14 +1358,14 @@ void RemoteDataManager::remapData(std::vector<RemapObject> remap_vector,
 		}
 
 
-		host_view_type my_fields_values = source_particles->getFieldManager()->getFieldByID(target_field_num)->getMultiVectorPtr()->getLocalView<host_view_type>();
+		host_view_type my_fields_values = source_particles->getFieldManager()->getFieldByID(target_field_num)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
 		// copy data from vector into particles
 		host_view_type field_vals_sent_from_peer;
 		if (_amLower) {
-			field_vals_sent_from_peer = lower_processors_view_of_lower_processors_data->getLocalView<host_view_type>();
+			field_vals_sent_from_peer = lower_processors_view_of_lower_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 		} else {
-			field_vals_sent_from_peer = upper_processors_view_of_upper_processors_data->getLocalView<host_view_type>();
+			field_vals_sent_from_peer = upper_processors_view_of_upper_processors_data->getLocalViewHost(Tpetra::Access::OverwriteAll);
 		}
 		for (size_t j=0; j<field_vals_sent_from_peer.extent(0); j++) {
 			for (local_index_type k=0; k<received_field_dim[i]; k++) {

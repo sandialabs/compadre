@@ -94,7 +94,7 @@ void PinnedGraphLaplacianPhysics::computeMatrix(local_index_type field_one, loca
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
 	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
-	const host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
+	auto bc_id = this->_particles->getFlags()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
 	// get maximum number of neighbors * fields[field_two]->nDim()
 	const local_index_type max_num_neighbors = neighborhood->computeMaxNumNeighbors(false /* local processor max */);

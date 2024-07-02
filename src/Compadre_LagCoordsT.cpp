@@ -44,14 +44,12 @@ void LagCoordsT::replaceLocalCoords(const local_index_type idx, const scalar_typ
     lagPts->replaceLocalValue(idx,0,x);
     lagPts->replaceLocalValue(idx,1,y);
     lagPts->replaceLocalValue(idx,2,z);
-    lagPts->modify<host_view_type>();
 }
 
 void LagCoordsT::replaceLocalCoords(const local_index_type idx, const xyz_type& vec) {
     lagPts->replaceLocalValue(idx, 0, vec.x);
     lagPts->replaceLocalValue(idx, 1, vec.y);
     lagPts->replaceLocalValue(idx, 2, vec.z);
-    lagPts->modify<host_view_type>();
 }
 
 void LagCoordsT::replaceGlobalCoords(const global_index_type idx, const scalar_type x, const scalar_type y, 
@@ -59,19 +57,17 @@ void LagCoordsT::replaceGlobalCoords(const global_index_type idx, const scalar_t
     lagPts->replaceGlobalValue(idx,0,x);
     lagPts->replaceGlobalValue(idx,1,y);
     lagPts->replaceGlobalValue(idx,2,z);
-    lagPts->modify<host_view_type>();
 }
 
 void LagCoordsT::replaceGlobalCoords(const global_index_type idx, const xyz_type& vec) {
     lagPts->replaceGlobalValue(idx, 0, vec.x);
     lagPts->replaceGlobalValue(idx, 1, vec.y);
     lagPts->replaceGlobalValue(idx, 2, vec.z);
-    lagPts->modify<host_view_type>();
 }
 
 LagCoordsT::xyz_type LagCoordsT::getLocalCoords(const local_index_type idx, bool use_halo) const {
-    host_view_type ptsView = (use_halo && idx >= _physCoords->_nLocal) ? 
-        lagHaloPts->getLocalView<host_view_type>() : lagPts->getLocalView<host_view_type>();
+    auto ptsView = (use_halo && idx >= _physCoords->_nLocal) ? 
+        lagHaloPts->getLocalViewHost(Tpetra::Access::OverwriteAll) : lagPts->getLocalViewHost(Tpetra::Access::OverwriteAll);
     const local_index_type idx2 = (use_halo && idx >= _physCoords->_nLocal) ? idx - _physCoords->_nLocal : idx;
     return xyz_type(ptsView(idx2,0), ptsView(idx2,1), ptsView(idx2,2));
 }
@@ -127,13 +123,13 @@ scalar_type LagCoordsT::localDotProduct(const local_index_type idx, const xyz_ty
     return indVec.dotProduct(queryPt);
 }
 
-void LagCoordsT::syncMemory() {
-    lagPts->sync<device_view_type>();
-    lagPts->sync<host_view_type>();
-}
-
-bool LagCoordsT::hostNeedsUpdate() const {return lagPts->need_sync<host_memory_space>();}
-bool LagCoordsT::deviceNeedsUpdate() const {return lagPts->need_sync<device_view_type>();}
+//void LagCoordsT::syncMemory() {
+//    lagPts->sync<device_view_type>();
+//    lagPts->sync<auto>();
+//}
+//
+//bool LagCoordsT::hostNeedsUpdate() const {return lagPts->need_sync<host_memory_space>();}
+//bool LagCoordsT::deviceNeedsUpdate() const {return lagPts->need_sync<device_view_type>();}
 
 void LagCoordsT::buildHalo() {
     TEUCHOS_TEST_FOR_EXCEPT_MSG(_physCoords->z2problem.is_null(), "Run Zoltan2 on physical coordinates first.");
@@ -154,7 +150,7 @@ std::ostream& operator << (std::ostream& os, const LagCoordsT& lagCoords) {
 }
 
 void LagCoordsT::writeToMatlab(std::ostream& fs, const std::string coordsName, const int procRank) const {
-    device_view_type ptsHostView = lagPts->getLocalView<host_view_type>();
+    device_view_type ptsHostView = lagPts->getLocalViewHost(Tpetra::Access::OverwriteAll);
     fs << coordsName << "Xyz" << procRank << " = [";
     for (local_index_type i = 0; i < nLocal() - 1; ++i) 
         fs << ptsHostView(i, 0) << ", " << ptsHostView(i, 1) << ", " << ptsHostView(i, 2) << "; ..." << std::endl;
@@ -163,7 +159,7 @@ void LagCoordsT::writeToMatlab(std::ostream& fs, const std::string coordsName, c
 }
 
 void LagCoordsT::writeHaloToMatlab(std::ostream& fs, const std::string coordsName, const int procRank) const {
-    device_view_type haloPtsView = lagHaloPts->getLocalView<host_view_type>();
+    device_view_type haloPtsView = lagHaloPts->getLocalViewHost(Tpetra::Access::OverwriteAll);
     if (lagHaloPts->getLocalLength() > 0 ) {
         fs << coordsName << "Xyz" << procRank << " = ["; 
         for (size_t i = 0; i < lagHaloPts->getLocalLength() - 1; ++i)

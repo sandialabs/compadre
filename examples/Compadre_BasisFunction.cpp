@@ -88,13 +88,12 @@ int main (int argc, char* args[]) {
         particles->getFieldManager()->createField(1, "remapped_basis", "na");
 
         // get view and set just one value to 1
-        
-        host_view_type values_holder = particles->getFieldManagerConst()->
-            getFieldByName("remapped_basis")->getMultiVectorPtrConst()->getLocalView<const host_view_type>();
-        particles->getFieldManager()->
-            getFieldByName("remapped_basis")->getMultiVectorPtr()->putScalar(0.0);
-
-        values_holder(index_manipulated,0) = 1.0;
+        {
+            particles->getFieldManager()->
+                getFieldByName("remapped_basis")->getMultiVectorPtr()->putScalar(0.0);
+            particles->getFieldManager()->
+                getFieldByName("remapped_basis")->getMultiVectorPtr()->replaceGlobalValue(index_manipulated, 0, 1.0);
+        }
 
 	    particles->getFieldManager()->updateFieldsHaloData();
     }
@@ -209,7 +208,7 @@ int main (int argc, char* args[]) {
             kokkos_target_coordinates_host(i,2) = coordinate.z;
         });
     
-        auto epsilons = _neighborhoodInfo->getHSupportSizes()->getLocalView<const host_view_type>();
+        auto epsilons = _neighborhoodInfo->getHSupportSizes()->getLocalViewHost(Tpetra::Access::ReadOnly);
         Kokkos::View<double*> kokkos_epsilons("epsilons",target_coords->nLocal());
         Kokkos::View<double*>::HostMirror kokkos_epsilons_host = Kokkos::create_mirror_view(kokkos_epsilons);
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
@@ -222,8 +221,8 @@ int main (int argc, char* args[]) {
         auto num_triangles = target_coords->nLocal(false);
         int rows = 40;
         int num_per_triangle = rows*(rows+1)/2;
-        const host_view_type coords_values_holder = src_particles->getFieldManagerConst()->
-                getFieldByName("basis")->getMultiVectorPtrConst()->getLocalView<const host_view_type>();
+        auto coords_values_holder = src_particles->getFieldManagerConst()->
+                getFieldByName("basis")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
 
         Kokkos::View<double**> kokkos_eval_coordinates("eval_coordinates", num_triangles*num_per_triangle, 3);
@@ -332,10 +331,10 @@ int main (int argc, char* args[]) {
 
 
     
-        const host_view_type source_values_holder = src_particles->getFieldManagerConst()->
-                getFieldByName("remapped_basis")->getMultiVectorPtrConst()->getLocalView<const host_view_type>();
-        const host_view_type source_halo_values_holder = src_particles->getFieldManagerConst()->
-                getFieldByName("remapped_basis")->getHaloMultiVectorPtrConst()->getLocalView<const host_view_type>();
+        auto source_values_holder = src_particles->getFieldManagerConst()->
+                getFieldByName("remapped_basis")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+        auto source_halo_values_holder = src_particles->getFieldManagerConst()->
+                getFieldByName("remapped_basis")->getHaloMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
     
         const local_index_type num_local_particles = source_values_holder.extent(0);
     
@@ -386,8 +385,8 @@ int main (int argc, char* args[]) {
 
 
         // should write from here nper_triangle * num_triangles ---->  a grid of that size
-        host_view_type target_values = eval_particles->getFieldManager()->
-                getFieldByName("remapped_basis2")->getMultiVectorPtr()->getLocalView<host_view_type>();
+        auto target_values = eval_particles->getFieldManager()->
+                getFieldByName("remapped_basis2")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
 
 

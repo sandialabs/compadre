@@ -37,13 +37,13 @@ if (_optimization_object._optimization_algorithm != OptimizationAlgorithm::NONE)
 	OptimizationTime->start();
 
     // weights
-    Compadre::host_view_type source_grid_weighting_field = _source_particles->getFieldManagerConst()->getFieldByName(_source_weighting_name)->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-    Compadre::host_view_type target_grid_weighting_field = _target_particles->getFieldManager()->getFieldByName(_target_weighting_name)->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+    auto source_grid_weighting_field = _source_particles->getFieldManagerConst()->getFieldByName(_source_weighting_name)->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto target_grid_weighting_field = _target_particles->getFieldManager()->getFieldByName(_target_weighting_name)->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
     // target values
-    Compadre::host_view_type target_solution_data = _target_particles->getFieldManager()->getFieldByID(_target_field_num)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+    auto target_solution_data = _target_particles->getFieldManager()->getFieldByID(_target_field_num)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
     // for maxs/mins
-    Compadre::host_view_type source_solution_data = _source_particles->getFieldManagerConst()->getFieldByID(_source_field_num)->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-    Compadre::host_view_type source_halo_solution_data = _source_particles->getFieldManagerConst()->getFieldByID(_source_field_num)->getHaloMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+    auto source_solution_data = _source_particles->getFieldManagerConst()->getFieldByID(_source_field_num)->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto source_halo_solution_data = _source_particles->getFieldManagerConst()->getFieldByID(_source_field_num)->getHaloMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
 
     std::vector<scalar_type> weights(target_grid_weighting_field.extent(0));

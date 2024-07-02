@@ -97,7 +97,7 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
         auto existing_row_map = _row_map;
         auto existing_col_map = _col_map;
 
-        size_t max_entries_per_row = this->_A_graph->getNodeMaxNumRowEntries();
+        size_t max_entries_per_row = this->_A_graph->getLocalMaxNumRowEntries();
 
         auto row_map_index_base = existing_row_map->getIndexBase();
         auto row_map_entries = existing_row_map->getMyGlobalIndices();
@@ -142,7 +142,7 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
         Kokkos::deep_copy(host_view_entries, entries);
         dual_view_entries.modify<Kokkos::DefaultHostExecutionSpace>();
         dual_view_entries.sync<Kokkos::DefaultExecutionSpace>();
-        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries, Tpetra::StaticProfile));
+        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries));
     } else if (field_one == solution_field_id && field_two == lm_field_id) {
 
         // create a new graph from the existing one, but with an updated col map augmented by a single global dof
@@ -150,7 +150,7 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
         auto existing_row_map = _row_map;
         auto existing_col_map = _col_map;
 
-        size_t max_entries_per_row = this->_A_graph->getNodeMaxNumRowEntries();
+        size_t max_entries_per_row = this->_A_graph->getLocalMaxNumRowEntries();
 
         auto col_map_index_base = existing_col_map->getIndexBase();
         auto col_map_entries = existing_col_map->getMyGlobalIndices();
@@ -196,7 +196,7 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
         Kokkos::deep_copy(host_view_entries, entries);
         dual_view_entries.modify<Kokkos::DefaultHostExecutionSpace>();
         dual_view_entries.sync<Kokkos::DefaultExecutionSpace>();
-        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries, Tpetra::StaticProfile));
+        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries));
 
     }
  
@@ -208,7 +208,7 @@ Teuchos::RCP<crs_graph_type> LaplaceBeltramiPhysics::computeGraph(local_index_ty
         Kokkos::deep_copy(host_view_entries, entries);
         dual_view_entries.modify<Kokkos::DefaultHostExecutionSpace>();
         dual_view_entries.sync<Kokkos::DefaultExecutionSpace>();
-        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries, Tpetra::StaticProfile));
+        _A_graph = Teuchos::rcp(new crs_graph_type (_row_map, _col_map, dual_view_entries));
     }
 
 
@@ -329,7 +329,7 @@ void LaplaceBeltramiPhysics::computeMatrix(local_index_type field_one, local_ind
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
 	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
-	const host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
+	auto bc_id = this->_particles->getFlags()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
     auto solution_field_id = _particles->getFieldManagerConst()->getIDOfFieldFromName("solution");
     auto lm_field_id = _particles->getFieldManagerConst()->getIDOfFieldFromName("lagrange multiplier");
@@ -383,7 +383,7 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 		kokkos_target_coordinates_host(i,2) = coordinate.z;
 	});
 
-	auto epsilons = neighborhood->getHSupportSizes()->getLocalView<const host_view_type>();
+	auto epsilons = neighborhood->getHSupportSizes()->getLocalViewHost(Tpetra::Access::ReadOnly);
 	Kokkos::View<double*> kokkos_epsilons("epsilons", target_coords->nLocal());
 	Kokkos::View<double*>::HostMirror kokkos_epsilons_host = Kokkos::create_mirror_view(kokkos_epsilons);
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
@@ -829,17 +829,11 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
 				local_index_type row = local_to_dof_map(i, field_one, k);
 
-				Teuchos::Array<local_index_type> col_data(max_num_neighbors * num_neighbors * fields[field_two]->nDim());
-				Teuchos::Array<scalar_type> val_data(max_num_neighbors * num_neighbors * fields[field_two]->nDim());
-				Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
-				Teuchos::ArrayView<scalar_type> values = Teuchos::ArrayView<scalar_type>(val_data);
-
-				Teuchos::Array<local_index_type> const_col_data(max_num_neighbors * num_neighbors * fields[field_two]->nDim());
-				Teuchos::Array<scalar_type> const_val_data(max_num_neighbors * num_neighbors * fields[field_two]->nDim());
-				Teuchos::ArrayView<const local_index_type> const_cols = Teuchos::ArrayView<local_index_type>(const_col_data);
-				Teuchos::ArrayView<const scalar_type> const_values = Teuchos::ArrayView<scalar_type>(const_val_data);
-
+                crs_matrix_type::local_inds_host_view_type const_cols;
+                crs_matrix_type::values_host_view_type const_values;
 				t1.getLocalRowView(row, const_cols, const_values);
+                crs_matrix_type::nonconst_local_inds_host_view_type cols("columns", const_cols.size());
+                crs_matrix_type::nonconst_values_host_view_type values("values", const_values.size());
 
 				if (bc_id(i, 0) != 0) {
 					cols[0] = row;
@@ -1050,17 +1044,11 @@ if (field_one == solution_field_id && field_two == solution_field_id) {
 			for (local_index_type k = 0; k < fields[field_one]->nDim(); ++k) {
 				local_index_type row = local_to_dof_map(i, field_one, k);
 
-				Teuchos::Array<local_index_type> col_data(max_num_neighbors * num_neighbors * fields[field_two]->nDim());
-				Teuchos::Array<scalar_type> val_data(max_num_neighbors * num_neighbors * fields[field_two]->nDim());
-				Teuchos::ArrayView<local_index_type> cols = Teuchos::ArrayView<local_index_type>(col_data);
-				Teuchos::ArrayView<scalar_type> values = Teuchos::ArrayView<scalar_type>(val_data);
-
-				Teuchos::Array<local_index_type> const_col_data(max_num_neighbors * num_neighbors * fields[field_two]->nDim());
-				Teuchos::Array<scalar_type> const_val_data(max_num_neighbors * num_neighbors * fields[field_two]->nDim());
-				Teuchos::ArrayView<const local_index_type> const_cols = Teuchos::ArrayView<local_index_type>(const_col_data);
-				Teuchos::ArrayView<const scalar_type> const_values = Teuchos::ArrayView<scalar_type>(const_val_data);
-
+                crs_matrix_type::local_inds_host_view_type const_cols;
+                crs_matrix_type::values_host_view_type const_values;
 				t1.getLocalRowView(row, const_cols, const_values);
+                crs_matrix_type::nonconst_local_inds_host_view_type cols("columns", const_cols.size());
+                crs_matrix_type::nonconst_values_host_view_type values("values", const_values.size());
 
 				if (bc_id(i, 0) != 0) {
 					cols[0] = row;

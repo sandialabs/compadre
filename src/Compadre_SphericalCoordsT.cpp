@@ -73,12 +73,10 @@ scalar_type SphericalCoordsT::longitude(const local_index_type idx, bool use_phy
 
 void SphericalCoordsT::initRandom(const scalar_type s, const local_index_type i, bool use_physical_coords) {
 	mvec_type* pts_vec = (_is_lagrangian && use_physical_coords) ? pts_physical.getRawPtr() : pts.getRawPtr();
-	device_view_type ptsView = pts_vec->getLocalView<device_view_type>();
+	auto ptsView = pts_vec->getLocalViewDevice(Tpetra::Access::OverwriteAll);
 	Kokkos::parallel_for(this->nLocalMax(),
 		generate_random_sphere(ptsView, s, i) );
 		this->setLocalN(this->nLocalMax());
-		pts_vec->modify<device_view_type>();
-		pts_vec->sync<host_memory_space>();
 }
 
 }

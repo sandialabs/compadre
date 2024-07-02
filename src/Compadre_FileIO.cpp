@@ -546,7 +546,7 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
     //std::cout << "compare len: " << coords->nLocal() << " to " << maxInd-minInd << std::endl;
 
     // first fill the coordinates
-    host_view_type host_coords = coords->getPts()->getLocalView<host_view_type>(); // assumes we are reading in physical coords in a lagrangian simulation
+    auto host_coords = coords->getPts()->getLocalViewHost(Tpetra::Access::OverwriteAll); // assumes we are reading in physical coords in a lagrangian simulation
 
     if (_coordinate_layout==CoordinateLayout::XYZ_separate || _coordinate_layout==CoordinateLayout::XYZ_joint) {
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int i) {
@@ -568,13 +568,9 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
         });
     }
 
-    // sync coords and fields after the fill
-//    coords->syncMemory();
-//    coords->print(std::cout);
-
     if (flags_var_id >= 0) { // only read in if it was identified
         // fill the bc_id
-        host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
+        auto bc_id = _particles->getFlags()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int i) {
             bc_id(i,0) = flags[i+minInd];
         });
@@ -590,7 +586,7 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
                 field_dims[i], field_names[i], field_units[i]);
 
         // fill portion of vector corresponding to global ids that are located on this processor
-        host_view_type host_data = field->getLocalVectorVals()->getLocalView<host_view_type>();
+        auto host_data = field->getLocalVectorVals()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         const local_index_type field_dim_i = field_dims[i];
 
         if (!field_dim_flipped[i]) { // standard dimension ordering (particle numbering first)
@@ -605,7 +601,6 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
             });
         }
 
-        field->syncMemory();
     }
 
     if (_coordinate_layout==CoordinateLayout::LAT_LON_separate && _keep_original_coordinates)    {
@@ -618,16 +613,14 @@ int SerialNetCDFFileIO::read(const std::string& fn) {
                 1, "original lon", "null");
 
         // fill portion of vector corresponding to global ids that are located on this processor
-        host_view_type lat_host_data = old_lat_field->getLocalVectorVals()->getLocalView<host_view_type>();
-        host_view_type lon_host_data = old_lon_field->getLocalVectorVals()->getLocalView<host_view_type>();
+        auto lat_host_data = old_lat_field->getLocalVectorVals()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        auto lon_host_data = old_lon_field->getLocalVectorVals()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nPtsLocal), KOKKOS_LAMBDA(const int j) {
             lat_host_data(j,0) = coords_lat[j+minInd];
             lon_host_data(j,0) = coords_lon[j+minInd];
         });
 
-        old_lat_field->syncMemory();
-        old_lon_field->syncMemory();
     }
 
 
@@ -1095,7 +1088,7 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
     field_dims.resize(count);
 
     // first fill the coordinates
-    host_view_type host_coords = coords->getPts()->getLocalView<host_view_type>(); // assumes we are reading in physical coords in a lagrangian simulation
+    auto host_coords = coords->getPts()->getLocalViewHost(Tpetra::Access::OverwriteAll); // assumes we are reading in physical coords in a lagrangian simulation
     if (_coordinate_layout==CoordinateLayout::XYZ_separate || _coordinate_layout==CoordinateLayout::XYZ_joint) {
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,local_coords_size), 
                 KOKKOS_LAMBDA(const int i) {
@@ -1118,13 +1111,9 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
         });
     }
 
-    // sync coords and fields after the fill
-//    coords->syncMemory();
-//    coords->print(std::cout);
-
     if (flags_var_id > 0) { // only read in if it was identified
         // fill the bc_id
-        host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
+        auto bc_id = _particles->getFlags()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,local_coords_size), KOKKOS_LAMBDA(const int i) {
             bc_id(i,0) = flags[i];
         });
@@ -1139,7 +1128,7 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
                 field_dims[i], field_names[i], field_units[i]);
 
         // fill portion of vector corresponding to global ids that are located on this processor
-        host_view_type host_data = field->getLocalVectorVals()->getLocalView<host_view_type>();
+        auto host_data = field->getLocalVectorVals()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         const local_index_type field_dim_i = field_dims[i];
         if (!field_dim_flipped[i]) { // standard dimension ordering (particle numbering first)
             Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,local_coords_size), KOKKOS_LAMBDA(const int j) {
@@ -1151,7 +1140,6 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
             });
         }
 
-        field->syncMemory();
     }
 
     if (_coordinate_layout==CoordinateLayout::LAT_LON_separate && _keep_original_coordinates)    {
@@ -1164,16 +1152,14 @@ int ParallelHDF5NetCDFFileIO::read(const std::string& fn) {
                 1, "original lon", "null");
 
         // fill portion of vector corresponding to global ids that are located on this processor
-        host_view_type lat_host_data = old_lat_field->getLocalVectorVals()->getLocalView<host_view_type>();
-        host_view_type lon_host_data = old_lon_field->getLocalVectorVals()->getLocalView<host_view_type>();
+        auto lat_host_data = old_lat_field->getLocalVectorVals()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        auto lon_host_data = old_lon_field->getLocalVectorVals()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,local_coords_size), KOKKOS_LAMBDA(const int j) {
             lat_host_data(j,0) = coords_lat[j];
             lon_host_data(j,0) = coords_lon[j];
         });
 
-        old_lat_field->syncMemory();
-        old_lon_field->syncMemory();
     }
 
     /* Close the file. */
@@ -1216,7 +1202,7 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
     // first get the coordinates
     bool get_physical_coords = !(coords->isLagrangian() && _particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("coordinate type")=="lagrangian");
     // only when both are true do we want the value to be false
-    host_view_type host_coords = coords->getPts(false /*halo*/, get_physical_coords)->getLocalView<host_view_type>();
+    auto host_coords = coords->getPts(false /*halo*/, get_physical_coords)->getLocalViewHost(Tpetra::Access::OverwriteAll);
     const local_index_type coords_size = host_coords.extent(0);
 
     // define the dimensions
@@ -1285,7 +1271,7 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
         std::vector<scalar_type> host_field_data_vec(coords_size*fields[i]->nDim());
 
-        host_view_type host_field_data = fields[i]->getLocalVectorVals()->getLocalView<host_view_type>();
+        auto host_field_data = fields[i]->getLocalVectorVals()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //        {
 //            // ONLY FOR TESTING!!!!!
 //            for (int j=0; j<3; j++) {
@@ -1306,7 +1292,7 @@ void SerialNetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
     {
         // flags
-        host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
+        auto bc_id = _particles->getFlags()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         std::vector<local_index_type> bc_id_vec(coords_size);
         for (int k=0; k<coords_size; k++) {
             bc_id_vec[k] = bc_id(k,0);
@@ -1373,7 +1359,7 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
     // first get the coordinates
     bool get_physical_coords = !(coords->isLagrangian() && _particles->getParameters()->get<Teuchos::ParameterList>("io").get<std::string>("coordinate type")=="lagrangian");
     // only when both are true do we want the value to be false
-    host_view_type host_coords = coords->getPts(false /*halo*/, get_physical_coords)->getLocalView<host_view_type>();
+    auto host_coords = coords->getPts(false /*halo*/, get_physical_coords)->getLocalViewHost(Tpetra::Access::OverwriteAll);
     const local_index_type coords_size = host_coords.extent(0);
 
     // define the dimensions
@@ -1489,7 +1475,7 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
 
         std::vector<scalar_type> host_field_data_vec(coords_size*fields[i]->nDim());
 
-        host_view_type host_field_data = fields[i]->getLocalVectorVals()->getLocalView<host_view_type>();
+        auto host_field_data = fields[i]->getLocalVectorVals()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //        {
 //            // ONLY FOR TESTING!!!!!
 //            for (int j=0; j<3; j++) {
@@ -1515,7 +1501,7 @@ void ParallelHDF5NetCDFFileIO::write(const std::string& fn, bool use_binary) {
         unsigned long countDiff = (unsigned long)(coords_size);
 
         // flags
-        host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
+        auto bc_id = _particles->getFlags()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         std::vector<local_index_type> bc_id_vec(coords_size);
         for (int k=0; k<coords_size; k++) {
             bc_id_vec[k] = bc_id(k,0);

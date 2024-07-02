@@ -154,8 +154,8 @@ void ParticlesT::removeParticles(const std::vector<local_index_type>& coord_ids,
 
 	const bool setToZero = false;
 	Teuchos::RCP<mvec_local_index_type> new_flag = Teuchos::rcp(new mvec_local_index_type(_coords->getMapConst(), 1, setToZero));
-	host_view_local_index_type new_bc_id = new_flag->getLocalView<host_view_local_index_type>();
-	host_view_local_index_type old_bc_id = _flag->getLocalView<host_view_local_index_type>();
+	auto new_bc_id = new_flag->getLocalViewHost(Tpetra::Access::OverwriteAll);
+	auto old_bc_id = _flag->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,old_bc_id.extent(0)), KOKKOS_LAMBDA(const int i) {
 		bool deleted = false;
 		local_index_type offset = num_remove_coords;
@@ -195,17 +195,17 @@ void ParticlesT::mergeWith(const particles_type* other_particles) {
 
 	// we could copy data using Kokkos arrays, but converting to std::vector isn't that expensive and
 	// allows us to reuse the existing interface to CoordsT for inserting points
-	host_view_type other_pts_vals;
-	host_view_type other_pts_physical_vals;
+	decltype(other_particles->getCoordsConst()->getPts(false /*halo*/, false)->getLocalViewHost(Tpetra::Access::OverwriteAll)) other_pts_vals;
+	decltype(other_particles->getCoordsConst()->getPts()->getLocalViewHost(Tpetra::Access::OverwriteAll)) other_pts_physical_vals;
 	local_index_type other_pts_num;
 	local_index_type other_pts_physical_num=0;
 	if (other_particles->getCoordsConst()->isLagrangian()) {
-		other_pts_vals = other_particles->getCoordsConst()->getPts(false /*halo*/, false)->getLocalView<host_view_type>();
-		other_pts_physical_vals = other_particles->getCoordsConst()->getPts()->getLocalView<host_view_type>();
+		other_pts_vals = other_particles->getCoordsConst()->getPts(false /*halo*/, false)->getLocalViewHost(Tpetra::Access::OverwriteAll);
+		other_pts_physical_vals = other_particles->getCoordsConst()->getPts()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 		other_pts_physical_num = other_pts_physical_vals.extent(0);
 	} else {
-		other_pts_vals = other_particles->getCoordsConst()->getPts()->getLocalView<host_view_type>();
-		other_pts_physical_vals = other_particles->getCoordsConst()->getPts(false /*halo*/, false)->getLocalView<host_view_type>();
+		other_pts_vals = other_particles->getCoordsConst()->getPts()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+		other_pts_physical_vals = other_particles->getCoordsConst()->getPts(false /*halo*/, false)->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	}
 	other_pts_num = other_pts_vals.extent(0);
 
@@ -230,9 +230,9 @@ void ParticlesT::mergeWith(const particles_type* other_particles) {
     // flags
 	const bool setToZero = false;
 	Teuchos::RCP<mvec_local_index_type> new_flag = Teuchos::rcp(new mvec_local_index_type(_coords->getMapConst(), 1, setToZero));
-	host_view_local_index_type new_bc_id = new_flag->getLocalView<host_view_local_index_type>();
-	host_view_local_index_type old_bc_id = _flag->getLocalView<host_view_local_index_type>();
-	host_view_local_index_type other_bc_id = other_particles->getFlags()->getLocalView<host_view_local_index_type>();
+	auto new_bc_id = new_flag->getLocalViewHost(Tpetra::Access::OverwriteAll);
+	auto old_bc_id = _flag->getLocalViewHost(Tpetra::Access::OverwriteAll);
+	auto other_bc_id = other_particles->getFlags()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	// copy over old boundary ids
 	const local_index_type old_bc_id_num = (local_index_type)(old_bc_id.extent(0));
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,old_bc_id_num), KOKKOS_LAMBDA(const int i) {
@@ -391,12 +391,12 @@ void ParticlesT::createNeighborhood() {
 // Flag functions
 
 void ParticlesT::setFlag(const local_index_type idx, const local_index_type val) {
-	host_view_local_index_type flagView = _flag->getLocalView<host_view_local_index_type>();
+	auto flagView = _flag->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	flagView(idx,0) = val;
 }
 
 local_index_type ParticlesT::getFlag(const local_index_type idx) const {
-	host_view_local_index_type flagView = _flag->getLocalView<host_view_local_index_type>();
+	auto flagView = _flag->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	return flagView(idx,0);
 }
 

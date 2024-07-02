@@ -128,7 +128,7 @@ int main (int argc, char* args[]) {
 
 //				particles->getFieldManager()->getFieldByName("height")->
 //						scale(-1.);
-//		 		Compadre::host_view_type h_data = particles->getFieldManager()->getFieldByName("height")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+//		 		Compadre::host_view_type h_data = particles->getFieldManager()->getFieldByName("height")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //		 		for (LO i=0; i<particles->getCoordsConst()->nLocal(); ++i) {
 //	 				h_data(i,0) += 5960;
 //		 		}
@@ -181,8 +181,8 @@ int main (int argc, char* args[]) {
 //	 		const Teuchos::RCP<Compadre::mvec_type> material_point_vector = particles->getCoordsConst()->getPts(false, false);// not halo, material coords
 //	 		Teuchos::RCP<Compadre::mvec_type> field_vector = particles->getFieldManager()->getFieldByName("original locations")->getMultiVectorPtr();
 //
-//	 		Compadre::host_view_type material_point_data = material_point_vector->getLocalView<Compadre::host_view_type>();
-//	 		Compadre::host_view_type field_data = field_vector->getLocalView<Compadre::host_view_type>();
+//	 		Compadre::host_view_type material_point_data = material_point_vector->getLocalViewHost(Tpetra::Access::OverwriteAll);
+//	 		Compadre::host_view_type field_data = field_vector->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //
 //	 		for (LO i=0; i<particles->getCoordsConst()->nLocal(); ++i) {
 //	 			for (LO j=0; j<3; ++j) {
@@ -200,7 +200,7 @@ int main (int argc, char* args[]) {
 //			particles->getFieldManager()->updateFieldsHaloData();
 //			{
 //				// set displacements to have initial values of coordinates in reference domain
-//				Compadre::host_view_type initial_coords = particles->getCoords()->getPts()->getLocalView<Compadre::host_view_type>();
+//				Compadre::host_view_type initial_coords = particles->getCoords()->getPts()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //				Teuchos::RCP<Compadre::FieldT> disp_field = particles->getFieldManager()->getFieldByName("displacement");
 //
 //				for (LO i=0; i<initial_coords.extent(0); ++i) {
@@ -293,7 +293,7 @@ int main (int argc, char* args[]) {
 
 //			{
 //				// set displacements to have initial values of coordinates in reference domain
-//				Compadre::host_view_type initial_coords = particles->getCoords()->getPts(false /*halo*/, false /*use_physical_coords*/)->getLocalView<Compadre::host_view_type>();
+//				Compadre::host_view_type initial_coords = particles->getCoords()->getPts(false /*halo*/, false /*use_physical_coords*/)->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //				Teuchos::RCP<Compadre::FieldT> disp_field = particles->getFieldManager()->getFieldByName("displacement");
 //
 //				for (LO i=0; i<initial_coords.extent(0); ++i) {
@@ -306,7 +306,7 @@ int main (int argc, char* args[]) {
 //	 		const Teuchos::RCP<Compadre::mvec_type> physical_point_vector = particles->getCoordsConst()->getPts(false, false);// not halo, material coords
 //	 		field_vector = particles->getFieldManager()->getFieldByName("new locations")->getMultiVectorPtr();
 //
-//	 		Compadre::host_view_type physical_point_data = physical_point_vector->getLocalView<Compadre::host_view_type>();
+//	 		Compadre::host_view_type physical_point_data = physical_point_vector->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //	 		field_data = field_vector->getLocalView<Compadre::host_view_type>();
 //	 		for (LO i=0; i<particles->getCoordsConst()->nLocal(); ++i) {
 //	 			for (LO j=0; j<3; ++j) {
@@ -340,10 +340,10 @@ int main (int argc, char* args[]) {
 
 			if (parameters->get<int>("shallow water test case") == 2) {
 
-			Compadre::host_view_type initial_coords = particles->getCoords()->getPts(false /*halo*/, false /*use_physical_coords*/)->getLocalView<Compadre::host_view_type>();
-			Compadre::host_view_type disp_field = particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-			Compadre::host_view_type height_field = particles->getFieldManager()->getFieldByName("height")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-			Compadre::host_view_type grid_area_field = particles->getFieldManager()->getFieldByName("grid_area")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+			auto initial_coords = particles->getCoords()->getPts(false /*halo*/, false /*use_physical_coords*/)->getLocalViewHost(Tpetra::Access::ReadOnly);
+			auto disp_field = particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+			auto height_field = particles->getFieldManager()->getFieldByName("height")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+			auto grid_area_field = particles->getFieldManager()->getFieldByName("grid_area")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
 			for(int j =0; j<coords->nLocal(); j++){
 

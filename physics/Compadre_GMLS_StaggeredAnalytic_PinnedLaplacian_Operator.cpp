@@ -82,7 +82,7 @@ void GMLS_StaggeredAnalytic_LaplacianPhysics::computeMatrix(local_index_type fie
 	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
 	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
-	const host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
+	const host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
 
 
@@ -131,7 +131,7 @@ void GMLS_StaggeredAnalytic_LaplacianPhysics::computeMatrix(local_index_type fie
 		kokkos_target_coordinates_host(i,2) = coordinate.z;
 	});
 
-	auto epsilons = neighborhood->getHSupportSizes()->getLocalView<const host_view_type>();
+	auto epsilons = neighborhood->getHSupportSizes()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	Kokkos::View<double*> kokkos_epsilons("epsilons", target_coords->nLocal());
 	Kokkos::View<double*>::HostMirror kokkos_epsilons_host = Kokkos::create_mirror_view(kokkos_epsilons);
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {

@@ -53,17 +53,17 @@ NeighborhoodT::NeighborhoodT(const particles_type* source_particles, const parti
 }
 
 void NeighborhoodT::setHSupportSize(const local_index_type idx, const scalar_type val) {
-    host_view_type hsupportView = _h_support_size->getLocalView<host_view_type>();
+    auto hsupportView = _h_support_size->getLocalViewHost(Tpetra::Access::OverwriteAll);
     hsupportView(idx,0) = val;
 }
 
 double NeighborhoodT::getHSupportSize(const local_index_type idx) const {
-    host_view_type hsupportView = _h_support_size->getLocalView<host_view_type>();
+    auto hsupportView = _h_support_size->getLocalViewHost(Tpetra::Access::OverwriteAll);
     return hsupportView(idx,0);
 }
 
 void NeighborhoodT::setAllHSupportSizes(const scalar_type val) {
-    host_view_type hsupportView = _h_support_size->getLocalView<host_view_type>();
+    auto hsupportView = _h_support_size->getLocalViewHost(Tpetra::Access::OverwriteAll);
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,hsupportView.extent(0)), KOKKOS_LAMBDA(const int j) {
         hsupportView(j,0) = val;
     });
@@ -104,7 +104,7 @@ local_index_type NeighborhoodT::computeMaxNumNeighbors(const bool global) const 
 
 scalar_type NeighborhoodT::computeMinHSupportSize(const bool global) const {
 
-    host_view_type hsupportView = _h_support_size->getLocalView<host_view_type>();
+    auto hsupportView = _h_support_size->getLocalViewHost(Tpetra::Access::OverwriteAll);
     scalar_type local_processor_min_radius;
     Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_target_coords->nLocal()),
             KOKKOS_LAMBDA (const int i, scalar_type &myVal) {
@@ -128,7 +128,7 @@ scalar_type NeighborhoodT::computeMinHSupportSize(const bool global) const {
 
 scalar_type NeighborhoodT::computeMaxHSupportSize(const bool global) const {
 
-    host_view_type hsupportView = _h_support_size->getLocalView<host_view_type>();
+    auto hsupportView = _h_support_size->getLocalViewHost(Tpetra::Access::OverwriteAll);
     scalar_type local_processor_max_radius;
     Kokkos::parallel_reduce(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,_target_coords->nLocal()),
             KOKKOS_LAMBDA (const int i, scalar_type &myVal) {
@@ -163,14 +163,14 @@ void NeighborhoodT::constructAllNeighborLists(const scalar_type halo_max_search_
     scalar_type recalculated_halo_max_search_size = (global_reduction) ? halo_max_search_size : 0.0;
 
     // get view from h_support and check its size
-    host_view_type h_support_view = _h_support_size->getLocalView<host_view_type>();
+    auto h_support_view = _h_support_size->getLocalViewHost(Tpetra::Access::OverwriteAll);
     // should be zero or exactly as large as target coords
     // if zero, then allocate to size of target coords
     if (h_support_view.extent(0)==0) {
         // initialize h vector of window sizes
         const bool setToZero = true;
         _h_support_size = Teuchos::rcp(new mvec_type(_target_coords->getMapConst(), 1, setToZero));
-        h_support_view = _h_support_size->getLocalView<host_view_type>();
+        h_support_view = _h_support_size->getLocalViewHost(Tpetra::Access::OverwriteAll);
     }
     // if search_type is "radius" and radius==0.0, then whatever is in h_support_size will be used
     if (search_type=="radius" && radius!=0.0) {
@@ -179,7 +179,7 @@ void NeighborhoodT::constructAllNeighborLists(const scalar_type halo_max_search_
     auto epsilons = host_vector_scalar_type(h_support_view.data(), h_support_view.extent(0));
 
     // get kokkos view of target points
-    host_view_type target_pts_view = _target_coords->getPts(false/*halo*/, use_physical_coords)->getLocalView<host_view_type>();
+    auto target_pts_view = _target_coords->getPts(false/*halo*/, use_physical_coords)->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
     // get search_type to lowercase
     transform(search_type.begin(), search_type.end(), search_type.begin(), ::tolower);
@@ -241,7 +241,7 @@ void NeighborhoodT::constructAllNeighborLists(const scalar_type halo_max_search_
     }
 
     if (post_search_radii_scaling != 1.0) {
-        h_support_view = _h_support_size->getLocalView<host_view_type>();
+        h_support_view = _h_support_size->getLocalViewHost(Tpetra::Access::OverwriteAll);
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,h_support_view.extent(0)), KOKKOS_LAMBDA(const int i) {
             h_support_view(i,0) *= post_search_radii_scaling;
         });

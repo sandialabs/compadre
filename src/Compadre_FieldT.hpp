@@ -44,8 +44,6 @@ class FieldT {
 
 		local_index_type nDim() const { return _nDim; }
 		
-		device_view_type getDeviceView();
-		
 		FieldSparsityType getFieldSparsityType() { return _field_sparsity; }
 
 		void resize();
@@ -54,7 +52,7 @@ class FieldT {
 
 		void applyZoltan2Partition();
 
-		void insertParticles(const coords_type * coords, const std::vector<xyz_type>& new_pts_vector, const host_view_type& inserted_field_values);
+		void insertParticles(const coords_type * coords, const std::vector<xyz_type>& new_pts_vector, decltype(_vals->getLocalViewHost(Tpetra::Access::ReadOnly))& inserted_field_values);
 
 		void removeParticles(const coords_type * coords, const std::vector<local_index_type>& coord_ids);
 
@@ -85,8 +83,6 @@ class FieldT {
 		const mvec_type* getHaloMultiVectorPtrConst() const;
 
 		void updateHaloData();
-
-		void syncMemory();
 
 		void print(std::ostream& os) const;
 		

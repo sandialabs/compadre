@@ -40,10 +40,10 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 	 * Example for velocity = cos(t), and height = -sin(t)
 	 */
 
-	host_view_type b_data = _b->getLocalView<host_view_type>();
+	auto b_data = _b->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	// get field_one and check which one it is
 	int my_field = field_one;
-	host_view_type other_data = _particles->getFieldManager()->getFieldByID(field_two)->getMultiVectorPtr()->getLocalView<host_view_type>();
+	auto other_data = _particles->getFieldManager()->getFieldByID(field_two)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
 	if (field_two != field_one) {
 		if (_particles->getFieldManager()->getIDOfFieldFromName("velocity") == my_field) {
@@ -65,10 +65,10 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 ////
 ////	double Omega = 2*PI;
 ////
-////	host_view_type b_data = _b->getLocalView<host_view_type>();
+////	host_view_type b_data = _b->getLocalViewHost(Tpetra::Access::OverwriteAll);
 ////	// get field_one and check which one it is
 ////	int my_field = field_one;
-////	host_view_type other_data = _particles->getFieldManager()->getFieldByID(field_two)->getMultiVectorPtr()->getLocalView<host_view_type>();
+////	host_view_type other_data = _particles->getFieldManager()->getFieldByID(field_two)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 ////
 ////	if (field_two == field_one) {
 ////		if (_particles->getFieldManager()->getIDOfFieldFromName("displacement") == my_field) {
@@ -102,7 +102,7 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 //
 //	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
 //    const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();
-//	const host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
+//	const host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalViewHost(Tpetra::Access::ReadOnly);
 //	const neighborhood_type * neighborhood = this->_particles->getNeighborhoodConst();
 //	const std::vector<Teuchos::RCP<fields_type> >& fields = this->_particles->getFieldManagerConst()->getVectorOfFields();
 //
@@ -247,11 +247,11 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 //        auto tangent_directions = my_scalar_GMLS.getTangentDirections();
 //
 //
-//		host_view_type b_data = _b->getLocalView<host_view_type>();
-//		host_view_type h_data = _particles->getFieldManager()->getFieldByName("height")->getMultiVectorPtrConst()->getLocalView<host_view_type>();
-//		host_view_type h_halo_data = _particles->getFieldManager()->getFieldByName("height")->getHaloMultiVectorPtrConst()->getLocalView<host_view_type>();
-//		host_view_type v_data = _particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtrConst()->getLocalView<host_view_type>();
-//		host_view_type v_halo_data = _particles->getFieldManager()->getFieldByName("velocity")->getHaloMultiVectorPtrConst()->getLocalView<host_view_type>();
+//		host_view_type b_data = _b->getLocalViewHost(Tpetra::Access::OverwriteAll);
+//		host_view_type h_data = _particles->getFieldManager()->getFieldByName("height")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+//		host_view_type h_halo_data = _particles->getFieldManager()->getFieldByName("height")->getHaloMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+//		host_view_type v_data = _particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+//		host_view_type v_halo_data = _particles->getFieldManager()->getFieldByName("velocity")->getHaloMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //
 //		Teuchos::RCP<Compadre::ShallowWaterTestCases> swtc = Teuchos::rcp(new Compadre::ShallowWaterTestCases(_parameters->get<int>("shallow water test case"), 0 /*alpha*/));
 //		swtc->setMountain();
@@ -590,11 +590,11 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 //        auto tangent_directions = my_scalar_GMLS.getTangentDirections();
 //
 //
-//		host_view_type b_data = _b->getLocalView<host_view_type>();
-//		host_view_type h_data = _particles->getFieldManager()->getFieldByName("height")->getMultiVectorPtrConst()->getLocalView<host_view_type>();
-//		host_view_type h_halo_data = _particles->getFieldManager()->getFieldByName("height")->getHaloMultiVectorPtrConst()->getLocalView<host_view_type>();
-//		host_view_type v_data = _particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtrConst()->getLocalView<host_view_type>();
-//		host_view_type v_halo_data = _particles->getFieldManager()->getFieldByName("velocity")->getHaloMultiVectorPtrConst()->getLocalView<host_view_type>();
+//		host_view_type b_data = _b->getLocalViewHost(Tpetra::Access::OverwriteAll);
+//		host_view_type h_data = _particles->getFieldManager()->getFieldByName("height")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+//		host_view_type h_halo_data = _particles->getFieldManager()->getFieldByName("height")->getHaloMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+//		host_view_type v_data = _particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+//		host_view_type v_halo_data = _particles->getFieldManager()->getFieldByName("velocity")->getHaloMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //
 //
 //		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal), KOKKOS_LAMBDA(const int i) {
@@ -761,9 +761,9 @@ void LagrangianShallowWaterPhysics::computeVector(local_index_type field_one, lo
 //		}
 //        auto tangent_directions = my_vector_GMLS.getTangentDirections();
 //
-//		host_view_type b_data = _b->getLocalView<host_view_type>();
-//		host_view_type v_data = _particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtrConst()->getLocalView<host_view_type>();
-//		host_view_type v_halo_data = _particles->getFieldManager()->getFieldByName("velocity")->getHaloMultiVectorPtrConst()->getLocalView<host_view_type>();
+//		host_view_type b_data = _b->getLocalViewHost(Tpetra::Access::OverwriteAll);
+//		host_view_type v_data = _particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+//		host_view_type v_halo_data = _particles->getFieldManager()->getFieldByName("velocity")->getHaloMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //
 //		Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,nlocal), KOKKOS_LAMBDA(const int i) {
 //

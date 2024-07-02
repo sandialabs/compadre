@@ -31,9 +31,9 @@ void LaplaceBeltramiSources::evaluateRHS(local_index_type field_one, local_index
 
 	// temporary this will be a specific function
 	// in the future, we can pass a Teuchos::ArrayRCP of functors
-	host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
-	host_view_type rhs_vals = this->_b->getLocalView<host_view_type>();
-	host_view_type pts = this->_coords->getPts()->getLocalView<host_view_type>();
+	auto bc_id = this->_particles->getFlags()->getLocalViewHost(Tpetra::Access::ReadOnly);
+	auto rhs_vals = this->_b->getLocalViewHost(Tpetra::Access::OverwriteAll);
+	auto pts = this->_coords->getPts()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();

@@ -64,11 +64,11 @@ int main (int argc, char* args[]) {
     Teuchos::RCP<Teuchos::Time> SecondReadTime = Teuchos::TimeMonitor::getNewCounter ("2nd Read Time");
 
     // this proceeds setting up the problem so that the parameters will be propagated down into the physics and bcs
-    try {
-        parameters->get<std::string>("solution type");
-    } catch (Teuchos::Exceptions::InvalidParameter & exception) {
-        parameters->set<std::string>("solution type","sine");
-    }
+    //try {
+    //    parameters->get<std::string>("solution type");
+    //} catch (Teuchos::Exceptions::InvalidParameter & exception) {
+    //    parameters->set<std::string>("solution type","sine");
+    //}
     try {
         parameters->get<Teuchos::ParameterList>("io").get<bool>("plot quadrature");
     } catch (Teuchos::Exceptions::InvalidParameter & exception) {
@@ -193,7 +193,7 @@ int main (int argc, char* args[]) {
                 pressure_name = "solution_pressure";
                 particles->getFieldManager()->createField(input_dim, velocity_name, "m/s");
                 particles->getFieldManager()->createField(1, pressure_name, "m/s");
-				if (use_lm) particles->getFieldManager()->createField(1, "lagrange multiplier", "NA");
+                if (use_lm) particles->getFieldManager()->createField(1, "lagrange multiplier", "NA");
             } else if (le_op || vl_op) {
                 velocity_name = "solution";
                 particles->getFieldManager()->createField(input_dim, velocity_name, "m/s");
@@ -224,7 +224,7 @@ int main (int argc, char* args[]) {
 
         Teuchos::RCP<Compadre::AnalyticFunction> velocity_function;
         Teuchos::RCP<Compadre::AnalyticFunction> pressure_function;
-        if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_1") {
+        if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_1") {
             velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::FirstOrderBasis(input_dim /*dimension*/)));
         } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("solution")=="polynomial_2") {
             velocity_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SecondOrderBasis(input_dim /*dimension*/)));
@@ -241,6 +241,8 @@ int main (int argc, char* args[]) {
                             parameters->get<Teuchos::ParameterList>("physics").get<double>("shear"),
                             parameters->get<Teuchos::ParameterList>("physics").get<double>("lambda"), 
                             input_dim /*dimension*/)));
+        } else {
+            TEUCHOS_ASSERT(false);
         }
         if (st_op) { // mix_le_op uses pressure from divergence of velocity
             if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="polynomial_1") {
@@ -253,6 +255,8 @@ int main (int argc, char* args[]) {
                 pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::ConstantEachDimension(0, 0, 0)));
             } else if (parameters->get<Teuchos::ParameterList>("physics").get<std::string>("pressure solution")=="sine") {
                 pressure_function = Teuchos::rcp_static_cast<Compadre::AnalyticFunction>(Teuchos::rcp(new Compadre::SineProducts(input_dim /*dimension*/)));
+            } else {
+                TEUCHOS_ASSERT(false);
             }
         }
 
@@ -384,7 +388,7 @@ int main (int argc, char* args[]) {
         //// test that gradient of vector does the same thing as gradient of scalar (repeated for each component)
         //{
         //auto neighborhood = physics->_cell_particles_neighborhood;
-        //auto quadrature_weights = cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
+        //auto quadrature_weights = cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         //auto _vel_gmls = physics->_vel_gmls;
         //for(int i=0; i<coords->nLocal(); i++){
         //    LO num_neighbors = neighborhood->getNumNeighbors(i);
@@ -427,23 +431,23 @@ int main (int argc, char* args[]) {
                 cells->getFieldManager()->createField(1, "diff_"+velocity_name, "m/s");
             }
         }
-        auto velocity_processed_view = cells->getFieldManager()->getFieldByName("processed_"+velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        auto velocity_processed_view = cells->getFieldManager()->getFieldByName("processed_"+velocity_name)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         decltype(velocity_processed_view) pressure_processed_view;
         if (st_op || mix_le_op) {
-            pressure_processed_view = cells->getFieldManager()->getFieldByName("processed_"+pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            pressure_processed_view = cells->getFieldManager()->getFieldByName("processed_"+pressure_name)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         }
         {
             auto vel_gmls = physics->_vel_gmls;
             auto pressure_gmls = physics->_pressure_gmls;
 
-            auto velocity_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-            auto velocity_halo_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            auto velocity_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+            auto velocity_halo_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
             decltype(velocity_dof_view) pressure_dof_view;
             decltype(velocity_halo_dof_view) pressure_halo_dof_view;
             if (st_op || mix_le_op) {
-                pressure_dof_view = particles->getFieldManager()->getFieldByName(pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-                pressure_halo_dof_view = particles->getFieldManager()->getFieldByName(pressure_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                pressure_dof_view = particles->getFieldManager()->getFieldByName(pressure_name)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                pressure_halo_dof_view = particles->getFieldManager()->getFieldByName(pressure_name)->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
             }
 
             auto neighborhood = physics->_cell_particles_neighborhood;
@@ -496,10 +500,10 @@ int main (int argc, char* args[]) {
         //    // then loop over a cell 
         //    // then loop over quadrature point
         //    auto gmls = physics->_vel_gmls;
-        //    auto quadrature_points = physics->_cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
-        //    auto quadrature_weights = physics->_cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
-        //    auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
-        //    auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        //    auto quadrature_points = physics->_cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        //    auto quadrature_weights = physics->_cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        //    auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        //    auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         //    auto neighborhood = physics->_cell_particles_neighborhood;
         //    auto nlocal = coords->nLocal();
 
@@ -530,13 +534,13 @@ int main (int argc, char* args[]) {
    
         ////// DIAGNOSTIC:: get solution at quadrature pts
         //if (comm->getSize()==1) {
-        //    auto quadrature_points = cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
-        //    auto quadrature_weights = cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
-        //    auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
+        //    auto quadrature_points = cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        //    auto quadrature_weights = cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        //    auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         //    auto neighborhood = physics->_cell_particles_neighborhood;
         //    auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
-        //    auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-        //    auto halo_dof_view = cells->getFieldManager()->getFieldByName("solution")->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        //    auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        //    auto halo_dof_view = cells->getFieldManager()->getFieldByName("solution")->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         //    auto gmls = physics->_vel_gmls;
         //    Teuchos::RCP<Compadre::ParticlesT> particles_new =
         //        Teuchos::rcp( new Compadre::ParticlesT(parameters, comm, parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions")));
@@ -557,7 +561,7 @@ int main (int argc, char* args[]) {
 
         //    auto nlocal = coords->nLocal();
         //    particles_new->getFieldManager()->createField(1, "cell", "m/s");
-        //    auto cell_id = particles_new->getFieldManager()->getFieldByName("cell")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        //    auto cell_id = particles_new->getFieldManager()->getFieldByName("cell")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         //    int count = 0;
         //    for( int j =0; j<coords->nLocal(); j++){
         //        for (int i=0; i<quadrature_weights.extent(1); ++i) {
@@ -586,9 +590,9 @@ int main (int argc, char* args[]) {
 
         //// DIAGNOSTIC:: serial only checking of quadrature points
         //if (comm->getSize()==1) {
-        //    auto quadrature_points = cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
-        //    auto quadrature_weights = cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
-        //    auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
+        //    auto quadrature_points = cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        //    auto quadrature_weights = cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        //    auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         //    Teuchos::RCP<Compadre::ParticlesT> particles_new =
         //        Teuchos::rcp( new Compadre::ParticlesT(parameters, comm, parameters->get<Teuchos::ParameterList>("io").get<local_index_type>("input dimensions")));
         //    CT* new_coords = (CT*)particles_new->getCoords();
@@ -609,7 +613,7 @@ int main (int argc, char* args[]) {
 
 
         //    particles_new->getFieldManager()->createField(1, "cell", "m/s");
-        //    auto cell_id = particles_new->getFieldManager()->getFieldByName("cell")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        //    auto cell_id = particles_new->getFieldManager()->getFieldByName("cell")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         //    int count = 0;
         //    for( int j =0; j<coords->nLocal(); j++){
         //        for (int i=0; i<quadrature_weights.extent(1); ++i) {
@@ -658,23 +662,23 @@ int main (int argc, char* args[]) {
         //{
         //    auto gmls = physics->_vel_gmls;
         //    cells->getFieldManager()->createField(1, "processed_solution", "m/s");
-        //    auto processed_view = cells->getFieldManager()->getFieldByName("processed_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-        //    auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-        //    auto halo_dof_view = cells->getFieldManager()->getFieldByName("solution")->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        //    auto processed_view = cells->getFieldManager()->getFieldByName("processed_solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        //    auto dof_view = cells->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        //    auto halo_dof_view = cells->getFieldManager()->getFieldByName("solution")->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         //    auto neighborhood = physics->_cell_particles_neighborhood;
         //    auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
 
-        //    auto quadrature_points = physics->_cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
-        //    auto quadrature_weights = physics->_cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
-        //    auto quadrature_type = physics->_cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
-        //    auto unit_normals = physics->_cells->getFieldManager()->getFieldByName("unit_normal")->getMultiVectorPtr()->getLocalView<host_view_type>();
-        //    auto adjacent_elements = physics->_cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalView<host_view_type>();
+        //    auto quadrature_points = physics->_cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        //    auto quadrature_weights = physics->_cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        //    auto quadrature_type = physics->_cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        //    auto unit_normals = physics->_cells->getFieldManager()->getFieldByName("unit_normal")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        //    auto adjacent_elements = physics->_cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
-        //    auto halo_quadrature_points = physics->_cells->getFieldManager()->getFieldByName("quadrature_points")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
-        //    auto halo_quadrature_weights = physics->_cells->getFieldManager()->getFieldByName("quadrature_weights")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
-        //    auto halo_quadrature_type = physics->_cells->getFieldManager()->getFieldByName("interior")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
-        //    auto halo_unit_normals = physics->_cells->getFieldManager()->getFieldByName("unit_normal")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
-        //    auto halo_adjacent_elements = physics->_cells->getFieldManager()->getFieldByName("adjacent_elements")->getHaloMultiVectorPtr()->getLocalView<host_view_type>();
+        //    auto halo_quadrature_points = physics->_cells->getFieldManager()->getFieldByName("quadrature_points")->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        //    auto halo_quadrature_weights = physics->_cells->getFieldManager()->getFieldByName("quadrature_weights")->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        //    auto halo_quadrature_type = physics->_cells->getFieldManager()->getFieldByName("interior")->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        //    auto halo_unit_normals = physics->_cells->getFieldManager()->getFieldByName("unit_normal")->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        //    auto halo_adjacent_elements = physics->_cells->getFieldManager()->getFieldByName("adjacent_elements")->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
         //    auto nlocal = coords->nLocal();
         //    // loop over cells
@@ -704,12 +708,12 @@ int main (int argc, char* args[]) {
             cells->getFieldManager()->createField(1, "exact_"+velocity_name, "m/s");
         }
 
-        auto velocity_exact_view = cells->getFieldManager()->getFieldByName("exact_"+velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-        auto velocity_diff_view = cells->getFieldManager()->getFieldByName("diff_"+velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        auto velocity_exact_view = cells->getFieldManager()->getFieldByName("exact_"+velocity_name)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        auto velocity_diff_view = cells->getFieldManager()->getFieldByName("diff_"+velocity_name)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         decltype(velocity_exact_view) pressure_exact_view;
-        if (st_op || mix_le_op) pressure_exact_view = cells->getFieldManager()->getFieldByName("exact_"+pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        if (st_op || mix_le_op) pressure_exact_view = cells->getFieldManager()->getFieldByName("exact_"+pressure_name)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         decltype(velocity_exact_view) pressure_diff_view;
-        if (st_op || mix_le_op) pressure_diff_view = cells->getFieldManager()->getFieldByName("diff_"+pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        if (st_op || mix_le_op) pressure_diff_view = cells->getFieldManager()->getFieldByName("diff_"+pressure_name)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
         // store exact velocity as a field
         if (le_op || vl_op || st_op || mix_le_op) { 
@@ -770,13 +774,13 @@ int main (int argc, char* args[]) {
         Teuchos::RCP<Compadre::ParticlesT> particles_new;
         //// DIAGNOSTIC:: get solution at quadrature pts
         if (plot_quadrature) {
-            auto quadrature_points = cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
-            auto quadrature_weights = cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
-            auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
+            auto quadrature_points = cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+            auto quadrature_weights = cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+            auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
             auto neighborhood = physics->_cell_particles_neighborhood;
             auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
-            auto dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-            auto halo_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            auto dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+            auto halo_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
             auto gmls = physics->_vel_gmls;
             particles_new =
                 Teuchos::rcp( new Compadre::ParticlesT(parameters, comm, input_dim));
@@ -827,30 +831,30 @@ int main (int argc, char* args[]) {
 
             host_view_type l2_view, h1_view, jump_view;
             if (plot_quadrature) {
-                l2_view = particles_new->getFieldManager()->getFieldByName("l2")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-                h1_view = particles_new->getFieldManager()->getFieldByName("h1")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-                jump_view = particles_new->getFieldManager()->getFieldByName("jump")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                l2_view = particles_new->getFieldManager()->getFieldByName("l2")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                h1_view = particles_new->getFieldManager()->getFieldByName("h1")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                jump_view = particles_new->getFieldManager()->getFieldByName("jump")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
             }
 
             {
 
-                auto quadrature_points = cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalView<host_view_type>();
-                auto quadrature_weights = cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalView<host_view_type>();
-                auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalView<host_view_type>();
+                auto quadrature_points = cells->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                auto quadrature_weights = cells->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                auto quadrature_type = cells->getFieldManager()->getFieldByName("interior")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
                 auto neighborhood = physics->_cell_particles_neighborhood;
                 auto halo_neighborhood = physics->_halo_cell_particles_neighborhood;
 
-                auto velocity_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-                auto velocity_halo_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                auto velocity_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                auto velocity_halo_dof_view = particles->getFieldManager()->getFieldByName(velocity_name)->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
                 decltype(velocity_dof_view) pressure_dof_view;
                 decltype(velocity_halo_dof_view) pressure_halo_dof_view;
                 if (st_op || mix_le_op) {
-                    pressure_dof_view = particles->getFieldManager()->getFieldByName(pressure_name)->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-                    pressure_halo_dof_view = particles->getFieldManager()->getFieldByName(pressure_name)->getHaloMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+                    pressure_dof_view = particles->getFieldManager()->getFieldByName(pressure_name)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                    pressure_halo_dof_view = particles->getFieldManager()->getFieldByName(pressure_name)->getHaloMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
                 }
 
-                auto adjacent_elements = cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalView<host_view_type>();
+                auto adjacent_elements = cells->getFieldManager()->getFieldByName("adjacent_elements")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
                 auto vel_gmls = physics->_vel_gmls;
                 auto pressure_gmls = physics->_pressure_gmls;
                 auto num_edges = adjacent_elements.extent(1);
@@ -977,7 +981,7 @@ int main (int argc, char* args[]) {
                                 }
 
 
-				// VMS "jump" error norm (instead of sipg penalty)
+                                // VMS "jump" error norm (instead of sipg penalty)
                                 if (use_vms){
                                     // VMSDG tau (penalty-like) parameter
                                     // in this script, i is the cubature point number (instead of q or qn)
@@ -985,19 +989,19 @@ int main (int argc, char* args[]) {
                                     //const int current_edge_num_in_current_cell = (i - num_interior_quadrature)/num_exterior_quadrature_per_edge; //should be same as "current_side_num"
                                     Teuchos :: SerialDenseMatrix <local_index_type, scalar_type> tau_edge(input_dim, input_dim);
                                     Teuchos :: SerialDenseSolver <local_index_type, scalar_type> vmsdg_solver;
-				    tau_edge.putScalar(0.0);
+                                    tau_edge.putScalar(0.0);
 
-				    for (int j1 = 0; j1 < input_dim; ++j1) {
-				        for (int j2 = 0; j2 < input_dim; ++j2) {
-				            tau_edge(j1, j2) = physics->_tau(j, current_side_num, j1, j2); //tau^(1)_s from 'current' elem
-				        }
-				    }
+                                    for (int j1 = 0; j1 < input_dim; ++j1) {
+                                        for (int j2 = 0; j2 < input_dim; ++j2) {
+                                            tau_edge(j1, j2) = physics->_tau(j, current_side_num, j1, j2); //tau^(1)_s from 'current' elem
+                                        }
+                                    }
                   
                                     vmsdg_solver.setMatrix(Teuchos::rcp(&tau_edge, false));
                                     auto info = vmsdg_solver.invert();
 
-				    double tau_times_jump_u = 0.0;
-				    for (int m_temp=0; m_temp<velocity_dof_view.extent(1); ++m_temp){
+                                    double tau_times_jump_u = 0.0;
+                                    for (int m_temp=0; m_temp<velocity_dof_view.extent(1); ++m_temp){
                                         double temp_u_val = 0.0;
                                         // needs reconstruction at this quadrature point // replace m_out with m_temp in this code block, m_temp is index for dot product with tau_edge
                                         // LO num_neighbors = neighborhood->getNumNeighbors(j); //num_neighbors already defined in this scope
@@ -1012,17 +1016,17 @@ int main (int argc, char* args[]) {
                                                 else v = vel_gmls->getSolutionSetHost()->getAlpha0TensorTo0Tensor(TargetOperation::ScalarPointEvaluation, j, l, i+1);
                                                 temp_u_val += dof_val * v;
                                             }
-				        }
+                                        }
                                         double temp_u_exact = 0.0;
                                         temp_u_exact = velocity_function->evalVector(xyz)[m_temp]; // NOTE: reconstruction uses index m_temp because contraction with tau_edge
                                         tau_times_jump_u += tau_edge(m_out, m_temp) * (temp_u_val - temp_u_exact);
-				    }
+                                    }
 
-				    jump_error_on_cell += quadrature_weights(j,i) * (u_val - u_exact) * tau_times_jump_u;
-				} else { // sipg by default
+                                    jump_error_on_cell += quadrature_weights(j,i) * (u_val - u_exact) * tau_times_jump_u;
+                                } else { // sipg by default
                                     jump_error_on_cell += penalty * quadrature_weights(j,i) * (u_val - u_exact) * (u_val - u_exact);
-				}
-				if (plot_quadrature) {
+                                }
+                                if (plot_quadrature) {
                                     jump_view(count+i,m_out) += penalty * quadrature_weights(j,i) * (u_val - u_exact) * (u_val - u_exact);
                                 }
                             } else if (quadrature_type(j,i)==0) { // interior edge
@@ -1236,7 +1240,6 @@ int main (int argc, char* args[]) {
     }
     Teuchos::TimeMonitor::summarize();
     }
-    Kokkos::finalize();
     #endif
     return 0;
 }

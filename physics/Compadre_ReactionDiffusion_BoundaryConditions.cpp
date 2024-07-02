@@ -19,7 +19,7 @@ void ReactionDiffusionBoundaryConditions::applyBoundaries(local_index_type field
     if (field_one != _physics->_pressure_field_id || field_two != _physics->_pressure_field_id) return;
 
     // pin one DOF for pressure
-    host_view_type rhs_vals = this->_b->getLocalView<host_view_type>();
+    auto rhs_vals = this->_b->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
     const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
     const local_dof_map_view_type local_to_dof_map = _dof_data->getDOFMap();

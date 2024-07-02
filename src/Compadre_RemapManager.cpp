@@ -160,7 +160,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                     });
                     Kokkos::deep_copy(kokkos_target_coordinates, kokkos_target_coordinates_host);
     
-                    auto epsilons = _neighborhoodInfo->getHSupportSizes()->getLocalView<const host_view_type>();
+                    auto epsilons = _neighborhoodInfo->getHSupportSizes()->getLocalViewHost(Tpetra::Access::OverwriteAll);
                     kokkos_epsilons = Kokkos::View<double*>("epsilons", target_coords->nLocal());
                     Kokkos::View<double*>::HostMirror kokkos_epsilons_host = Kokkos::create_mirror_view(kokkos_epsilons);
                     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,target_coords->nLocal()), KOKKOS_LAMBDA(const int i) {
@@ -202,15 +202,15 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
 
                     if (_queue[i]._reference_normal_directions_fieldname != "") {
                         auto reference_normal_directions = 
-                            _trg_particles->getFieldManager()->getFieldByName(_queue[i]._reference_normal_directions_fieldname)->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                            _trg_particles->getFieldManager()->getFieldByName(_queue[i]._reference_normal_directions_fieldname)->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
                         _GMLS->setReferenceOutwardNormalDirection(reference_normal_directions, true /*use_to_orient_surface*/);
                     }
 
                     if (_queue[i]._source_extra_data_fieldname != "") {
                         auto extra_data_local = 
-                            _src_particles->getFieldManagerConst()->getFieldByName(_queue[i]._source_extra_data_fieldname)->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                            _src_particles->getFieldManagerConst()->getFieldByName(_queue[i]._source_extra_data_fieldname)->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
                         auto extra_data_halo = 
-                            _src_particles->getFieldManagerConst()->getFieldByName(_queue[i]._source_extra_data_fieldname)->getHaloMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                            _src_particles->getFieldManagerConst()->getFieldByName(_queue[i]._source_extra_data_fieldname)->getHaloMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
                         auto combined_extra_data = host_view_type("combined extra data", extra_data_local.extent(0) + extra_data_halo.extent(0), extra_data_local.extent(1));
     
                         // fill in combined data
@@ -231,7 +231,7 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                     if (_queue[i]._target_extra_data_fieldname != "") {
                         // no halo information needed (or available)
                         auto extra_data_local = 
-                            _trg_particles->getFieldManagerConst()->getFieldByName(_queue[i]._target_extra_data_fieldname)->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                            _trg_particles->getFieldManagerConst()->getFieldByName(_queue[i]._target_extra_data_fieldname)->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
                         _GMLS->setTargetExtraData(extra_data_local);
                     }
     
@@ -313,13 +313,13 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                 
     
                 host_view_type target_values = _trg_particles->getFieldManager()->
-                        getFieldByID(target_field_num)->getMultiVectorPtr()->getLocalView<host_view_type>();
+                        getFieldByID(target_field_num)->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
                 const local_index_type num_target_values = target_values.extent(0);
     
-                const host_view_type source_values_holder = _src_particles->getFieldManagerConst()->
-                        getFieldByID(source_field_num)->getMultiVectorPtrConst()->getLocalView<const host_view_type>();
-                const host_view_type source_halo_values_holder = _src_particles->getFieldManagerConst()->
-                        getFieldByID(source_field_num)->getHaloMultiVectorPtrConst()->getLocalView<const host_view_type>();
+                auto source_values_holder = _src_particles->getFieldManagerConst()->
+                        getFieldByID(source_field_num)->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+                auto source_halo_values_holder = _src_particles->getFieldManagerConst()->
+                        getFieldByID(source_field_num)->getHaloMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
     
                 const local_index_type num_local_particles = source_values_holder.extent(0);
     
@@ -382,9 +382,9 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                 host_view_type target_values;
                 // these are the values that are to be written over
                 if (source_field_num == -20) { // traditional case of getting Lagrange coordinates using physical coordinates
-                    target_values = _trg_particles->getCoordsConst()->getPts(false/*halo*/,false /*use_physical_coordinates*/)->getLocalView<host_view_type>();
+                    target_values = _trg_particles->getCoordsConst()->getPts(false/*halo*/,false /*use_physical_coordinates*/)->getLocalViewHost(Tpetra::Access::OverwriteAll);
                 } else if (source_field_num == -21) {
-                    target_values = _trg_particles->getCoordsConst()->getPts(false/*halo*/,true /*use_physical_coordinates*/)->getLocalView<host_view_type>();
+                    target_values = _trg_particles->getCoordsConst()->getPts(false/*halo*/,true /*use_physical_coordinates*/)->getLocalViewHost(Tpetra::Access::OverwriteAll);
                 }
     
                 const local_index_type num_target_values = target_values.extent(0);
@@ -393,11 +393,11 @@ void RemapManager::execute(bool keep_neighborhoods, bool keep_GMLS, bool reuse_n
                 host_view_type source_halo_values_holder;
                 // these are the values that will be combined through coefficients to overwrite target_values
                 if (source_field_num == -20) { // traditional case of getting Lagrange coordinates using physical coordinates
-                    source_values_holder = _src_particles->getCoordsConst()->getPts(false/*halo*/, false /*use_physical_coordinates*/)->getLocalView<host_view_type>();
-                    source_halo_values_holder = _src_particles->getCoordsConst()->getPts(true/*halo*/, false /*use_physical_coordinates*/)->getLocalView<host_view_type>();
+                    source_values_holder = _src_particles->getCoordsConst()->getPts(false/*halo*/, false /*use_physical_coordinates*/)->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                    source_halo_values_holder = _src_particles->getCoordsConst()->getPts(true/*halo*/, false /*use_physical_coordinates*/)->getLocalViewHost(Tpetra::Access::OverwriteAll);
                 } else if (source_field_num == -21) {
-                    source_values_holder = _src_particles->getCoordsConst()->getPts(false/*halo*/, true /*use_physical_coordinates*/)->getLocalView<host_view_type>();
-                    source_halo_values_holder = _src_particles->getCoordsConst()->getPts(true/*halo*/, true /*use_physical_coordinates*/)->getLocalView<host_view_type>();
+                    source_values_holder = _src_particles->getCoordsConst()->getPts(false/*halo*/, true /*use_physical_coordinates*/)->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                    source_halo_values_holder = _src_particles->getCoordsConst()->getPts(true/*halo*/, true /*use_physical_coordinates*/)->getLocalViewHost(Tpetra::Access::OverwriteAll);
                 }
     
                 const local_index_type num_local_particles = source_values_holder.extent(0);
