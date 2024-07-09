@@ -131,12 +131,12 @@ int main (int argc, char* args[]) {
             particles->getFieldManager()->createField(1, "u_cell_average", "none"); 
             particles->getFieldManager()->createField(1, "u_point_value", "none"); 
 
-            auto quadrature_weights_view = particles->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-            auto quadrature_points_view = particles->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-            auto interior_view = particles->getFieldManager()->getFieldByName("interior")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+            auto quadrature_weights_view = particles->getFieldManager()->getFieldByName("quadrature_weights")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+            auto quadrature_points_view = particles->getFieldManager()->getFieldByName("quadrature_points")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+            auto interior_view = particles->getFieldManager()->getFieldByName("interior")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
-            auto u_cell_average_view = particles->getFieldManager()->getFieldByName("u_cell_average")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-            auto u_point_value_view = particles->getFieldManager()->getFieldByName("u_point_value")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+            auto u_cell_average_view = particles->getFieldManager()->getFieldByName("u_cell_average")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+            auto u_point_value_view = particles->getFieldManager()->getFieldByName("u_point_value")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
 
             for(int j=0; j<coords->nLocal(); j++){
@@ -206,18 +206,17 @@ int main (int argc, char* args[]) {
             ST physical_coordinate_weighted_l2_norm = 0;
             ST exact_coordinate_weighted_l2_norm = 0;
 
-            Compadre::host_view_type solution_field;
-
+            decltype(new_particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll)) solution_field;
             if (remap_type != "cell average") {
-                solution_field = new_particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                solution_field = new_particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
             } else {
-                solution_field = new_particles->getFieldManager()->getFieldByName("pressure")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                solution_field = new_particles->getFieldManager()->getFieldByName("pressure")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
             }
-            Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+            Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
-            Compadre::host_view_type cell_average_solution_field;
+            decltype(new_particles->getFieldManager()->getFieldByName("u_remap_cell_average")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly)) cell_average_solution_field;
             if (remap_type == "cell average") {
-                cell_average_solution_field = new_particles->getFieldManager()->getFieldByName("u_remap_cell_average")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+                cell_average_solution_field = new_particles->getFieldManager()->getFieldByName("u_remap_cell_average")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
             }
 
             for(int j=0; j<coords->nLocal(); j++){

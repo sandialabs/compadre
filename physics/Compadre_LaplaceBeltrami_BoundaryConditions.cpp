@@ -14,7 +14,7 @@ typedef Compadre::FieldT fields_type;
 typedef Compadre::XyzVector xyz_type;
 
 void LaplaceBeltramiBoundaryConditions::flagBoundaries() {
-	device_view_type pts = this->_coords->getPts()->getLocalView<device_view_type>();
+	auto pts = this->_coords->getPts()->getLocalViewDevice(Tpetra::Access::ReadOnly);
 	local_index_type bc_id_size = this->_particles->getFlags()->getLocalLength();
 	if (_parameters->get<local_index_type>("physics number")<3) {
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,bc_id_size), KOKKOS_LAMBDA(const int i) {
@@ -39,9 +39,9 @@ void LaplaceBeltramiBoundaryConditions::applyBoundaries(local_index_type field_o
 		field_two = field_one;
 	}
 
-	host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
-	host_view_type rhs_vals = this->_b->getLocalView<host_view_type>();
-	host_view_type pts = this->_coords->getPts()->getLocalView<host_view_type>();
+	auto bc_id = this->_particles->getFlags()->getLocalViewHost(Tpetra::Access::ReadOnly);
+	auto rhs_vals = this->_b->getLocalViewHost(Tpetra::Access::OverwriteAll);
+	auto pts = this->_coords->getPts()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
 
 	const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());

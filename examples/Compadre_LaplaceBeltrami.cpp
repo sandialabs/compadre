@@ -337,7 +337,7 @@ int main (int argc, char* args[]) {
 				if (parameters->get<int>("physics number")==3) {
 					particles->getFieldManager()->createField(1, "kappa", "m/s");
 					Compadre::FiveStripOnSphere function3 = Compadre::FiveStripOnSphere();
-					Compadre::host_view_type kappa_field =  particles->getFieldManager()->getFieldByName("kappa")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+					auto kappa_field =  particles->getFieldManager()->getFieldByName("kappa")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 					for(int j=0; j<coords->nLocal(); j++){
 						xyz_type xyz = coords->getLocalCoords(j);
 						kappa_field(j,0) = function3.evalDiffusionCoefficient(xyz);
@@ -504,9 +504,9 @@ int main (int argc, char* args[]) {
 						localInitFromScalarFunction(&function3);
 
 
-					Compadre::host_view_type kappa_field =  new_particles->getFieldManager()->getFieldByName("kappa")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-					Compadre::host_view_type lon_field =  new_particles->getFieldManager()->getFieldByName("lon")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-					Compadre::host_view_type computed_kappa_grad_field =  new_particles->getFieldManager()->getFieldByName("computedKappaGrad")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+					auto kappa_field =  new_particles->getFieldManager()->getFieldByName("kappa")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+					auto lon_field =  new_particles->getFieldManager()->getFieldByName("lon")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+					auto computed_kappa_grad_field =  new_particles->getFieldManager()->getFieldByName("computedKappaGrad")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
 					for(int j=0; j<coords->nLocal(); j++){
 						xyz_type xyz = new_coords->getLocalCoords(j);
@@ -574,12 +574,12 @@ int main (int argc, char* args[]) {
 			ST physical_coordinate_weighted_l2_norm = 0;
 		 	ST exact_coordinate_weighted_l2_norm = 0;
 
-//			Compadre::host_view_type solution_field = particles->getFieldManager()->getFieldByName("solution")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+//			Compadre::host_view_type solution_field = particles->getFieldManager()->getFieldByName("solution")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 			Compadre::host_view_type solution_field;
 			Compadre::host_view_type solution_field2;
 			if (parameters->get<std::string>("solution type")=="point" || parameters->get<std::string>("solution type")=="laplace" || parameters->get<std::string>("solution type")=="staggered_laplace") {
-				solution_field = new_particles->getFieldManager()->getFieldByName("computedSphereHarmonic")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-				Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+				solution_field = new_particles->getFieldManager()->getFieldByName("computedSphereHarmonic")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+				auto exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //				printf("direct applicatino:\n");
 				for(int j=0; j<coords->nLocal(); j++){
 					xyz_type xyz = coords->getLocalCoords(j);
@@ -590,11 +590,11 @@ int main (int argc, char* args[]) {
 //				auto out = Teuchos::getFancyOStream(Teuchos::rcpFromRef(std::cout));
 //				new_particles->getFieldManager()->getFieldByName("computedSphereHarmonic")->getMultiVectorPtrConst()->describe(*out, Teuchos::VERB_EXTREME);
 			} else if (parameters->get<std::string>("solution type")=="div_grad" || parameters->get<std::string>("solution type")=="staggered_div_grad") {
-				Compadre::host_view_type solution_field1 = new_particles->getFieldManager()->getFieldByName("computedGradSphereHarmonic")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-				solution_field = new_particles->getFieldManager()->getFieldByName("computedDivGradSphereHarmonic")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-//				solution_field2 = new_particles->getFieldManager()->getFieldByName("computedLaplacianSphereHarmonic")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+				auto solution_field1 = new_particles->getFieldManager()->getFieldByName("computedGradSphereHarmonic")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+				solution_field = new_particles->getFieldManager()->getFieldByName("computedDivGradSphereHarmonic")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+//				solution_field2 = new_particles->getFieldManager()->getFieldByName("computedLaplacianSphereHarmonic")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
-				Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+				auto exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
 				for(int j=0; j<coords->nLocal(); j++){
 					xyz_type xyz = coords->getLocalCoords(j);
@@ -602,9 +602,9 @@ int main (int argc, char* args[]) {
 					exact_solution_field(j,0) = -exact_val;
 				}
 			} else if (parameters->get<std::string>("solution type")=="grad") {
-				Compadre::host_view_type solution_field_grad = new_particles->getFieldManager()->getFieldByName("computedGradSphereHarmonic")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-		 		solution_field = new_particles->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-		 		Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+				auto solution_field_grad = new_particles->getFieldManager()->getFieldByName("computedGradSphereHarmonic")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+		 		solution_field = new_particles->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+		 		Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
 				for(int j=0; j<coords->nLocal(); j++){
 					xyz_type xyz = coords->getLocalCoords(j);
@@ -618,12 +618,12 @@ int main (int argc, char* args[]) {
 					exact_solution_field(j,1) = velocity_exact.y;
 					exact_solution_field(j,2) = velocity_exact.z;
 				}
-//				Compadre::host_view_type solution_field1 = new_particles->getFieldManager()->getFieldByName("computedGradSphereHarmonicX")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-//				Compadre::host_view_type solution_field2 = new_particles->getFieldManager()->getFieldByName("computedGradSphereHarmonicY")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-//				Compadre::host_view_type solution_field3 = new_particles->getFieldManager()->getFieldByName("computedGradSphereHarmonicZ")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+//				Compadre::host_view_type solution_field1 = new_particles->getFieldManager()->getFieldByName("computedGradSphereHarmonicX")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+//				Compadre::host_view_type solution_field2 = new_particles->getFieldManager()->getFieldByName("computedGradSphereHarmonicY")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+//				Compadre::host_view_type solution_field3 = new_particles->getFieldManager()->getFieldByName("computedGradSphereHarmonicZ")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //
-//		 		solution_field = new_particles->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-//		 		Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+//		 		solution_field = new_particles->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+//		 		Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //
 //				for(int j=0; j<coords->nLocal(); j++){
 //					xyz_type xyz = coords->getLocalCoords(j);
@@ -638,9 +638,9 @@ int main (int argc, char* args[]) {
 //					exact_solution_field(j,2) = velocity_exact.z;
 //				}
 			} else if (parameters->get<std::string>("solution type")=="staggered_grad") {
-				Compadre::host_view_type solution_field_grad = new_particles->getFieldManager()->getFieldByName("computedGradSphereHarmonic")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-		 		solution_field = new_particles->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
-		 		Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+				auto solution_field_grad = new_particles->getFieldManager()->getFieldByName("computedGradSphereHarmonic")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+		 		solution_field = new_particles->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+		 		Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
 				for(int j=0; j<coords->nLocal(); j++){
 					xyz_type xyz = coords->getLocalCoords(j);
@@ -655,9 +655,9 @@ int main (int argc, char* args[]) {
 					exact_solution_field(j,2) = velocity_exact.z;
 				}
 			} else if (parameters->get<std::string>("solution type")=="div" || parameters->get<std::string>("solution type")=="staggered_div") {
-				solution_field = new_particles->getFieldManager()->getFieldByName("computedDivGradSphereHarmonic")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+				solution_field = new_particles->getFieldManager()->getFieldByName("computedDivGradSphereHarmonic")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
-				Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+				Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
 				for(int j=0; j<coords->nLocal(); j++){
 					xyz_type xyz = coords->getLocalCoords(j);
@@ -665,8 +665,8 @@ int main (int argc, char* args[]) {
 					exact_solution_field(j,0) = -exact_val;
 				}
 			} else if (parameters->get<std::string>("solution type")=="vector") {
-		 		solution_field = new_particles->getFieldManager()->getFieldByName("computedGradSphereHarmonic")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
-		 		Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+		 		solution_field = new_particles->getFieldManager()->getFieldByName("computedGradSphereHarmonic")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
+		 		Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
 				for(int j=0; j<coords->nLocal(); j++){
 					xyz_type xyz = coords->getLocalCoords(j);
@@ -678,17 +678,17 @@ int main (int argc, char* args[]) {
 				}
 			} else if (parameters->get<std::string>("solution type")=="five_strip") {
                 if (post_process_grad) {
-				    solution_field = new_particles->getFieldManager()->getFieldByName("computedKappaGrad")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+				    solution_field = new_particles->getFieldManager()->getFieldByName("computedKappaGrad")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
                 } else {
-				    solution_field = particles->getFieldManager()->getFieldByName("solution")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+				    solution_field = particles->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
                 }
 			} else {
-				solution_field = particles->getFieldManager()->getFieldByName("solution")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+				solution_field = particles->getFieldManager()->getFieldByName("solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //				printf("A operation:\n");
 //				for(int j=0; j<coords->nLocal(); j++){
 //					printf("%.16f\n", solution_field(j,0));
 //				}
-				Compadre::host_view_type exact_solution_field = particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+				Compadre::host_view_type exact_solution_field = particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 				for(int j=0; j<coords->nLocal(); j++){
 					xyz_type xyz = coords->getLocalCoords(j);
 					double exact_val = function->evalScalar(xyz);
@@ -718,7 +718,7 @@ int main (int argc, char* args[]) {
 			//bool use_grid_area_for_L2 = false;
 			Compadre::host_view_type grid_area_field;
 		    try {
-		        grid_area_field = particles->getFieldManager()->getFieldByName("grid_area")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+		        grid_area_field = particles->getFieldManager()->getFieldByName("grid_area")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 		    //    use_grid_area_for_L2 = true;
 		    } catch (...) {
 		    }

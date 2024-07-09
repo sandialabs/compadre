@@ -314,7 +314,7 @@ void ProblemT::buildGraphs(local_index_type field_one, local_index_type field_tw
     if (A_graph[row_block][col_block].is_null()) {
         local_index_type field_one_dim = _particles->getFieldManagerConst()->getFieldByID(field_one)->nDim();
         local_index_type field_two_dim = _particles->getFieldManagerConst()->getFieldByID(field_two)->nDim();
-        A_graph[row_block][col_block] = Teuchos::rcp(new crs_graph_type (row_map[row_block], col_map[col_block], max_num_neighbors*field_one_dim*field_two_dim, Tpetra::StaticProfile));
+        A_graph[row_block][col_block] = Teuchos::rcp(new crs_graph_type (row_map[row_block], col_map[col_block], max_num_neighbors*field_one_dim*field_two_dim));
     }
     // _OP sets the initial graph and may change it
     _OP->setGraph(A_graph[row_block][col_block]);

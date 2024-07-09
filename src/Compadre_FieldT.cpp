@@ -27,15 +27,15 @@ void FieldT::applyZoltan2Partition() {
 	TEUCHOS_TEST_FOR_EXCEPT_MSG((size_t)(_coords->nLocal())!=this->_vals->getLocalLength(), "After applyZoltan2Partition(), size of field differs from coordinates.");
 }
 
-void FieldT::insertParticles(const coords_type * coords, const std::vector<xyz_type>& new_pts_vector, const host_view_type& inserted_field_values) {
+void FieldT::insertParticles(const coords_type * coords, const std::vector<xyz_type>& new_pts_vector, decltype(_vals->getLocalViewHost(Tpetra::Access::ReadOnly))& inserted_field_values) {
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(inserted_field_values.extent(0)!=new_pts_vector.size(), "Mismatch between field data generated in FieldManager and the number of points inserted.");
 	TEUCHOS_TEST_FOR_EXCEPT_MSG(inserted_field_values.extent(1)!=(size_t)_nDim, "Mismatch between field data dimension in FieldManager and the field being inserted into.");
 	const local_index_type num_added_coords = (local_index_type)new_pts_vector.size();
 
 	const bool setToZero = false;
 	Teuchos::RCP<mvec_type> new_vals = Teuchos::rcp(new mvec_type(coords->getMapConst(), _nDim, setToZero));
-	host_view_type new_vals_data = new_vals->getLocalView<host_view_type>();
-	host_view_type old_vals_data = _vals->getLocalView<host_view_type>();
+	auto new_vals_data = new_vals->getLocalViewHost(Tpetra::Access::OverwriteAll);
+	auto old_vals_data = _vals->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	const local_index_type old_vals_data_num = (local_index_type)(old_vals_data.extent(0));
 	// copy old data
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,old_vals_data_num), KOKKOS_LAMBDA(const int i) {
@@ -65,8 +65,8 @@ void FieldT::removeParticles(const coords_type * coords, const std::vector<local
 
 	const bool setToZero = false;
 	Teuchos::RCP<mvec_type> new_vals = Teuchos::rcp(new mvec_type(coords->getMapConst(), _nDim, setToZero));
-	host_view_type new_vals_data = new_vals->getLocalView<host_view_type>();
-	host_view_type old_vals_data = _vals->getLocalView<host_view_type>();
+	auto new_vals_data = new_vals->getLocalViewHost(Tpetra::Access::OverwriteAll);
+	auto old_vals_data = _vals->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,old_vals_data.extent(0)), KOKKOS_LAMBDA(const int i) {
 		bool deleted = false;
 		local_index_type offset = num_remove_coords;
@@ -99,37 +99,33 @@ void FieldT::updateHalo() {
 }
 
 void FieldT::localInitFromScalarFunction(function_type* fn, const scalar_type time, bool use_physical_coords) {
-	host_view_type fieldView = this->_vals->getLocalView<host_view_type>();
-	host_view_type coordsView = _coords->getPts(false /*halo*/, use_physical_coords)->getLocalView<host_view_type>();
+	auto fieldView = this->_vals->getLocalViewHost(Tpetra::Access::OverwriteAll);
+	auto coordsView = _coords->getPts(false /*halo*/, use_physical_coords)->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,this->_coords->nLocalMax()),
 		evaluateScalar(fieldView, coordsView, fn, time));
 }
 
 void FieldT::localInitFromScalarFunctionGradient(function_type* fn, const scalar_type time, bool use_physical_coords) {
-	host_view_type fieldView = this->_vals->getLocalView<host_view_type>();
-	host_view_type coordsView = _coords->getPts(false /*halo*/, use_physical_coords)->getLocalView<host_view_type>();
+	auto fieldView = this->_vals->getLocalViewHost(Tpetra::Access::OverwriteAll);
+	auto coordsView = _coords->getPts(false /*halo*/, use_physical_coords)->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,this->_coords->nLocalMax()),
 		evaluateVector(fieldView, coordsView, fn, 1, time));
 }
 
 void FieldT::localInitFromVectorFunction(function_type* fn, const scalar_type time, bool use_physical_coords) {
-	host_view_type fieldView = this->_vals->getLocalView<host_view_type>();
-	host_view_type coordsView = _coords->getPts(false /*halo*/, use_physical_coords)->getLocalView<host_view_type>();
+	auto fieldView = this->_vals->getLocalViewHost(Tpetra::Access::OverwriteAll);
+	auto coordsView = _coords->getPts(false /*halo*/, use_physical_coords)->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,this->_coords->nLocalMax()),
 		evaluateVector(fieldView, coordsView, fn, time));
 }
 
-device_view_type FieldT::getDeviceView() {
-    return this->_vals->getLocalView<device_view_type>();
-}
-
 scalar_type FieldT::getLocalScalarVal(const local_index_type idx, const local_index_type component, bool for_halo) const {
-	device_view_type fieldView = for_halo ? this->_halo_vals->getLocalView<device_view_type>() : this->_vals->getLocalView<device_view_type>();
+	auto fieldView = for_halo ? this->_halo_vals->getLocalViewDevice(Tpetra::Access::OverwriteAll) : this->_vals->getLocalViewDevice(Tpetra::Access::OverwriteAll);
 	return fieldView(idx,component);
 }
 
 std::vector<scalar_type> FieldT::getLocalVectorVal(const local_index_type idx, bool for_halo) const {
-	device_view_type fieldView = for_halo ? this->_halo_vals->getLocalView<device_view_type>() : this->_vals->getLocalView<device_view_type>();
+	auto fieldView = for_halo ? this->_halo_vals->getLocalViewDevice(Tpetra::Access::OverwriteAll) : this->_vals->getLocalViewDevice(Tpetra::Access::OverwriteAll);
 	std::vector<scalar_type> return_vals(_nDim);
 	for (local_index_type i=0; i<_nDim; i++) return_vals[i] = fieldView(idx,i);
 	return return_vals;
@@ -186,11 +182,6 @@ void FieldT::updateHaloData() {
 	_halo_vals->doImport(*_vals, *halo_importer, Tpetra::CombineMode::INSERT);
 }
 
-void FieldT::syncMemory() {
-	_vals->sync<device_view_type>();
-	_vals->sync<host_view_type>();
-}
-
 void FieldT::print(std::ostream& os) const {
 	auto out = Teuchos::getFancyOStream(Teuchos::rcpFromRef(os));
 	_vals->describe(*out, Teuchos::VERB_EXTREME);
@@ -201,7 +192,7 @@ void FieldT::scale(const scalar_type a) {
 }
 
 void FieldT::setLocalScalarVal(const local_index_type idx, const local_index_type component, const double value) {
-	host_view_type fieldView = this->_vals->getLocalView<host_view_type>();
+	auto fieldView = this->_vals->getLocalViewHost(Tpetra::Access::OverwriteAll);
 	fieldView(idx,component) = value;
 }
 

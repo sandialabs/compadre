@@ -109,7 +109,7 @@ int main (int argc, char* args[]) {
             FirstReadTime->stop();
         }
 
-        auto x_field = particles->getCoordsConst()->getPts()->getLocalView<Compadre::host_view_type>();
+        auto x_field = particles->getCoordsConst()->getPts()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         //for (int i=0; i<x_field.extent(0); ++i) {
         //    printf("s:x %d: %f, ", i, x_field(i,0));
         //}
@@ -156,7 +156,7 @@ int main (int argc, char* args[]) {
             SecondReadTime->stop();
         }
 
-        x_field = new_particles->getCoordsConst()->getPts()->getLocalView<Compadre::host_view_type>();
+        x_field = new_particles->getCoordsConst()->getPts()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         //for (int i=0; i<x_field.extent(0); ++i) {
         //    printf("t:x %d: %f, ", i, x_field(i,0));
         //}
@@ -214,13 +214,13 @@ int main (int argc, char* args[]) {
         //bool use_grid_area_for_L2 = false;
         //Compadre::host_view_type grid_area_field;
         //try {
-        //    grid_area_field = particles->getFieldManager()->getFieldByName("grid_area")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+        //    grid_area_field = particles->getFieldManager()->getFieldByName("grid_area")->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::OverwriteAll);
         //    use_grid_area_for_L2 = true;
         //} catch (...) {
         //}
         //// if a weighted L2 is desire, use_grid_area_for_L2 can be checked before-hand
 
-        //Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalView<Compadre::host_view_type>();
+        //Compadre::host_view_type exact_solution_field = new_particles->getFieldManager()->getFieldByName("exact_solution")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
         //double exact = 0;
         //GO num_solved_for = 0;

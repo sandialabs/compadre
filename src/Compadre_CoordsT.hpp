@@ -226,10 +226,10 @@ class CoordsT {
 		scalar_type localDotProduct( const local_index_type idx1, const xyz_type& queryPt, bool use_physical_coords = true) const;
 
 
-// Memory
-		void syncMemory();
-		bool hostNeedsUpdate() const;
-		bool deviceNeedsUpdate() const;
+//// Memory
+//		void syncMemory();
+//		bool hostNeedsUpdate() const;
+//		bool deviceNeedsUpdate() const;
 
 // Utilities
 

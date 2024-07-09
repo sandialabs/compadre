@@ -49,9 +49,9 @@ void ExplicitTimeDependentBoundaryConditions::applyBoundaries(local_index_type f
     	field_two = field_one;
     }
 
-    host_view_local_index_type bc_id = this->_particles->getFlags()->getLocalView<host_view_local_index_type>();
-    host_view_type rhs_vals = this->_b->getLocalView<host_view_type>();
-    host_view_type pts = this->_coords->getPts()->getLocalView<host_view_type>();
+    auto bc_id = this->_particles->getFlags()->getLocalViewHost(Tpetra::Access::ReadOnly);
+    auto rhs_vals = this->_b->getLocalViewHost(Tpetra::Access::OverwriteAll);
+    auto pts = this->_coords->getPts()->getLocalViewHost(Tpetra::Access::ReadOnly);
 
 
     const local_index_type nlocal = static_cast<local_index_type>(this->_coords->nLocal());
@@ -63,7 +63,9 @@ void ExplicitTimeDependentBoundaryConditions::applyBoundaries(local_index_type f
     // This requires knowledge of timestep sizes and previous velocities and accelerations
     // as well as the current (t_{n+1}) displacements.
     double gamma = 0.0;
-    host_view_type displacement_data, velocity_data, acceleration_data;
+    decltype(fields[field_one]->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly)) 
+        displacement_data, velocity_data, acceleration_data;
+
     if (is_d) {
         if (_velocity_id.size() < fields.size()) {
             _velocity_id = std::vector<int>(fields.size(), -1);
@@ -75,9 +77,9 @@ void ExplicitTimeDependentBoundaryConditions::applyBoundaries(local_index_type f
             _velocity_id[field_one] = _particles->getFieldManagerConst()->getIDOfFieldFromName(this_src_field_name+"_velocity");
             _acceleration_id[field_one] = _particles->getFieldManagerConst()->getIDOfFieldFromName(this_src_field_name+"_acceleration");
         }
-        displacement_data = fields[field_one]->getMultiVectorPtrConst()->getLocalView<host_view_type>();
-        velocity_data = fields[_velocity_id[field_one]]->getMultiVectorPtrConst()->getLocalView<host_view_type>();
-        acceleration_data = fields[_acceleration_id[field_one]]->getMultiVectorPtrConst()->getLocalView<host_view_type>();
+        displacement_data = fields[field_one]->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+        velocity_data = fields[_velocity_id[field_one]]->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
+        acceleration_data = fields[_acceleration_id[field_one]]->getMultiVectorPtrConst()->getLocalViewHost(Tpetra::Access::ReadOnly);
     }
 
     for (local_index_type i=0; i<nlocal; ++i) { // parallel_for causes cache thrashing

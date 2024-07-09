@@ -240,7 +240,7 @@ int main (int argc, char* args[]) {
 //			flags_to_transfer[0] = 1;
 //			flags_to_transfer[1] = 2;
 //			// should add in a filter in the remoteDataManager
-//			Compadre::host_view_type flags = particles->getFlags()->getLocalView<Compadre::host_view_type>();
+//			Compadre::host_view_type flags = particles->getFlags()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //			Teuchos::RCP<Compadre::RemoteDataManager> remoteDataManager =
 //					Teuchos::rcp(new Compadre::RemoteDataManager(global_comm, comm, coords, my_coloring, peer_coloring, flags, flags_to_transfer));
 
@@ -314,7 +314,7 @@ int main (int argc, char* args[]) {
 
 			if (parameters->get<LO>("two way passes")==0 && my_coloring == 25) {
 
-				Compadre::host_view_type source_grid_area_field = particles->getFieldManager()->getFieldByName("grid_area")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+				Compadre::host_view_type source_grid_area_field = particles->getFieldManager()->getFieldByName("grid_area")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
 				Teuchos::RCP<Compadre::AnalyticFunction> source_function;
 
@@ -353,7 +353,7 @@ int main (int argc, char* args[]) {
 					(parameters->get<LO>("two way passes")>0 && my_coloring == 25)) { // one way ends up with data on proc 33, two way ends up with data on proc 25
 				// compare errors against
 
-				Compadre::host_view_type target_grid_area_field = particles->getFieldManager()->getFieldByName("grid_area")->getMultiVectorPtrConst()->getLocalView<Compadre::host_view_type>();
+				Compadre::host_view_type target_grid_area_field = particles->getFieldManager()->getFieldByName("grid_area")->getMultiVectorPtr()->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
 				Teuchos::RCP<Compadre::AnalyticFunction> target_function;
 				// here we have the true solution on the target mesh, or back on the source mesh

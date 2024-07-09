@@ -45,8 +45,13 @@ class LocalPointCloudT {
 			// this class is only called at the construction of a Neighborhood, so we can trust that the coordinates will not
 			// change between its construction and use in a search.
 			// we get a local view so that we have easier access to the coordinates that we will need for neighbor searches
-			_pts_view = cIn->getPts(false,use_physical_coords)->getLocalView<host_view_type>();
-			_halo_pts_view = cIn->getPts(true,use_physical_coords)->getLocalView<host_view_type>();
+			auto pts_view = cIn->getPts(false,use_physical_coords)->getLocalViewHost(Tpetra::Access::ReadOnly);
+			auto halo_pts_view = cIn->getPts(true,use_physical_coords)->getLocalViewHost(Tpetra::Access::ReadOnly);
+			_pts_view = host_view_type("points", pts_view.size());
+			_halo_pts_view = host_view_type("halo points", halo_pts_view.size());
+ 			Kokkos::deep_copy(_pts_view, pts_view);
+ 			Kokkos::deep_copy(_halo_pts_view, halo_pts_view);
+
 			_nlocal_minus_halo = _pts_view.extent(0);
 		};
 	

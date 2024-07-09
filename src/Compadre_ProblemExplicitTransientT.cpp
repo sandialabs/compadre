@@ -367,9 +367,9 @@ void ProblemExplicitTransientT::solveRK(Teuchos::ParameterList& parameters_time,
                 _particles->getFieldManagerConst()->updateVectorFromFields(reference_solution[row_block], field_one, _problem_dof_data);
 
                 // copy this to updated_solution so that it starts in the right place
-                host_view_type updated_data = updated_solution[row_block]->getLocalView<host_view_type>();
-                host_view_type reference_data = reference_solution[row_block]->getLocalView<host_view_type>();
-                host_view_type rk_offsets_data = rk_offsets[row_block]->getLocalView<host_view_type>();
+                auto updated_data = updated_solution[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                auto reference_data = reference_solution[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                auto rk_offsets_data = rk_offsets[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
                 for (size_t j=0; j<updated_data.extent(0); j++) {
                     updated_data(j,0) = reference_data(j,0);
                     rk_offsets_data(j,0) = reference_data(j,0);
@@ -384,9 +384,9 @@ void ProblemExplicitTransientT::solveRK(Teuchos::ParameterList& parameters_time,
             _particles->getFieldManagerConst()->updateVectorFromFields(reference_solution[0], -1, _problem_dof_data);
 
             // copy this to updated_solution so that it starts in the right place
-            host_view_type updated_data = updated_solution[0]->getLocalView<host_view_type>();
-            host_view_type reference_data = reference_solution[0]->getLocalView<host_view_type>();
-            host_view_type rk_offsets_data = rk_offsets[0]->getLocalView<host_view_type>();
+            auto updated_data = updated_solution[0]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+            auto reference_data = reference_solution[0]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+            auto rk_offsets_data = rk_offsets[0]->getLocalViewHost(Tpetra::Access::OverwriteAll);
             for (size_t j=0; j<updated_data.extent(0); j++) {
                 updated_data(j,0) = reference_data(j,0);
                 rk_offsets_data(j,0) = reference_data(j,0);
@@ -423,10 +423,10 @@ void ProblemExplicitTransientT::solveRK(Teuchos::ParameterList& parameters_time,
 //                if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
 //
 //                    // block reference solution plus offset
-//                    host_view_type rk_offsets_data = rk_offsets[row_block]->getLocalView<host_view_type>();
-////                    host_view_type reference_data = reference_solution[row_block]->getLocalView<host_view_type>();
-////                    host_view_type updated_data = updated_solution[row_block]->getLocalView<host_view_type>();
-////                    host_view_type step_data = _b[row_block]->getLocalView<host_view_type>();
+//                    auto rk_offsets_data = rk_offsets[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+////                    auto reference_data = reference_solution[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+////                    auto updated_data = updated_solution[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+////                    auto step_data = _b[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //
 //                    // beginning of first stage
 //                    if (field_one == _particles->getFieldManager()->getIDOfFieldFromName("velocity")) {
@@ -437,7 +437,7 @@ void ProblemExplicitTransientT::solveRK(Teuchos::ParameterList& parameters_time,
 //                                localInitFromVectorFunction(&sw_function);
 //                        const mvec_type* velocity_ptr = _particles->getFieldManager()->getFieldByName("velocity")->
 //                                getMultiVectorPtrConst();
-//                        host_view_type velocity_data = velocity_ptr->getLocalView<host_view_type>();
+//                        auto velocity_data = velocity_ptr->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //
 //                        const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
 //                                this->_particles->getDOFManagerConst()->getDOFMap();
@@ -578,13 +578,13 @@ void ProblemExplicitTransientT::solveRK(Teuchos::ParameterList& parameters_time,
                 if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
 
                     // block reference solution plus offset
-                    host_view_type rk_offsets_data = rk_offsets[row_block]->getLocalView<host_view_type>();
-                    host_view_type reference_data = reference_solution[row_block]->getLocalView<host_view_type>();
-                    host_view_type updated_data = updated_solution[row_block]->getLocalView<host_view_type>();
-                    host_view_type step_data = _b[row_block]->getLocalView<host_view_type>();
+                    auto rk_offsets_data = rk_offsets[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                    auto reference_data = reference_solution[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                    auto updated_data = updated_solution[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                    auto step_data = _b[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
                     // deal with Dirichlet boundary conditions
-	                host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
+	                auto bc_id = _particles->getFlags()->getLocalViewHost(Tpetra::Access::OverwriteAll);
                     for (size_t k=0; k<rk_offsets_data.extent(0); ++k) {
                         if (bc_id(k,0)==0) {
                             rk_offsets_data(k,0) = reference_data(k,0);
@@ -599,10 +599,10 @@ void ProblemExplicitTransientT::solveRK(Teuchos::ParameterList& parameters_time,
                     }
                 } else {
                     // reference solution plus offset
-                    host_view_type rk_offsets_data = rk_offsets[0]->getLocalView<host_view_type>();
-                    host_view_type reference_data = reference_solution[0]->getLocalView<host_view_type>();
-                    host_view_type updated_data = updated_solution[0]->getLocalView<host_view_type>();
-                    host_view_type step_data = _b[0]->getLocalView<host_view_type>();
+                    auto rk_offsets_data = rk_offsets[0]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                    auto reference_data = reference_solution[0]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                    auto updated_data = updated_solution[0]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                    auto step_data = _b[0]->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
                     for (size_t k=0; k<rk_offsets_data.extent(0); ++k) {
                         rk_offsets_data(k,0) = reference_data(k,0);
@@ -629,9 +629,9 @@ void ProblemExplicitTransientT::solveRK(Teuchos::ParameterList& parameters_time,
 //                printf("field one: %d at timestep %d\n", field_one, timestep_count);
             if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
                 // copy this to updated_solution so that it starts in the right place
-                host_view_type updated_data = updated_solution[row_block]->getLocalView<host_view_type>();
-                host_view_type reference_data = reference_solution[row_block]->getLocalView<host_view_type>();
-                host_view_type rk_offsets_data = rk_offsets[row_block]->getLocalView<host_view_type>();
+                auto updated_data = updated_solution[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                auto reference_data = reference_solution[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                auto rk_offsets_data = rk_offsets[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
                 for (size_t k=0; k<updated_data.extent(0); ++k) {
                     reference_data(k,0) = updated_data(k,0);
                     rk_offsets_data(k,0) = updated_data(k,0);
@@ -645,7 +645,7 @@ void ProblemExplicitTransientT::solveRK(Teuchos::ParameterList& parameters_time,
 //                                localInitFromVectorFunction(&sw_function);
 //                        const mvec_type* velocity_ptr = _particles->getFieldManager()->getFieldByName("velocity")->
 //                                getMultiVectorPtrConst();
-//                        host_view_type velocity_data = velocity_ptr->getLocalView<host_view_type>();
+//                        auto velocity_data = velocity_ptr->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //
 //                        const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
 //                                this->_particles->getDOFManagerConst()->getDOFMap();
@@ -669,7 +669,7 @@ void ProblemExplicitTransientT::solveRK(Teuchos::ParameterList& parameters_time,
 //                                scale(1./sw_function.getGravity());
 //                        const mvec_type* height_ptr = _particles->getFieldManager()->getFieldByName("height")->
 //                                getMultiVectorPtrConst();
-//                        host_view_type height_data = height_ptr->getLocalView<host_view_type>();
+//                        auto height_data = height_ptr->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //
 //                        const std::vector<std::vector<std::vector<local_index_type> > >& local_to_dof_map =
 //                                this->_particles->getDOFManagerConst()->getDOFMap();
@@ -685,9 +685,9 @@ void ProblemExplicitTransientT::solveRK(Teuchos::ParameterList& parameters_time,
 //                    }
             } else {
                 // copy this to updated_solution so that it starts in the right place
-                host_view_type updated_data = updated_solution[0]->getLocalView<host_view_type>();
-                host_view_type reference_data = reference_solution[0]->getLocalView<host_view_type>();
-                host_view_type rk_offsets_data = rk_offsets[0]->getLocalView<host_view_type>();
+                auto updated_data = updated_solution[0]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                auto reference_data = reference_solution[0]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                auto rk_offsets_data = rk_offsets[0]->getLocalViewHost(Tpetra::Access::OverwriteAll);
                 for (size_t k=0; k<updated_data.extent(0); ++k) {
                     reference_data(k,0) = updated_data(k,0);
                     rk_offsets_data(k,0) = updated_data(k,0);
@@ -789,8 +789,8 @@ void ProblemExplicitTransientT::solveRK(Teuchos::ParameterList& parameters_time,
             _particles->updatePhysicalCoordinatesFromField("displacement");
 //            _particles->getCoords()->snapToSphere(sw_function.getRadius());
 //            const mvec_type* velocity_ptr = _particles->getFieldManager()->getFieldByName("velocity")->getMultiVectorPtrConst();
-//            host_view_type velocity_data = velocity_ptr->getLocalView<host_view_type>();
-//            host_view_type coords_data = _particles->getCoords()->getPts(false, true)->getLocalView<host_view_type>();
+//            auto velocity_data = velocity_ptr->getLocalViewHost(Tpetra::Access::OverwriteAll);
+//            auto coords_data = _particles->getCoords()->getPts(false, true)->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //
 //            Compadre::CangaSphereTransform sphere_transform(false);
 //
@@ -873,9 +873,9 @@ void ProblemExplicitTransientT::solveRK(Teuchos::ParameterList& parameters_time,
                                     updated_solution[row_block]->scale(0);
                                     _particles->getFieldManager()->updateFieldsFromVector(reference_solution[row_block], field_one, _problem_dof_data);
                                 } else {
-                                    host_view_type reference_data = reference_solution[0]->getLocalView<host_view_type>();
-                                    host_view_type rk_offsets_data = rk_offsets[0]->getLocalView<host_view_type>();
-                                    host_view_type updated_data = updated_solution[0]->getLocalView<host_view_type>();
+                                    auto reference_data = reference_solution[0]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                                    auto rk_offsets_data = rk_offsets[0]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+                                    auto updated_data = updated_solution[0]->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
                                     const local_dof_map_view_type local_to_dof_map =
                                             this->_particles->getDOFManagerConst()->getDOFMap();
@@ -1048,13 +1048,13 @@ void ProblemExplicitTransientT::solveRK(Teuchos::ParameterList& parameters_time,
 //
 //        if (_parameters->get<Teuchos::ParameterList>("solver").get<bool>("blocked")==true) {
 //            // copy this to updated_solution so that it starts in the right place
-//            host_view_type reference_data = reference_solution[row_block]->getLocalView<host_view_type>();
+//            auto reference_data = reference_solution[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //            for (local_index_type k=0; k<reference_data.extent(0); ++k) {
 //                printf("field #%d: index #%d: val:%.16f\n", field_one, k, reference_data(k,0));
 //            }
 //        } else {
 //            // copy this to updated_solution so that it starts in the right place
-//            host_view_type reference_data = reference_solution[0]->getLocalView<host_view_type>();
+//            auto reference_data = reference_solution[0]->getLocalViewHost(Tpetra::Access::OverwriteAll);
 //            for (local_index_type k=0; k<reference_data.extent(0); ++k) {
 //                printf("field #%d: index #%d: val:%.16f\n", field_one, k, reference_data(k,0));
 //            }
@@ -1199,11 +1199,11 @@ void ProblemExplicitTransientT::solveNewmark(Teuchos::ParameterList& parameters_
         local_index_type field_one = field_interaction.src_fieldnum;
         local_index_type row_block = _field_to_block_row_map[field_one];
 
-        host_view_type solution_data = _b[row_block]->getLocalView<host_view_type>();
-        host_view_type acceleration_data = acceleration_tm1_solution[row_block]->getLocalView<host_view_type>();
+        auto solution_data = _b[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        auto acceleration_data = acceleration_tm1_solution[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
         // diagnostic only
-        //host_view_type velocity_data = velocity_t_solution[row_block]->getLocalView<host_view_type>();
-        //host_view_type displacement_data = displacement_t_solution[row_block]->getLocalView<host_view_type>();
+        //auto velocity_data = velocity_t_solution[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+        //auto displacement_data = displacement_t_solution[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
         for (size_t k=0; k<acceleration_data.extent(0); ++k) {
             acceleration_data(k,0) = solution_data(k,0);
@@ -1230,12 +1230,12 @@ void ProblemExplicitTransientT::solveNewmark(Teuchos::ParameterList& parameters_
             local_index_type field_one = field_interaction.src_fieldnum;
             local_index_type row_block = _field_to_block_row_map[field_one];
 
-            host_view_type displacement_data = displacement_t_solution[row_block]->getLocalView<host_view_type>();
-            host_view_type velocity_data = velocity_t_solution[row_block]->getLocalView<host_view_type>();
-            host_view_type acceleration_data = acceleration_tm1_solution[row_block]->getLocalView<host_view_type>();
+            auto displacement_data = displacement_t_solution[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+            auto velocity_data = velocity_t_solution[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+            auto acceleration_data = acceleration_tm1_solution[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
             // time integrate solution
-            host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
+            auto bc_id = _particles->getFlags()->getLocalViewHost(Tpetra::Access::OverwriteAll);
             for (size_t k=0; k<acceleration_data.extent(0); ++k) {
                 displacement_data(k,0) += internal_dt*velocity_data(k,0) + 0.5*(1-2.0*beta)*internal_dt*internal_dt*acceleration_data(k,0);
             }
@@ -1280,7 +1280,7 @@ void ProblemExplicitTransientT::solveNewmark(Teuchos::ParameterList& parameters_
             }
             //// TODO: REMOVE THIS!
             //local_index_type row_block = _field_to_block_row_map[field_one];
-            //host_view_type solution_data = _b[row_block]->getLocalView<host_view_type>();
+            //auto solution_data = _b[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
             //for (size_t k=0; k<solution_data.extent(0); ++k) {
             //    solution_data(k,0) = 1.0;
             //}
@@ -1290,6 +1290,7 @@ void ProblemExplicitTransientT::solveNewmark(Teuchos::ParameterList& parameters_
         // a solve could go here to support implicit aspects
         if (!LUMPED) {
             // solve would go here, solution in _x extracted later
+            TEUCHOS_ASSERT(false);
         } 
 
         for (InteractingFields field_interaction : _field_interactions) {
@@ -1297,20 +1298,21 @@ void ProblemExplicitTransientT::solveNewmark(Teuchos::ParameterList& parameters_
             local_index_type field_one = field_interaction.src_fieldnum;
             local_index_type row_block = _field_to_block_row_map[field_one];
 
-            host_view_type solution_data;
+            decltype(_b[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll)) solution_data;
             if (!LUMPED) {
                 // solution in _x needs extracted
+                TEUCHOS_ASSERT(false);
             } else {
                 // extract solution from _b
-                solution_data = _b[row_block]->getLocalView<host_view_type>();
+                solution_data = _b[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
             }
 
             // update _particles
-            host_view_type velocity_data = velocity_t_solution[row_block]->getLocalView<host_view_type>();
-            host_view_type acceleration_data = acceleration_tm1_solution[row_block]->getLocalView<host_view_type>();
+            auto velocity_data = velocity_t_solution[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
+            auto acceleration_data = acceleration_tm1_solution[row_block]->getLocalViewHost(Tpetra::Access::OverwriteAll);
 
             // time integrate solution
-            host_view_local_index_type bc_id = _particles->getFlags()->getLocalView<host_view_local_index_type>();
+            auto bc_id = _particles->getFlags()->getLocalViewHost(Tpetra::Access::OverwriteAll);
             for (size_t k=0; k<acceleration_data.extent(0); ++k) {
                 if (bc_id(k,0)==0) {
                     //printf("nb:vel before: %f, a_before: %f, a_new: %f\n", velocity_data(k,0), acceleration_data(k,0), solution_data(k,0));

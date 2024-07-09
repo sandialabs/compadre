@@ -64,9 +64,9 @@ class LagCoordsT {
         xyz_type localCrossProduct(const local_index_type idx1, const xyz_type& queryPt) const;
         scalar_type localDotProduct(const local_index_type idx1, const xyz_type& queryPt) const;
         
-        void syncMemory();
-        bool hostNeedsUpdate() const;
-        bool deviceNeedsUpdate() const;
+        //void syncMemory();
+        //bool hostNeedsUpdate() const;
+        //bool deviceNeedsUpdate() const;
         
         void writeToMatlab(std::ostream& fs, const std::string coordsName = "", const int procRank = 0) const;
         void writeHaloToMatlab(std::ostream& fs, const std::string coordsName="", const int procRank = 0 ) const;
