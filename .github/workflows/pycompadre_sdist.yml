@@ -87,7 +87,7 @@ jobs:
       matrix:
         pycompadre-type: [ 'pycompadre', 'pycompadre-serial', ]
     steps:
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4.1.7
       with:
         name: ${{matrix.pycompadre-type}}.tar.gz
         path: dist/

@@ -179,7 +179,7 @@ jobs:
     - uses: actions/checkout@v2
       with:
         ref: ${{ github.event.inputs.branch }}
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4.1.7
       with:
         name: osx-wheels-${{ matrix.python-version }}-${{matrix.pycompadre-type}}
         path: dist/
@@ -217,23 +217,23 @@ jobs:
       matrix:
         pycompadre-type: ['pycompadre', 'pycompadre-serial']
     steps:
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4.1.7
       with:
         name: manylinux-wheels-${{matrix.pycompadre-type}}
         path: dist/
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4.1.7
       with:
         name: osx-wheels-3.7-${{matrix.pycompadre-type}}
         path: dist/
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4.1.7
       with:
         name: osx-wheels-3.8-${{matrix.pycompadre-type}}
         path: dist/
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4.1.7
       with:
         name: osx-wheels-3.9-${{matrix.pycompadre-type}}
         path: dist/
-    - uses: actions/download-artifact@v2
+    - uses: actions/download-artifact@v4.1.7
       with:
         name: osx-wheels-3.10-${{matrix.pycompadre-type}}
         path: dist/
