@@ -1,46 +1,18 @@
-/*
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
 //               Solutions of Sandia, LLC (NTESS).
 //
 // Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Siva Rajamanickam (srajama@sandia.gov)
-//
-// ************************************************************************
 //@HEADER
-*/
 #include <KokkosBlas.hpp>
 #include <Teuchos_CommandLineProcessor.hpp>
 #include <Teuchos_TimeMonitor.hpp>
@@ -68,16 +40,14 @@ RCP<Time> getTimer(const std::string& timerName) {
   return timer;
 }
 
-bool benchmarkKokkos(std::ostream& out, const int numRows, const int numCols,
-                     const int numTrials) {
+bool benchmarkKokkos(std::ostream& out, const int numRows, const int numCols, const int numTrials) {
   using Kokkos::ALL;
   using Kokkos::subview;
   using std::endl;
 #ifdef KOKKOS_ENABLE_SERIAL
   typedef Kokkos::Serial execution_space;
 #else
-  typedef Kokkos::View<double**, Kokkos::LayoutLeft>::execution_space
-      execution_space;
+  typedef Kokkos::View<double**, Kokkos::LayoutLeft>::execution_space execution_space;
 #endif  // KOKKOS_ENABLE_SERIAL
   typedef Kokkos::View<double**, Kokkos::LayoutLeft, execution_space> mv_type;
   bool success = true;
@@ -92,10 +62,10 @@ bool benchmarkKokkos(std::ostream& out, const int numRows, const int numCols,
   RCP<Time> vecDotTimer         = getTimer("Kokkos: MV: Dot (contiguous)");
   RCP<Time> vecDotTimer2        = getTimer("Kokkos: MV: Dot (noncontiguous)");
   RCP<Time> vecNrmInfTimer      = getTimer("Kokkos: MV: NrmInf (contiguous)");
-  RCP<Time> vecNrmInfTimer2 = getTimer("Kokkos: MV: NrmInf (noncontiguous)");
-  RCP<Time> vecAxpyTimer    = getTimer("Kokkos: MV: Axpy");
-  RCP<Time> vecAxpbyTimer   = getTimer("Kokkos: MV: Axpby");
-  RCP<Time> vecScalTimer    = getTimer("Kokkos: MV: Scal");
+  RCP<Time> vecNrmInfTimer2     = getTimer("Kokkos: MV: NrmInf (noncontiguous)");
+  RCP<Time> vecAxpyTimer        = getTimer("Kokkos: MV: Axpy");
+  RCP<Time> vecAxpbyTimer       = getTimer("Kokkos: MV: Axpby");
+  RCP<Time> vecScalTimer        = getTimer("Kokkos: MV: Scal");
 
   // Benchmark creation of a MultiVector.
   mv_type x;
@@ -137,8 +107,8 @@ bool benchmarkKokkos(std::ostream& out, const int numRows, const int numCols,
     for (int j = 0; j < numCols; ++j) {
       const double expectedResult = static_cast<double>(numRows);
       if (norms(j) != expectedResult) {
-        out << "Kokkos 2-norm (squared) result is wrong!  Expected "
-            << expectedResult << " but got " << norms(j) << " instead." << endl;
+        out << "Kokkos 2-norm (squared) result is wrong!  Expected " << expectedResult << " but got " << norms(j)
+            << " instead." << endl;
         success = false;
       }
     }
@@ -160,8 +130,7 @@ bool benchmarkKokkos(std::ostream& out, const int numRows, const int numCols,
       const double expectedResult = static_cast<double>(numRows);
       if (norms(j) != expectedResult) {
         out << "Kokkos 2-norm (squared) result (3-arg variant) is wrong!  "
-            << "Expected " << expectedResult << " but got " << norms(j)
-            << " instead." << endl;
+            << "Expected " << expectedResult << " but got " << norms(j) << " instead." << endl;
         success = false;
       }
     }
@@ -179,8 +148,8 @@ bool benchmarkKokkos(std::ostream& out, const int numRows, const int numCols,
     for (int j = 0; j < numCols; ++j) {
       const double expectedResult = static_cast<double>(numRows);
       if (norms(j) != expectedResult) {
-        out << "Kokkos 1-norm result is wrong!  Expected " << expectedResult
-            << " but got " << norms(j) << " instead." << endl;
+        out << "Kokkos 1-norm result is wrong!  Expected " << expectedResult << " but got " << norms(j) << " instead."
+            << endl;
         success = false;
       }
     }
@@ -202,8 +171,7 @@ bool benchmarkKokkos(std::ostream& out, const int numRows, const int numCols,
       const double expectedResult = static_cast<double>(numRows);
       if (norms(j) != expectedResult) {
         out << "Kokkos 1-norm result (3-arg variant) is wrong!  "
-            << "Expected " << expectedResult << " but got " << norms(j)
-            << " instead." << endl;
+            << "Expected " << expectedResult << " but got " << norms(j) << " instead." << endl;
         success = false;
       }
     }
@@ -225,8 +193,8 @@ bool benchmarkKokkos(std::ostream& out, const int numRows, const int numCols,
     for (int j = 0; j < numCols; ++j) {
       const double expectedResult = static_cast<double>(numRows) * -1.0;
       if (dots(j) != expectedResult) {
-        out << "Kokkos dot product result is wrong!  Expected "
-            << expectedResult << " but got " << (j) << " instead." << endl;
+        out << "Kokkos dot product result is wrong!  Expected " << expectedResult << " but got " << (j) << " instead."
+            << endl;
         success = false;
       }
     }
@@ -248,8 +216,7 @@ bool benchmarkKokkos(std::ostream& out, const int numRows, const int numCols,
       const double expectedResult = static_cast<double>(numRows) * -1.0;
       if (dots(j) != expectedResult) {
         out << "Kokkos dot product result (5-arg variant) is wrong!  "
-            << "Expected " << expectedResult << " but got " << (j)
-            << " instead." << endl;
+            << "Expected " << expectedResult << " but got " << (j) << " instead." << endl;
         success = false;
       }
     }
@@ -267,8 +234,8 @@ bool benchmarkKokkos(std::ostream& out, const int numRows, const int numCols,
     for (int j = 0; j < numCols; ++j) {
       const double expectedResult = 1.0;
       if (norms(j) != expectedResult) {
-        out << "Kokkos inf-norm result is wrong!  Expected " << expectedResult
-            << " but got " << norms(j) << " instead." << endl;
+        out << "Kokkos inf-norm result is wrong!  Expected " << expectedResult << " but got " << norms(j) << " instead."
+            << endl;
         success = false;
       }
     }
@@ -290,8 +257,7 @@ bool benchmarkKokkos(std::ostream& out, const int numRows, const int numCols,
       const double expectedResult = 1.0;
       if (norms(j) != expectedResult) {
         out << "Kokkos inf-norm result (3-arg variant) is wrong!  "
-            << "Expected " << expectedResult << " but got " << norms(j)
-            << " instead." << endl;
+            << "Expected " << expectedResult << " but got " << norms(j) << " instead." << endl;
         success = false;
       }
     }
@@ -330,8 +296,7 @@ bool benchmarkKokkos(std::ostream& out, const int numRows, const int numCols,
   return success;
 }
 
-bool benchmarkRaw(std::ostream& out, const int numRows, const int numCols,
-                  const int numTrials) {
+bool benchmarkRaw(std::ostream& out, const int numRows, const int numCols, const int numTrials) {
   using std::endl;
   RCP<Time> vecCreateTimer      = getTimer("Raw: MV: Create");
   RCP<Time> vecFillZeroTimer    = getTimer("Raw: MV: Fill zero");
@@ -515,8 +480,8 @@ bool benchmarkRaw(std::ostream& out, const int numRows, const int numCols,
   } else {  // numTrials > 0
     const double expectedResult = static_cast<double>(numRows) * -1.0;
     if (dots[0] != expectedResult) {
-      out << "Raw dot product result is wrong!  Expected " << expectedResult
-          << " but got " << dots[0] << " instead." << endl;
+      out << "Raw dot product result is wrong!  Expected " << expectedResult << " but got " << dots[0] << " instead."
+          << endl;
       if (dots != NULL) {
         delete[] dots;
       }
@@ -560,25 +525,19 @@ int main(int argc, char* argv[]) {
   cmdp.setOption("numTrials", &numTrials,
                  "Number of timing loop iterations "
                  "for each event to time");
-  cmdp.setOption("runKokkos", "noKokkos", &runKokkos,
-                 "Whether to run the Kokkos benchmark");
-  cmdp.setOption("runRaw", "noRaw", &runRaw,
-                 "Whether to run the raw benchmark");
-  const CommandLineProcessor::EParseCommandLineReturn parseResult =
-      cmdp.parse(argc, argv);
+  cmdp.setOption("runKokkos", "noKokkos", &runKokkos, "Whether to run the Kokkos benchmark");
+  cmdp.setOption("runRaw", "noRaw", &runRaw, "Whether to run the raw benchmark");
+  const CommandLineProcessor::EParseCommandLineReturn parseResult = cmdp.parse(argc, argv);
   if (parseResult == CommandLineProcessor::PARSE_HELP_PRINTED) {
     // The user specified --help at the command line to print help
     // with command-line arguments.  We printed help already, so quit
     // with a happy return code.
     return EXIT_SUCCESS;
   } else {
-    TEUCHOS_TEST_FOR_EXCEPTION(
-        parseResult != CommandLineProcessor::PARSE_SUCCESSFUL,
-        std::invalid_argument, "Failed to parse command-line arguments.");
-    TEUCHOS_TEST_FOR_EXCEPTION(numRows < 0, std::invalid_argument,
-                               "numRows must be nonnegative.");
-    TEUCHOS_TEST_FOR_EXCEPTION(numCols < 0, std::invalid_argument,
-                               "numCols must be nonnegative.");
+    TEUCHOS_TEST_FOR_EXCEPTION(parseResult != CommandLineProcessor::PARSE_SUCCESSFUL, std::invalid_argument,
+                               "Failed to parse command-line arguments.");
+    TEUCHOS_TEST_FOR_EXCEPTION(numRows < 0, std::invalid_argument, "numRows must be nonnegative.");
+    TEUCHOS_TEST_FOR_EXCEPTION(numCols < 0, std::invalid_argument, "numCols must be nonnegative.");
   }
 
   if (myRank == 0) {

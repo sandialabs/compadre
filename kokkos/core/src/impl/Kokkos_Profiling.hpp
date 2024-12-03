@@ -1,46 +1,18 @@
-/*
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
 //               Solutions of Sandia, LLC (NTESS).
 //
 // Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Christian R. Trott (crtrott@sandia.gov)
-//
-// ************************************************************************
 //@HEADER
-*/
 
 #ifndef KOKKOS_IMPL_KOKKOS_PROFILING_HPP
 #define KOKKOS_IMPL_KOKKOS_PROFILING_HPP
@@ -56,6 +28,7 @@
 namespace Kokkos {
 
 // forward declaration
+bool show_warnings() noexcept;
 bool tune_internals() noexcept;
 
 namespace Tools {
@@ -66,10 +39,9 @@ struct InitArguments {
   // for this long-term
   static const std::string unset_string_option;
   enum PossiblyUnsetOption { unset, off, on };
-  PossiblyUnsetOption tune_internals = unset;
-  PossiblyUnsetOption help           = unset;
-  std::string lib                    = unset_string_option;
-  std::string args                   = unset_string_option;
+  PossiblyUnsetOption help = unset;
+  std::string lib          = unset_string_option;
+  std::string args         = unset_string_option;
 };
 
 namespace Impl {
@@ -291,40 +263,41 @@ size_t get_current_context_id();
 }  // namespace Tools
 namespace Profiling {
 
-bool profileLibraryLoaded();
+// don't let ClangFormat reorder the using-declarations below
+// clang-format off
+using Kokkos::Tools::profileLibraryLoaded;
 
-void beginParallelFor(const std::string& kernelPrefix, const uint32_t devID,
-                      uint64_t* kernelID);
-void beginParallelReduce(const std::string& kernelPrefix, const uint32_t devID,
-                         uint64_t* kernelID);
-void beginParallelScan(const std::string& kernelPrefix, const uint32_t devID,
-                       uint64_t* kernelID);
-void endParallelFor(const uint64_t kernelID);
-void endParallelReduce(const uint64_t kernelID);
-void endParallelScan(const uint64_t kernelID);
-void pushRegion(const std::string& kName);
-void popRegion();
+using Kokkos::Tools::printHelp;
+using Kokkos::Tools::parseArgs;
 
-void createProfileSection(const std::string& sectionName, uint32_t* secID);
-void destroyProfileSection(const uint32_t secID);
-void startSection(const uint32_t secID);
+using Kokkos::Tools::initialize;
+using Kokkos::Tools::finalize;
 
-void stopSection(const uint32_t secID);
+using Kokkos::Tools::beginParallelFor;
+using Kokkos::Tools::beginParallelReduce;
+using Kokkos::Tools::beginParallelScan;
+using Kokkos::Tools::endParallelFor;
+using Kokkos::Tools::endParallelReduce;
+using Kokkos::Tools::endParallelScan;
 
-void markEvent(const std::string& eventName);
-void allocateData(const SpaceHandle handle, const std::string name,
-                  const void* data, const uint64_t size);
-void deallocateData(const SpaceHandle space, const std::string label,
-                    const void* ptr, const uint64_t size);
-void beginDeepCopy(const SpaceHandle dst_space, const std::string dst_label,
-                   const void* dst_ptr, const SpaceHandle src_space,
-                   const std::string src_label, const void* src_ptr,
-                   const uint64_t size);
-void endDeepCopy();
-void finalize();
-void initialize(const std::string& = {});
+using Kokkos::Tools::allocateData;
+using Kokkos::Tools::deallocateData;
 
-SpaceHandle make_space_handle(const char* space_name);
+using Kokkos::Tools::beginDeepCopy;
+using Kokkos::Tools::endDeepCopy;
+
+using Kokkos::Tools::pushRegion;
+using Kokkos::Tools::popRegion;
+
+using Kokkos::Tools::createProfileSection;
+using Kokkos::Tools::destroyProfileSection;
+using Kokkos::Tools::startSection;
+using Kokkos::Tools::stopSection;
+
+using Kokkos::Tools::markEvent;
+
+using Kokkos::Tools::make_space_handle;
+// clang-format on
 
 namespace Experimental {
 using Kokkos::Tools::Experimental::set_allocate_data_callback;

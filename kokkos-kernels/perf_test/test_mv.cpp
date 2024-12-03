@@ -1,46 +1,18 @@
-/*
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
 //               Solutions of Sandia, LLC (NTESS).
 //
 // Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Siva Rajamanickam (srajama@sandia.gov)
-//
-// ************************************************************************
 //@HEADER
-*/
 #include <cstdio>
 
 #include <ctime>
@@ -68,8 +40,7 @@ typedef double FLOAT;
 typedef MultiVectorDynamic<FLOAT, execution_space>::type mv_type;
 typedef mv_type::HostMirror h_mv_type;
 typedef Kokkos::View<FLOAT*, Kokkos::LayoutLeft, execution_space> vector_type;
-typedef Kokkos::View<FLOAT*, Kokkos::LayoutLeft, Kokkos::Threads>
-    h2_vector_type;
+typedef Kokkos::View<FLOAT*, Kokkos::LayoutLeft, Kokkos::Threads> h2_vector_type;
 typedef vector_type::HostMirror h_vector_type;
 typedef mv_type::size_type size_type;
 
@@ -87,18 +58,11 @@ void test_mv_dot(int size, int numVecs, int loop) {
 
   srand(17231);
   for (int k = 0; k < numVecs; k++) {
-    h_a2(k) =
-        0;  //(1.0*(1.0*rand()/std::numeric_limits<unsigned int>::max())-0.5)*1;
-    h_a(k) = 0;
+    h_a2(k) = 0;  //(1.0*(1.0*rand()/std::numeric_limits<unsigned int>::max())-0.5)*1;
+    h_a(k)  = 0;
     for (int i = 0; i < size; i++) {
-      h_x(i, k) =
-          (1.0 * (1.0 * rand() / std::numeric_limits<unsigned int>::max()) -
-           0.5) *
-          1;
-      h_y(i, k) =
-          (1.0 * (1.0 * rand() / std::numeric_limits<unsigned int>::max()) -
-           0.5) *
-          1;
+      h_x(i, k) = (1.0 * (1.0 * rand() / std::numeric_limits<unsigned int>::max()) - 0.5) * 1;
+      h_y(i, k) = (1.0 * (1.0 * rand() / std::numeric_limits<unsigned int>::max()) - 0.5) * 1;
       h_a2(k) += h_y(i, k) * h_x(i, k);
     }
   }
@@ -124,12 +88,10 @@ void test_mv_dot(int size, int numVecs, int loop) {
   for (int i = 0; i < loop; i++) MV_Dot(a, x, y);
   execution_space().fence();
   clock_gettime(CLOCK_REALTIME, &endtime);
-  double time = endtime.tv_sec - starttime.tv_sec +
-                1.0 * (endtime.tv_nsec - starttime.tv_nsec) / 1000000000;
+  double time = endtime.tv_sec - starttime.tv_sec + 1.0 * (endtime.tv_nsec - starttime.tv_nsec) / 1000000000;
 
   printf("MV_Dot:       %6.2lf GB/s %8i Elements %3i Vectors %s\n",
-         2 * size * numVecs * sizeof(FLOAT) * loop / time * 1e-9, size, numVecs,
-         errors == 0 ? "PASSED" : "FAILED");
+         2 * size * numVecs * sizeof(FLOAT) * loop / time * 1e-9, size, numVecs, errors == 0 ? "PASSED" : "FAILED");
 }
 
 void test_mv_add(int size, int numVecs, int loop) {
@@ -146,18 +108,10 @@ void test_mv_add(int size, int numVecs, int loop) {
 
   srand(17231);
   for (int k = 0; k < numVecs; k++) {
-    h_a(k) = (1.0 * (1.0 * rand() / std::numeric_limits<unsigned int>::max()) -
-              0.5) *
-             1;
+    h_a(k) = (1.0 * (1.0 * rand() / std::numeric_limits<unsigned int>::max()) - 0.5) * 1;
     for (int i = 0; i < size; i++) {
-      h_x(i, k) =
-          (1.0 * (1.0 * rand() / std::numeric_limits<unsigned int>::max()) -
-           0.5) *
-          1;
-      h_y(i, k) =
-          (1.0 * (1.0 * rand() / std::numeric_limits<unsigned int>::max()) -
-           0.5) *
-          1;
+      h_x(i, k)  = (1.0 * (1.0 * rand() / std::numeric_limits<unsigned int>::max()) - 0.5) * 1;
+      h_y(i, k)  = (1.0 * (1.0 * rand() / std::numeric_limits<unsigned int>::max()) - 0.5) * 1;
       h_rh(i, k) = h_a(k) * h_y(i, k) + h_a(k) * h_x(i, k);
     }
   }
@@ -190,12 +144,10 @@ void test_mv_add(int size, int numVecs, int loop) {
   for (int i = 0; i < loop; i++) MV_Add(r, a, x, a, y);
   execution_space().fence();
   clock_gettime(CLOCK_REALTIME, &endtime);
-  double time = endtime.tv_sec - starttime.tv_sec +
-                1.0 * (endtime.tv_nsec - starttime.tv_nsec) / 1000000000;
+  double time = endtime.tv_sec - starttime.tv_sec + 1.0 * (endtime.tv_nsec - starttime.tv_nsec) / 1000000000;
 
   printf("MV_Add:       %6.2lf GB/s %8i Elements %3i Vectors %s\n",
-         3 * size * numVecs * sizeof(FLOAT) * loop / time * 1e-9, size, numVecs,
-         errors == 0 ? "PASSED" : "FAILED");
+         3 * size * numVecs * sizeof(FLOAT) * loop / time * 1e-9, size, numVecs, errors == 0 ? "PASSED" : "FAILED");
 }
 
 void test_mv_mulscalar(int size, int numVecs, int loop) {
@@ -210,14 +162,9 @@ void test_mv_mulscalar(int size, int numVecs, int loop) {
 
   srand(17231);
   for (int k = 0; k < numVecs; k++) {
-    h_a(k) = (1.0 * (1.0 * rand() / std::numeric_limits<unsigned int>::max()) -
-              0.5) *
-             1;
+    h_a(k) = (1.0 * (1.0 * rand() / std::numeric_limits<unsigned int>::max()) - 0.5) * 1;
     for (int i = 0; i < size; i++) {
-      h_x(i, k) =
-          (1.0 * (1.0 * rand() / std::numeric_limits<unsigned int>::max()) -
-           0.5) *
-          1;
+      h_x(i, k)  = (1.0 * (1.0 * rand() / std::numeric_limits<unsigned int>::max()) - 0.5) * 1;
       h_rh(i, k) = h_a(k) * h_x(i, k);
     }
   }
@@ -249,12 +196,10 @@ void test_mv_mulscalar(int size, int numVecs, int loop) {
   for (int i = 0; i < loop; i++) MV_MulScalar(r, a, x);
   execution_space().fence();
   clock_gettime(CLOCK_REALTIME, &endtime);
-  double time = endtime.tv_sec - starttime.tv_sec +
-                1.0 * (endtime.tv_nsec - starttime.tv_nsec) / 1000000000;
+  double time = endtime.tv_sec - starttime.tv_sec + 1.0 * (endtime.tv_nsec - starttime.tv_nsec) / 1000000000;
 
   printf("MV_MulScalar: %6.2lf GB/s %8i Elements %3i Vectors %s\n",
-         2 * size * numVecs * sizeof(FLOAT) * loop / time * 1e-9, size, numVecs,
-         errors == 0 ? "PASSED" : "FAILED");
+         2 * size * numVecs * sizeof(FLOAT) * loop / time * 1e-9, size, numVecs, errors == 0 ? "PASSED" : "FAILED");
 }
 
 int main(int argc, char** argv) {

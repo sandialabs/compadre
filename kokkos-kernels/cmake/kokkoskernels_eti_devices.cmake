@@ -12,7 +12,7 @@ SET(EXEC_SPACES
   EXECSPACE_SERIAL
 )
 SET(EXECSPACE_CUDA_CPP_TYPE         Kokkos::Cuda)
-SET(EXECSPACE_HIP_CPP_TYPE          Kokkos::Experimental::HIP)
+SET(EXECSPACE_HIP_CPP_TYPE          Kokkos::HIP)
 SET(EXECSPACE_SYCL_CPP_TYPE         Kokkos::Experimental::SYCL)
 SET(EXECSPACE_OPENMPTARGET_CPP_TYPE Kokkos::Experimental::OpenMPTarget)
 SET(EXECSPACE_OPENMP_CPP_TYPE       Kokkos::OpenMP)
@@ -23,37 +23,38 @@ SET(MEM_SPACES
   MEMSPACE_CUDASPACE
   MEMSPACE_CUDAUVMSPACE
   MEMSPACE_HIPSPACE
+  MEMSPACE_HIPMANAGEDSPACE
   MEMSPACE_SYCLSPACE
   MEMSPACE_SYCLSHAREDSPACE
   MEMSPACE_OPENMPTARGET
   MEMSPACE_HOSTSPACE
-  MEMSPACE_HBWSPACE
 )
 SET(MEMSPACE_CUDASPACE_CPP_TYPE         Kokkos::CudaSpace)
 SET(MEMSPACE_CUDAUVMSPACE_CPP_TYPE      Kokkos::CudaUVMSpace)
-SET(MEMSPACE_HIPSPACE_CPP_TYPE          Kokkos::Experimental::HIPSpace)
+SET(MEMSPACE_HIPSPACE_CPP_TYPE          Kokkos::HIPSpace)
+SET(MEMSPACE_HIPMANAGEDSPACE_CPP_TYPE   Kokkos::HIPManagedSpace)
 SET(MEMSPACE_SYCLSPACE_CPP_TYPE         Kokkos::Experimental::SYCLDeviceUSMSpace)
 SET(MEMSPACE_SYCLSHAREDSPACE_CPP_TYPE   Kokkos::Experimental::SYCLSharedUSMSpace)
 SET(MEMSPACE_OPENMPTARGETSPACE_CPP_TYPE Kokkos::Experimental::OpenMPTargetSpace)
 SET(MEMSPACE_HOSTSPACE_CPP_TYPE         Kokkos::HostSpace)
-SET(MEMSPACE_HBWSPACE_CPP_TYPE          Kokkos::HBWSpace)
 
 IF(KOKKOS_ENABLE_CUDA)
  KOKKOSKERNELS_ADD_OPTION(
    INST_EXECSPACE_CUDA
-   ${KOKKOSKERNELS_INST_EXECSPACE_CUDA_DEFAULT}
+   ON
    BOOL
    "Whether to pre instantiate kernels for the execution space Kokkos::Cuda. Disabling this when Kokkos_ENABLE_CUDA is enabled may increase build times. Default: ON if Kokkos is CUDA-enabled, OFF otherwise."
    )
+
  KOKKOSKERNELS_ADD_OPTION(
    INST_MEMSPACE_CUDAUVMSPACE
-   ${KOKKOSKERNELS_INST_EXECSPACE_CUDA_DEFAULT}
+   OFF
    BOOL
-   "Whether to pre instantiate kernels for the memory space Kokkos::CudaUVMSpace.  Disabling this when Kokkos_ENABLE_CUDA is enabled may increase build times. Default: ON if Kokkos is CUDA-enabled, OFF otherwise."
+   "Whether to pre instantiate kernels for the memory space Kokkos::CudaUVMSpace.  Disabling this when Kokkos_ENABLE_CUDA is enabled may increase build times. Default: OFF."
    )
  KOKKOSKERNELS_ADD_OPTION(
    INST_MEMSPACE_CUDASPACE
-   ${KOKKOSKERNELS_INST_EXECSPACE_CUDA_DEFAULT}
+   ON
    BOOL
    "Whether to pre instantiate kernels for the memory space Kokkos::CudaSpace.  Disabling this when Kokkos_ENABLE_CUDA is enabled may increase build times. Default: ON if Kokkos is CUDA-enabled, OFF otherwise."
    )
@@ -76,17 +77,26 @@ IF(KOKKOS_ENABLE_HIP)
    INST_EXECSPACE_HIP
    ${KOKKOSKERNELS_INST_EXECSPACE_HIP_DEFAULT}
    BOOL
-   "Whether to pre instantiate kernels for the execution space Kokkos::Experimental::HIP. Disabling this when Kokkos_ENABLE_HIP is enabled may increase build times. Default: ON if Kokkos is HIP-enabled, OFF otherwise."
+   "Whether to pre instantiate kernels for the execution space Kokkos::HIP. Disabling this when Kokkos_ENABLE_HIP is enabled may increase build times. Default: ON if Kokkos is HIP-enabled, OFF otherwise."
    )
  KOKKOSKERNELS_ADD_OPTION(
    INST_MEMSPACE_HIPSPACE
    ${KOKKOSKERNELS_INST_EXECSPACE_HIP_DEFAULT}
    BOOL
-   "Whether to pre instantiate kernels for the memory space Kokkos::Experimental::HIPSpace.  Disabling this when Kokkos_ENABLE_HIP is enabled may increase build times. Default: ON if Kokkos is HIP-enabled, OFF otherwise."
+   "Whether to pre instantiate kernels for the memory space Kokkos::HIPSpace.  Disabling this when Kokkos_ENABLE_HIP is enabled may increase build times. Default: ON if Kokkos is HIP-enabled, OFF otherwise."
+   )
+ KOKKOSKERNELS_ADD_OPTION(
+   INST_MEMSPACE_HIPMANAGEDSPACE
+   OFF
+   BOOL
+   "Whether to pre instantiate kernels for the memory space Kokkos::HIPManagedSpace.  Disabling this when Kokkos_ENABLE_HIP is enabled may increase build times. Default: OFF."
    )
 
   IF(KOKKOSKERNELS_INST_EXECSPACE_HIP AND KOKKOSKERNELS_INST_MEMSPACE_HIPSPACE)
     LIST(APPEND DEVICE_LIST "<HIP,HIPSpace>")
+  ENDIF()
+  IF(KOKKOSKERNELS_INST_EXECSPACE_HIP AND KOKKOSKERNELS_INST_MEMSPACE_HIPMANAGEDSPACE)
+    LIST(APPEND DEVICE_LIST "<HIP,HIPManagedSpace>")
   ENDIF()
 
   IF( Trilinos_ENABLE_COMPLEX_DOUBLE AND ((NOT DEFINED CMAKE_CXX_USE_RESPONSE_FILE_FOR_OBJECTS) OR (NOT CMAKE_CXX_USE_RESPONSE_FILE_FOR_OBJECTS)) )
@@ -126,7 +136,7 @@ IF(KOKKOS_ENABLE_OPENMPTARGET)
    INST_EXECSPACE_OPENMPTARGET
    ${KOKKOSKERNELS_INST_EXECSPACE_OPENMPTARGET_DEFAULT}
    BOOL
-   "Whether to pre instantiate kernels for the execution space Kokkos::Experimental::OpenMPTarget. Disabling this when Kokkos_ENABLE_OpenMPTarget is enabled may increase build times. Default: ON if Kokkos is OpenMPTarget-enabled, OFF otherwise."
+   "Whether to pre instantiate kernels for the execution space Kokkos::Experimental::OpenMPTarget. Disabling this when Kokkos_ENABLE_OPENMPTARGET is enabled may increase build times. Default: ON if Kokkos is OpenMPTarget-enabled, OFF otherwise."
    )
  KOKKOSKERNELS_ADD_OPTION(
    INST_MEMSPACE_OPENMPTARGETSPACE
@@ -152,17 +162,10 @@ KOKKOSKERNELS_ADD_OPTION(
 )
 
 KOKKOSKERNELS_ADD_OPTION(
- INST_MEMSPACE_HBWSPACE
- OFF
- BOOL
- "Whether to pre instantiate kernels for the memory space Kokkos::HBWSpace."
-)
-
-KOKKOSKERNELS_ADD_OPTION(
   INST_EXECSPACE_OPENMP
   ${KOKKOSKERNELS_INST_EXECSPACE_OPENMP_DEFAULT}
   BOOL
-  "Whether to pre instantiate kernels for the execution space Kokkos::OpenMP.  Disabling this when Kokkos_ENABLE_OpenMP is enabled may increase build times. Default: ON if Kokkos is OpenMP-enabled, OFF otherwise."
+  "Whether to pre instantiate kernels for the execution space Kokkos::OpenMP.  Disabling this when Kokkos_ENABLE_OPENMP is enabled may increase build times. Default: ON if Kokkos is OpenMP-enabled, OFF otherwise."
 )
 IF(KOKKOSKERNELS_INST_EXECSPACE_OPENMP AND KOKKOSKERNELS_INST_MEMSPACE_HOSTSPACE)
   LIST(APPEND DEVICE_LIST "<OpenMP,HostSpace>")
@@ -196,12 +199,12 @@ KOKKOSKERNELS_ADD_OPTION(
 )
 
 SET(EXECSPACE_CUDA_VALID_MEM_SPACES               CUDASPACE CUDAUVMSPACE)
-SET(EXECSPACE_HIP_VALID_MEM_SPACES                HIPSPACE)
+SET(EXECSPACE_HIP_VALID_MEM_SPACES                HIPSPACE HIPMANAGEDSPACE)
 SET(EXECSPACE_SYCL_VALID_MEM_SPACES               SYCLSPACE SYCLSHAREDSPACE)
 SET(EXECSPACE_OPENMPTARGET_VALID_MEM_SPACES       OPENMPTARGETSPACE)
-SET(EXECSPACE_SERIAL_VALID_MEM_SPACES             HBWSPACE HOSTSPACE)
-SET(EXECSPACE_OPENMP_VALID_MEM_SPACES             HBWSPACE HOSTSPACE)
-SET(EXECSPACE_THREADS_VALID_MEM_SPACES            HBWSPACE HOSTSPACE)
+SET(EXECSPACE_SERIAL_VALID_MEM_SPACES             HOSTSPACE)
+SET(EXECSPACE_OPENMP_VALID_MEM_SPACES             HOSTSPACE)
+SET(EXECSPACE_THREADS_VALID_MEM_SPACES            HOSTSPACE)
 SET(DEVICES)
 FOREACH(EXEC ${EXEC_SPACES})
   IF (KOKKOSKERNELS_INST_${EXEC})
@@ -210,14 +213,6 @@ FOREACH(EXEC ${EXEC_SPACES})
         LIST(APPEND DEVICES ${EXEC}_MEMSPACE_${MEM})
         SET(${EXEC}_MEMSPACE_${MEM}_CPP_TYPE "${${EXEC}_CPP_TYPE},${MEMSPACE_${MEM}_CPP_TYPE}")
         SET(KOKKOSKERNELS_INST_${EXEC}_MEMSPACE_${MEM} ON)
-        FOREACH(MEM2 ${${EXEC}_VALID_MEM_SPACES})
-          IF (KOKKOSKERNELS_INST_MEMSPACE_${MEM2})
-            LIST(APPEND DEVICES_W_SLOW_SPACE ${EXEC}_MEMSPACE_${MEM}_MEMSPACE_${MEM2})
-            SET(${EXEC}_MEMSPACE_${MEM}_MEMSPACE_${MEM2}_CPP_TYPE
-              "${${EXEC}_CPP_TYPE},${MEMSPACE_${MEM}_CPP_TYPE},${MEMSPACE_${MEM2}_CPP_TYPE}")
-            SET(KOKKOSKERNELS_INST_${EXEC}_MEMSPACE_${MEM}_MEMSPACE_${MEM2} ON)
-          ENDIF()
-        ENDFOREACH()
       ENDIF()
     ENDFOREACH()
   ENDIF()

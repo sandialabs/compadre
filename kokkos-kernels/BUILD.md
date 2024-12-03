@@ -149,6 +149,12 @@ endif()
 * KokkosKernels_ENABLE_TESTS: BOOL
   * Whether to build tests.
   * Default: OFF
+* KokkosKernels_ENABLE_PERFTESTS: BOOL
+  * Whether to build performance tests.
+  * Default: ON
+* KokkosKernels_ENABLE_TESTS_AND_PERFSUITE: BOOL
+  * Whether to build performance tests and suite.
+  * Default: OFF
 * KokkosKernels_ENABLE_DOCS: BOOL
   * Whether to build docs.
   * Default: OFF
@@ -186,7 +192,7 @@ endif()
   * Whether to pre instantiate kernels for the scalar type double.  This option is KokkosKernels_INST_DOUBLE=ON by default.  Disabling this may increase build times.
   * Default: ON
 * KokkosKernels_INST_EXECSPACE_OPENMP: BOOL
-  * Whether to pre instantiate kernels for the execution space Kokkos::OpenMP.  Disabling this when Kokkos_ENABLE_OpenMP is enabled may increase build times.
+  * Whether to pre instantiate kernels for the execution space Kokkos::OpenMP.  Disabling this when Kokkos_ENABLE_OPENMP is enabled may increase build times.
   * Default: ON if Kokkos is OpenMP-enabled, OFF otherwise.
 * KokkosKernels_INST_EXECSPACE_SERIAL: BOOL
   * Whether to build kernels for the execution space Kokkos::Serial.  If explicit template instantiation (ETI) is enabled in Trilinos, disabling this when Kokkos_ENABLE_SERIAL is enabled may increase build times.
@@ -221,7 +227,7 @@ endif()
 * KokkosKernels_LAPACK_ROOT: PATH
   * Location of LAPACK install root.
   * Default: None or the value of the environment variable LAPACK_ROOT if set
-* KokkosKernels_LINALG_OPT_LEVEL: BOOL
+* KokkosKernels_LINALG_OPT_LEVEL: BOOL **DEPRECATED**
   * Optimization level for KokkosKernels computational kernels: a nonnegative integer.  Higher levels result in better performance that is more uniform for corner cases, but increase build time and library size.  The default value is 1, which should give performance within ten percent of optimal on most platforms, for most problems.
   * Default: 1
 * KokkosKernels_MAGMA_ROOT: PATH

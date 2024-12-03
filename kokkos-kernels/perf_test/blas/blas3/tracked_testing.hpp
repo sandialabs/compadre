@@ -1,3 +1,18 @@
+//@HEADER
+// ************************************************************************
+//
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
+//               Solutions of Sandia, LLC (NTESS).
+//
+// Under the terms of Contract DE-NA0003525 with NTESS,
+// the U.S. Government retains certain rights in this software.
+//
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
+//
+//@HEADER
 //
 // Created by Poliakoff, David Zoeller on 4/26/21.
 //
@@ -38,16 +53,13 @@ std::vector<gemmConfig> create_m_n_k_vect() {
 }
 
 // Register kernels for a specific test
-void build_gemm_executor(rajaperf::Executor& exec, int argc, char* argv[],
-                         const rajaperf::RunParams& params) {
-  for (auto* kernel : construct_gemm_kernel_base(
-           params, create_m_n_k_vect<Kokkos::DefaultExecutionSpace>())) {
+void build_gemm_executor(rajaperf::Executor& exec, int argc, char* argv[], const rajaperf::RunParams& params) {
+  for (auto* kernel : construct_gemm_kernel_base(params, create_m_n_k_vect<Kokkos::DefaultExecutionSpace>())) {
     exec.registerKernel("BLAS3", kernel);
   }
 }
 
-void build_blas3_executor(rajaperf::Executor& exec, int argc, char* argv[],
-                          const rajaperf::RunParams& params) {
+void build_blas3_executor(rajaperf::Executor& exec, int argc, char* argv[], const rajaperf::RunParams& params) {
   exec.registerGroup("BLAS3");
   build_gemm_executor(exec, argc, argv, params);
 }

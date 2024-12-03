@@ -1,46 +1,18 @@
-/*
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
 //               Solutions of Sandia, LLC (NTESS).
 //
 // Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Siva Rajamanickam (srajama@sandia.gov)
-//
-// ************************************************************************
 //@HEADER
-*/
 
 #ifndef MATRIX_MARKET_HPP_
 #define MATRIX_MARKET_HPP_
@@ -53,8 +25,7 @@
 
 namespace Impl {
 template <typename OrdinalType>
-void SparseGraph_SortRows(OrdinalType nrows, OrdinalType* rowPtr,
-                          OrdinalType* colInd) {
+void SparseGraph_SortRows(OrdinalType nrows, OrdinalType* rowPtr, OrdinalType* colInd) {
 #ifdef _OPENMP
 #pragma omp parallel for
 #endif
@@ -79,19 +50,15 @@ void SparseGraph_SortRows(OrdinalType nrows, OrdinalType* rowPtr,
     OrdinalType row_start = rowPtr[row];
     OrdinalType row_end   = rowPtr[row + 1];
     for (OrdinalType i = row_start; i < row_end - 1; i++) {
-      if (colInd[i + 1] < colInd[i])
-        printf("Error Not sorted %i %i | %i %i\n", row, i, colInd[i],
-               colInd[i + 1]);
+      if (colInd[i + 1] < colInd[i]) printf("Error Not sorted %i %i | %i %i\n", row, i, colInd[i], colInd[i + 1]);
     }
   }
 }
 }  // namespace Impl
 
 template <typename ScalarType, typename OrdinalType>
-int SparseMatrix_MatrixMarket_read(const char* filename, OrdinalType& nrows,
-                                   OrdinalType& ncols, OrdinalType& nnz,
-                                   ScalarType*& values, OrdinalType*& rowPtr,
-                                   OrdinalType*& colInd, bool sort,
+int SparseMatrix_MatrixMarket_read(const char* filename, OrdinalType& nrows, OrdinalType& ncols, OrdinalType& nnz,
+                                   ScalarType*& values, OrdinalType*& rowPtr, OrdinalType*& colInd, bool sort,
                                    OrdinalType idx_offset = 0) {
   FILE* file = fopen(filename, "r");
   char line[512];
@@ -114,8 +81,8 @@ int SparseMatrix_MatrixMarket_read(const char* filename, OrdinalType& nrows,
   fscanf(file, "%i", &nrows);
   fscanf(file, "%i", &ncols);
   fscanf(file, "%i", &nlines);
-  printf("Matrix dimension: %i %i %i %s %s\n", nrows, ncols, nlines,
-         symmetric ? "Symmetric" : "General", pattern ? "Pattern" : "Real");
+  printf("Matrix dimension: %i %i %i %s %s\n", nrows, ncols, nlines, symmetric ? "Symmetric" : "General",
+         pattern ? "Pattern" : "Real");
 
   if (symmetric)
     nnz = nlines * 2;
@@ -134,21 +101,19 @@ int SparseMatrix_MatrixMarket_read(const char* filename, OrdinalType& nrows,
       fscanf(file, "%i %i", &rowIndtmp[nnz], &colIndtmp[nnz]);
       valuestmp[nnz] = (1.0 * (ii % nrows)) / ncols;
     } else
-      fscanf(file, "%i %i %le", &rowIndtmp[nnz], &colIndtmp[nnz],
-             &valuestmp[nnz]);
+      fscanf(file, "%i %i %le", &rowIndtmp[nnz], &colIndtmp[nnz], &valuestmp[nnz]);
     if (ii < 10 || ii > nlines - 10)
-      printf("Read: %i %i %i %le\n", nnz, rowIndtmp[nnz], colIndtmp[nnz],
-             valuestmp[nnz]);
+      printf("Read: %i %i %i %le\n", nnz, rowIndtmp[nnz], colIndtmp[nnz], valuestmp[nnz]);
     rowIndtmp[nnz] -= idx_offset;
     colIndtmp[nnz] -= idx_offset;
-    priorEntrySameRowInd[nnz] = lastEntryWithRowInd[rowIndtmp[nnz] - 1];
+    priorEntrySameRowInd[nnz]               = lastEntryWithRowInd[rowIndtmp[nnz] - 1];
     lastEntryWithRowInd[rowIndtmp[nnz] - 1] = nnz;
     if ((symmetric) && (rowIndtmp[nnz] != colIndtmp[nnz])) {
       nnz++;
-      rowIndtmp[nnz]            = colIndtmp[nnz - 1];
-      colIndtmp[nnz]            = rowIndtmp[nnz - 1];
-      valuestmp[nnz]            = valuestmp[nnz - 1];
-      priorEntrySameRowInd[nnz] = lastEntryWithRowInd[rowIndtmp[nnz] - 1];
+      rowIndtmp[nnz]                          = colIndtmp[nnz - 1];
+      colIndtmp[nnz]                          = rowIndtmp[nnz - 1];
+      valuestmp[nnz]                          = valuestmp[nnz - 1];
+      priorEntrySameRowInd[nnz]               = lastEntryWithRowInd[rowIndtmp[nnz] - 1];
       lastEntryWithRowInd[rowIndtmp[nnz] - 1] = nnz;
     }
 
@@ -198,20 +163,17 @@ int SparseMatrix_MatrixMarket_read(const char* filename, OrdinalType& nrows,
       min_span = 0;
   }
 
-  printf("%lu Spans: %lu %lu %lu\n", (size_t)nnz, min_span, max_span,
-         ave_span / nrows);
+  printf("%lu Spans: %lu %lu %lu\n", (size_t)nnz, min_span, max_span, ave_span / nrows);
   if (sort) Impl::SparseGraph_SortRows<OrdinalType>(nrows, rowPtr, colInd);
   return nnz;
 }
 
 template <typename ScalarType, typename OrdinalType>
-int SparseMatrix_WriteBinaryFormat(const char* filename, OrdinalType& nrows,
-                                   OrdinalType& ncols, OrdinalType& nnz,
-                                   ScalarType*& values, OrdinalType*& rowPtr,
-                                   OrdinalType*& colInd, bool sort,
+int SparseMatrix_WriteBinaryFormat(const char* filename, OrdinalType& nrows, OrdinalType& ncols, OrdinalType& nnz,
+                                   ScalarType*& values, OrdinalType*& rowPtr, OrdinalType*& colInd, bool sort,
                                    OrdinalType idx_offset = 0) {
-  nnz = SparseMatrix_MatrixMarket_read<ScalarType, OrdinalType>(
-      filename, nrows, ncols, nnz, values, rowPtr, colInd, sort, idx_offset);
+  nnz = SparseMatrix_MatrixMarket_read<ScalarType, OrdinalType>(filename, nrows, ncols, nnz, values, rowPtr, colInd,
+                                                                sort, idx_offset);
 
   char* filename_row   = new char[strlen(filename) + 5];
   char* filename_col   = new char[strlen(filename) + 5];
@@ -277,17 +239,14 @@ int SparseMatrix_WriteBinaryFormat(const char* filename, OrdinalType& nrows,
     } else
       min_span = 0;
   }
-  printf("%lu Spans: %lu %lu %lu\n", (size_t)nnz, min_span, max_span,
-         ave_span / nrows);
+  printf("%lu Spans: %lu %lu %lu\n", (size_t)nnz, min_span, max_span, ave_span / nrows);
 
   return nnz;
 }
 
 template <typename ScalarType, typename OrdinalType>
-int SparseMatrix_ReadBinaryFormat(const char* filename, OrdinalType& nrows,
-                                  OrdinalType& ncols, OrdinalType& nnz,
-                                  ScalarType*& values, OrdinalType*& rowPtr,
-                                  OrdinalType*& colInd) {
+int SparseMatrix_ReadBinaryFormat(const char* filename, OrdinalType& nrows, OrdinalType& ncols, OrdinalType& nnz,
+                                  ScalarType*& values, OrdinalType*& rowPtr, OrdinalType*& colInd) {
   char* filename_descr = new char[strlen(filename) + 7];
   strcpy(filename_descr, filename);
   strcat(filename_descr, "_descr");
@@ -308,8 +267,7 @@ int SparseMatrix_ReadBinaryFormat(const char* filename, OrdinalType& nrows,
   fscanf(file, "%i", &nrows);
   fscanf(file, "%i", &ncols);
   fscanf(file, "%i", &nnz);
-  printf("Matrix dimension: %i %i %i %s\n", nrows, ncols, nnz,
-         symmetric ? "Symmetric" : "General");
+  printf("Matrix dimension: %i %i %i %s\n", nrows, ncols, nnz, symmetric ? "Symmetric" : "General");
 
   fclose(file);
 
@@ -363,8 +321,7 @@ int SparseMatrix_ReadBinaryFormat(const char* filename, OrdinalType& nrows,
     } else
       min_span = 0;
   }
-  printf("%lu Spans: %lu %lu %lu\n", (size_t)nnz, min_span, max_span,
-         ave_span / nrows);
+  printf("%lu Spans: %lu %lu %lu\n", (size_t)nnz, min_span, max_span, ave_span / nrows);
 
   return nnz;
 }

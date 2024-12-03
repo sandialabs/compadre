@@ -1,46 +1,18 @@
-/*
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
 //               Solutions of Sandia, LLC (NTESS).
 //
 // Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Siva Rajamanickam (srajama@sandia.gov)
-//
-// ************************************************************************
 //@HEADER
-*/
 
 #include <KokkosKernels_config.h>
 #include "KokkosSparse_pcg.hpp"
@@ -49,21 +21,20 @@
 #include "KokkosKernels_IOUtils.hpp"
 #include "KokkosKernels_default_types.hpp"
 #include "KokkosKernels_TestUtils.hpp"
+#include "KokkosSparse_IOUtils.hpp"
 #include <iostream>
 
 #define MAXVAL 1
 
 template <typename scalar_view_t>
-scalar_view_t create_x_vector(default_lno_t nv,
-                              default_scalar max_value = 1.0) {
+scalar_view_t create_x_vector(default_lno_t nv, default_scalar max_value = 1.0) {
   scalar_view_t kok_x("X", nv);
 
   typename scalar_view_t::HostMirror h_x = Kokkos::create_mirror_view(kok_x);
 
   for (default_lno_t i = 0; i < nv; ++i) {
-    default_scalar r = static_cast<default_scalar>(rand()) /
-                       static_cast<default_scalar>(RAND_MAX / max_value);
-    h_x(i) = r;
+    default_scalar r = static_cast<default_scalar>(rand()) / static_cast<default_scalar>(RAND_MAX / max_value);
+    h_x(i)           = r;
   }
   Kokkos::deep_copy(kok_x, h_x);
   return kok_x;
@@ -79,10 +50,8 @@ vector_t create_y_vector(crsMat_t crsMat, vector_t x_vector) {
 template <typename ExecSpace, typename crsMat_t>
 void run_experiment(crsMat_t crsmat, int clusterSize, bool useSequential) {
   typedef typename crsMat_t::values_type::non_const_type scalar_view_t;
-  typedef typename crsMat_t::StaticCrsGraphType::row_map_type::non_const_type
-      lno_view_t;
-  typedef typename crsMat_t::StaticCrsGraphType::entries_type::non_const_type
-      lno_nnz_view_t;
+  typedef typename crsMat_t::StaticCrsGraphType::row_map_type::non_const_type lno_view_t;
+  typedef typename crsMat_t::StaticCrsGraphType::entries_type::non_const_type lno_nnz_view_t;
 
   typedef typename lno_nnz_view_t::value_type lno_t;
   typedef typename lno_view_t::value_type size_type;
@@ -101,8 +70,7 @@ void run_experiment(crsMat_t crsmat, int clusterSize, bool useSequential) {
 
   KokkosKernels::Experimental::Example::CGSolveResult cg_result;
 
-  typedef KokkosKernels::Experimental::KokkosKernelsHandle<
-      size_type, lno_t, scalar_t, ExecSpace, ExecSpace, ExecSpace>
+  typedef KokkosKernels::Experimental::KokkosKernelsHandle<size_type, lno_t, scalar_t, ExecSpace, ExecSpace, ExecSpace>
       KernelHandle;
 
   KernelHandle kh;
@@ -112,9 +80,8 @@ void run_experiment(crsMat_t crsmat, int clusterSize, bool useSequential) {
   else
     kh.create_gs_handle(KokkosSparse::CLUSTER_BALLOON, clusterSize);
   Kokkos::Timer timer1;
-  KokkosKernels::Experimental::Example::pcgsolve(
-      kh, crsmat, kok_b_vector, kok_x_vector, cg_iteration_limit,
-      cg_iteration_tolerance, &cg_result, true, clusterSize, useSequential);
+  KokkosKernels::Experimental::Example::pcgsolve(kh, crsmat, kok_b_vector, kok_x_vector, cg_iteration_limit,
+                                                 cg_iteration_tolerance, &cg_result, true, clusterSize, useSequential);
   Kokkos::fence();
 
   solve_time = timer1.seconds();
@@ -126,24 +93,18 @@ void run_experiment(crsMat_t crsmat, int clusterSize, bool useSequential) {
     if (clusterSize == 1)
       algoSummary = "POINT-COLORING SGS";
     else
-      algoSummary = "CLUSTER-COLORING SGS (CLUSTER SIZE " +
-                    std::to_string(clusterSize) + ")";
+      algoSummary = "CLUSTER-COLORING SGS (CLUSTER SIZE " + std::to_string(clusterSize) + ")";
   }
 
   std::cout << "DEFAULT SOLVE: " << algoSummary << " PRECONDITIONER"
             << "\n\t(P)CG_NUM_ITER              [" << cg_result.iteration << "]"
-            << "\n\tMATVEC_TIME                 [" << cg_result.matvec_time
-            << "]"
+            << "\n\tMATVEC_TIME                 [" << cg_result.matvec_time << "]"
             << "\n\tCG_RESIDUAL                 [" << cg_result.norm_res << "]"
             << "\n\tCG_ITERATION_TIME           [" << cg_result.iter_time << "]"
-            << "\n\tPRECONDITIONER_TIME         [" << cg_result.precond_time
-            << "]"
-            << "\n\tPRECONDITIONER_INIT_TIME    ["
-            << cg_result.precond_init_time << "]"
-            << "\n\tPRECOND_APPLY_TIME_PER_ITER ["
-            << cg_result.precond_time / (cg_result.iteration + 1) << "]"
-            << "\n\tSOLVE_TIME                  [" << solve_time << "]"
-            << std::endl;
+            << "\n\tPRECONDITIONER_TIME         [" << cg_result.precond_time << "]"
+            << "\n\tPRECONDITIONER_INIT_TIME    [" << cg_result.precond_init_time << "]"
+            << "\n\tPRECOND_APPLY_TIME_PER_ITER [" << cg_result.precond_time / (cg_result.iteration + 1) << "]"
+            << "\n\tSOLVE_TIME                  [" << solve_time << "]" << std::endl;
 
   /*
   kh.destroy_gs_handle();
@@ -263,14 +224,10 @@ void run_pcg(int *cmdline, const char *mtx_file) {
   default_lno_t *xadj, *adj;
   default_scalar *ew;
 
-  KokkosKernels::Impl::read_matrix<default_lno_t, default_lno_t,
-                                   default_scalar>(&nv, &ne, &xadj, &adj, &ew,
-                                                   mtx_file);
+  KokkosSparse::Impl::read_matrix<default_lno_t, default_lno_t, default_scalar>(&nv, &ne, &xadj, &adj, &ew, mtx_file);
 
-  typedef
-      typename KokkosSparse::CrsMatrix<default_scalar, default_lno_t,
-                                       execution_space, void, default_size_type>
-          crsMat_t;
+  typedef typename KokkosSparse::CrsMatrix<default_scalar, default_lno_t, execution_space, void, default_size_type>
+      crsMat_t;
 
   typedef typename crsMat_t::StaticCrsGraphType graph_t;
   typedef typename crsMat_t::row_map_type::non_const_type row_map_view_t;
@@ -282,12 +239,9 @@ void run_pcg(int *cmdline, const char *mtx_file) {
   values_view_t values_view("values_view", ne);
 
   {
-    typename row_map_view_t::HostMirror hr =
-        Kokkos::create_mirror_view(rowmap_view);
-    typename cols_view_t::HostMirror hc =
-        Kokkos::create_mirror_view(columns_view);
-    typename values_view_t::HostMirror hv =
-        Kokkos::create_mirror_view(values_view);
+    typename row_map_view_t::HostMirror hr = Kokkos::create_mirror_view(rowmap_view);
+    typename cols_view_t::HostMirror hc    = Kokkos::create_mirror_view(columns_view);
+    typename values_view_t::HostMirror hv  = Kokkos::create_mirror_view(values_view);
 
     for (default_lno_t i = 0; i <= nv; ++i) {
       hr(i) = xadj[i];
@@ -308,8 +262,7 @@ void run_pcg(int *cmdline, const char *mtx_file) {
   delete[] adj;
   delete[] ew;
 
-  run_experiment<execution_space, crsMat_t>(crsmat, cmdline[CMD_CLUSTER_SIZE],
-                                            cmdline[CMD_USE_SEQUENTIAL_SGS]);
+  run_experiment<execution_space, crsMat_t>(crsmat, cmdline[CMD_CLUSTER_SIZE], cmdline[CMD_USE_SEQUENTIAL_SGS]);
 }
 
 int main(int argc, char **argv) {
@@ -347,8 +300,7 @@ int main(int argc, char **argv) {
       mtx_file = argv[++i];
     } else {
       cmdline[CMD_ERROR] = 1;
-      std::cerr << "Unrecognized command line argument #" << i << ": "
-                << argv[i] << std::endl;
+      std::cerr << "Unrecognized command line argument #" << i << ": " << argv[i] << std::endl;
       std::cerr << "OPTIONS\n\t--threads [numThreads]\n\t--openmp "
                    "[numThreads]\n\t--cuda\n\t--hip\n\t--device-id[DeviceIndex]"
                    "\n\t--mtx[binary_mtx_file]"
@@ -370,17 +322,14 @@ int main(int argc, char **argv) {
     return 0;
   }
 
-  Kokkos::InitArguments init_args;  // Construct with default args, change
-                                    // members based on exec space
+  // Construct with default args, change members based on exec space
+  Kokkos::InitializationSettings init_args;
 
-  init_args.device_id = cmdline[CMD_DEVICE];
+  init_args.set_device_id(cmdline[CMD_DEVICE]);
+  init_args.set_num_threads(std::max(cmdline[CMD_USE_THREADS], cmdline[CMD_USE_OPENMP]));
   if (cmdline[CMD_USE_NUMA] && cmdline[CMD_USE_CORE_PER_NUMA]) {
-    init_args.num_threads =
-        std::max(cmdline[CMD_USE_THREADS], cmdline[CMD_USE_OPENMP]);
-    init_args.num_numa = cmdline[CMD_USE_NUMA];
-  } else {
-    init_args.num_threads =
-        std::max(cmdline[CMD_USE_THREADS], cmdline[CMD_USE_OPENMP]);
+    KokkosKernels::Impl::throw_runtime_exception("NUMA init arg is no longer supported by Kokkos");
+    // init_args.num_numa = cmdline[CMD_USE_NUMA];
   }
 
   Kokkos::initialize(init_args);
@@ -395,8 +344,7 @@ int main(int argc, char **argv) {
     if (cmdline[CMD_USE_CUDA]) run_pcg<Kokkos::Cuda>(cmdline, mtx_file);
 #endif
 #if defined(KOKKOS_ENABLE_HIP)
-    if (cmdline[CMD_USE_HIP])
-      run_pcg<Kokkos::Experimental::HIP>(cmdline, mtx_file);
+    if (cmdline[CMD_USE_HIP]) run_pcg<Kokkos::HIP>(cmdline, mtx_file);
 #endif
   }
   Kokkos::finalize();

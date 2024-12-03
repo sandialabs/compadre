@@ -8,10 +8,6 @@
 // @HEADER
 #include "Compadre_LinearAlgebra_Definitions.hpp"
 
-#include "KokkosBatched_Copy_Decl.hpp"
-#include "KokkosBatched_ApplyPivot_Decl.hpp"
-#include "KokkosBatched_Gemv_Decl.hpp"
-#include "KokkosBatched_Trsv_Decl.hpp"
 #include "KokkosBatched_UTV_Decl.hpp"
 #include "KokkosBatched_SolveUTV_Decl_Compadre.hpp"
 

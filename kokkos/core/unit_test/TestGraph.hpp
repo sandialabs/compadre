@@ -1,46 +1,18 @@
-/*
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
 //               Solutions of Sandia, LLC (NTESS).
 //
 // Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Christian R. Trott (crtrott@sandia.gov)
-//
-// ************************************************************************
 //@HEADER
-*/
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Graph.hpp>
@@ -48,6 +20,21 @@
 #include <gtest/gtest.h>
 
 namespace Test {
+
+template <class ExecSpace, class ValueType>
+struct NoOpReduceFunctor {
+  KOKKOS_FUNCTION void operator()(int, ValueType&) const {
+    Kokkos::abort("Should never be called!");
+  }
+  KOKKOS_FUNCTION void operator()(int, int, ValueType&) const {
+    Kokkos::abort("Should never be called!");
+  }
+  KOKKOS_FUNCTION void operator()(
+      const typename Kokkos::TeamPolicy<ExecSpace>::member_type&,
+      ValueType&) const {
+    Kokkos::abort("Should never be called!");
+  }
+};
 
 template <class ExecSpace>
 struct CountTestFunctor {
@@ -94,7 +81,7 @@ struct SetResultToViewFunctor {
   }
 };
 
-struct TEST_CATEGORY_FIXTURE(count_bugs) : public ::testing::Test {
+struct TEST_CATEGORY_FIXTURE(graph) : public ::testing::Test {
  public:
   using count_functor      = CountTestFunctor<TEST_EXECSPACE>;
   using set_functor        = SetViewToValueFunctor<TEST_EXECSPACE, int>;
@@ -116,7 +103,7 @@ struct TEST_CATEGORY_FIXTURE(count_bugs) : public ::testing::Test {
   }
 };
 
-TEST_F(TEST_CATEGORY_FIXTURE(count_bugs), launch_one) {
+TEST_F(TEST_CATEGORY_FIXTURE(graph), launch_one) {
   auto graph =
       Kokkos::Experimental::create_graph<TEST_EXECSPACE>([&](auto root) {
         root.then_parallel_for(1, count_functor{count, bugs, 0, 0});
@@ -129,7 +116,7 @@ TEST_F(TEST_CATEGORY_FIXTURE(count_bugs), launch_one) {
   ASSERT_EQ(0, bugs_host());
 }
 
-TEST_F(TEST_CATEGORY_FIXTURE(count_bugs), launch_one_rvalue) {
+TEST_F(TEST_CATEGORY_FIXTURE(graph), launch_one_rvalue) {
   Kokkos::Experimental::create_graph(ex, [&](auto root) {
     root.then_parallel_for(1, count_functor{count, bugs, 0, 0});
   }).submit();
@@ -140,7 +127,17 @@ TEST_F(TEST_CATEGORY_FIXTURE(count_bugs), launch_one_rvalue) {
   ASSERT_EQ(0, bugs_host());
 }
 
-TEST_F(TEST_CATEGORY_FIXTURE(count_bugs), launch_six) {
+TEST_F(TEST_CATEGORY_FIXTURE(graph), launch_six) {
+#ifdef KOKKOS_ENABLE_OPENMPTARGET  // FIXME_OPENMPTARGET team_size incompatible
+  if (std::is_same_v<TEST_EXECSPACE, Kokkos::Experimental::OpenMPTarget>)
+    GTEST_SKIP() << "skipping since OpenMPTarget can't use team_size 1";
+#endif
+#if defined(KOKKOS_ENABLE_SYCL) && \
+    !defined(SYCL_EXT_ONEAPI_GRAPH)  // FIXME_SYCL
+  if (std::is_same_v<TEST_EXECSPACE, Kokkos::Experimental::SYCL>)
+    GTEST_SKIP() << "skipping since test case is known to fail with SYCL";
+#endif
+
   auto graph = Kokkos::Experimental::create_graph(ex, [&](auto root) {
     auto f_setup_count = root.then_parallel_for(1, set_functor{count, 0});
     auto f_setup_bugs  = root.then_parallel_for(1, set_functor{bugs, 0});
@@ -173,7 +170,7 @@ TEST_F(TEST_CATEGORY_FIXTURE(count_bugs), launch_six) {
   ASSERT_EQ(0, bugs_host());
 }
 
-TEST_F(TEST_CATEGORY_FIXTURE(count_bugs), when_all_cycle) {
+TEST_F(TEST_CATEGORY_FIXTURE(graph), when_all_cycle) {
   view_type reduction_out{"reduction_out"};
   view_host reduction_host{"reduction_host"};
   Kokkos::Experimental::create_graph(ex, [&](auto root) {
@@ -200,7 +197,7 @@ TEST_F(TEST_CATEGORY_FIXTURE(count_bugs), when_all_cycle) {
 
 // This test is disabled because we don't currently support copying to host,
 // even asynchronously. We _may_ want to do that eventually?
-TEST_F(TEST_CATEGORY_FIXTURE(count_bugs), DISABLED_repeat_chain) {
+TEST_F(TEST_CATEGORY_FIXTURE(graph), DISABLED_repeat_chain) {
   auto graph = Kokkos::Experimental::create_graph(
       ex, [&, count_host = count_host](auto root) {
         //----------------------------------------
@@ -226,10 +223,27 @@ TEST_F(TEST_CATEGORY_FIXTURE(count_bugs), DISABLED_repeat_chain) {
   //----------------------------------------
 }
 
-TEST_F(TEST_CATEGORY_FIXTURE(count_bugs), zero_work_reduce) {
-  auto graph = Kokkos::Experimental::create_graph(ex, [&](auto root) {
-    root.then_parallel_reduce(0, set_result_functor{bugs}, count);
-  });
+TEST_F(TEST_CATEGORY_FIXTURE(graph), zero_work_reduce) {
+  auto graph = Kokkos::Experimental::create_graph(
+      ex, [&](Kokkos::Experimental::GraphNodeRef<TEST_EXECSPACE> root) {
+        NoOpReduceFunctor<TEST_EXECSPACE, int> no_op_functor;
+        root.then_parallel_reduce(Kokkos::RangePolicy<TEST_EXECSPACE>(0, 0),
+                                  no_op_functor, count)
+#if !defined(KOKKOS_ENABLE_SYCL) || \
+    defined(SYCL_EXT_ONEAPI_GRAPH)  // FIXME_SYCL
+#if !defined(KOKKOS_ENABLE_CUDA) && \
+    !defined(KOKKOS_ENABLE_HIP)  // FIXME_CUDA FIXME_HIP
+            .then_parallel_reduce(
+                Kokkos::MDRangePolicy<TEST_EXECSPACE, Kokkos::Rank<2>>{{0, 0},
+                                                                       {0, 0}},
+                no_op_functor, count)
+#endif
+            .then_parallel_reduce(
+                Kokkos::TeamPolicy<TEST_EXECSPACE>{0, Kokkos::AUTO},
+                no_op_functor, count)
+#endif
+            ;
+      });
 // These fences are only necessary because of the weirdness of how CUDA
 // UVM works on pre pascal cards.
 #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOS_ENABLE_CUDA_UVM) && \
@@ -242,12 +256,15 @@ TEST_F(TEST_CATEGORY_FIXTURE(count_bugs), zero_work_reduce) {
 // UVM works on pre pascal cards.
 #if defined(KOKKOS_ENABLE_CUDA) && defined(KOKKOS_ENABLE_CUDA_UVM) && \
     (defined(KOKKOS_ARCH_KEPLER) || defined(KOKKOS_ARCH_MAXWELL))
-  Kokkos::fence();
+  if constexpr (std::is_same_v<TEST_EXECSPACE, Kokkos::Cuda>) Kokkos::fence();
 #endif
-  graph.submit();  // should reset to 0, but doesn't
+#ifdef KOKKOS_ENABLE_HPX  // FIXME_HPX graph.submit() isn't properly enqueued
+  if constexpr (std::is_same_v<TEST_EXECSPACE, Kokkos::Experimental::HPX>)
+    Kokkos::fence();
+#endif
+  graph.submit();
   Kokkos::deep_copy(ex, count_host, count);
   ex.fence();
   ASSERT_EQ(count_host(), 0);
 }
-
 }  // end namespace Test
