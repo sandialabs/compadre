@@ -23,7 +23,7 @@ MACRO(KOKKOSKERNELS_PACKAGE_POSTPROCESS)
          INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/KokkosKernels)
     write_basic_package_version_file("${KokkosKernels_BINARY_DIR}/KokkosKernelsConfigVersion.cmake"
             VERSION "${KokkosKernels_VERSION_MAJOR}.${KokkosKernels_VERSION_MINOR}.${KokkosKernels_VERSION_PATCH}"
-            COMPATIBILITY SameMajorVersion)
+            COMPATIBILITY AnyNewerVersion)
 
     INSTALL(FILES
       "${KokkosKernels_BINARY_DIR}/KokkosKernelsConfig.cmake"
@@ -84,6 +84,11 @@ IF(PARSE_HEADERS)
 ENDIF()
 IF(PARSE_SOURCES)
   LIST(REMOVE_DUPLICATES PARSE_SOURCES)
+ENDIF()
+IF(Kokkos_COMPILE_LANGUAGE)
+  FOREACH(source ${PARSE_SOURCES})
+    SET_SOURCE_FILES_PROPERTIES(${source} PROPERTIES LANGUAGE ${Kokkos_COMPILE_LANGUAGE})
+  ENDFOREACH()
 ENDIF()
 
 ADD_LIBRARY(
@@ -151,6 +156,12 @@ IF (IS_ENABLED)
       SOURCES ${PARSE_SOURCES}
       TESTONLYLIBS ${PARSE_TESTONLYLIBS})
   ELSE()
+    # Set the correct CMake language on all source files for this exe
+    IF(Kokkos_COMPILE_LANGUAGE)
+      FOREACH(source ${PARSE_SOURCES})
+        SET_SOURCE_FILES_PROPERTIES(${source} PROPERTIES LANGUAGE ${Kokkos_COMPILE_LANGUAGE})
+      ENDFOREACH()
+    ENDIF()
     ADD_EXECUTABLE(${EXE_NAME} ${PARSE_SOURCES})
     #AJP, BMK altered:
     IF(KOKKOSKERNELS_ENABLE_TESTS_AND_PERFSUITE)

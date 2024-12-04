@@ -1,49 +1,20 @@
-/*
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
 //               Solutions of Sandia, LLC (NTESS).
 //
 // Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Siva Rajamanickam (srajama@sandia.gov)
-//
-// ************************************************************************
 //@HEADER
-*/
 
 #include <Kokkos_Core.hpp>
-#include <blas/KokkosBlas1_dot.hpp>
 #include <Kokkos_Random.hpp>
 
 // For RPS implementation
@@ -54,6 +25,8 @@ struct Params {
   int use_cuda    = 0;
   int use_openmp  = 0;
   int use_threads = 0;
+  int use_hip     = 0;
+  int use_sycl    = 0;
   // m is vector length
   int m      = 100000;
   int repeat = 1;
@@ -63,7 +36,8 @@ void print_options() {
   std::cerr << "Options:\n" << std::endl;
 
   std::cerr << "\tBACKEND: '--threads[numThreads]' | '--openmp [numThreads]' | "
-               "'--cuda [cudaDeviceIndex]'"
+               "'--cuda [cudaDeviceIndex]' | '--hip [hipDeviceIndex]' | "
+               "'--sycl [syclDeviceIndex]'"
             << std::endl;
   std::cerr << "\tIf no BACKEND selected, serial is the default." << std::endl;
   std::cerr << "\t[Optional] --repeat :: how many times to repeat overall "
@@ -76,8 +50,7 @@ void print_options() {
 
 int parse_inputs(Params& params, int argc, char** argv) {
   for (int i = 1; i < argc; ++i) {
-    if (0 == Test::string_compare_no_case(argv[i], "--help") ||
-        0 == Test::string_compare_no_case(argv[i], "-h")) {
+    if (0 == Test::string_compare_no_case(argv[i], "--help") || 0 == Test::string_compare_no_case(argv[i], "-h")) {
       print_options();
       exit(0);  // note: this is before Kokkos::initialize
     } else if (0 == Test::string_compare_no_case(argv[i], "--threads")) {
@@ -86,6 +59,10 @@ int parse_inputs(Params& params, int argc, char** argv) {
       params.use_openmp = atoi(argv[++i]);
     } else if (0 == Test::string_compare_no_case(argv[i], "--cuda")) {
       params.use_cuda = atoi(argv[++i]) + 1;
+    } else if (0 == Test::string_compare_no_case(argv[i], "--hip")) {
+      params.use_hip = atoi(argv[++i]) + 1;
+    } else if (0 == Test::string_compare_no_case(argv[i], "--sycl")) {
+      params.use_sycl = atoi(argv[++i]) + 1;
     } else if (0 == Test::string_compare_no_case(argv[i], "--m")) {
       params.m = atoi(argv[++i]);
     } else if (0 == Test::string_compare_no_case(argv[i], "--repeat")) {
@@ -93,8 +70,7 @@ int parse_inputs(Params& params, int argc, char** argv) {
       // has to have ".bin", or ".crs" extension.
       params.repeat = atoi(argv[++i]);
     } else {
-      std::cerr << "Unrecognized command line argument #" << i << ": "
-                << argv[i] << std::endl;
+      std::cerr << "Unrecognized command line argument #" << i << ": " << argv[i] << std::endl;
       print_options();
       return 1;
     }
@@ -134,19 +110,16 @@ void run(int m, int repeat) {
   using MemSpace = typename ExecSpace::memory_space;
   using Device   = Kokkos::Device<ExecSpace, MemSpace>;
 
-  std::cout << "Running BLAS Level 1 DOT perfomrance experiment ("
-            << ExecSpace::name() << ")\n";
+  std::cout << "Running BLAS Level 1 DOT perfomrance experiment (" << ExecSpace::name() << ")\n";
 
   std::cout << "Each test input vector has a length of " << m << std::endl;
 
   // Create 1D view w/ Device as the ExecSpace; this is an input vector
   // A(view_alloc(WithoutInitializing, "label"), m, n);
-  Kokkos::View<Scalar*, Device> x(
-      Kokkos::view_alloc(Kokkos::WithoutInitializing, "x"), m);
+  Kokkos::View<Scalar*, Device> x(Kokkos::view_alloc(Kokkos::WithoutInitializing, "x"), m);
 
   // Create 1D view w/ Device as the ExecSpace; this is the output vector
-  Kokkos::View<Scalar*, Device> y(
-      Kokkos::view_alloc(Kokkos::WithoutInitializing, "y"), m);
+  Kokkos::View<Scalar*, Device> y(Kokkos::view_alloc(Kokkos::WithoutInitializing, "y"), m);
 
   // Declaring variable pool w/ a seeded random number;
   // a parallel random number generator, so you
@@ -184,16 +157,18 @@ int main(int argc, char** argv) {
   if (parse_inputs(params, argc, argv)) {
     return 1;
   }
-  const int device_id = params.use_cuda - 1;
+  const int device_id = std::max(std::max(params.use_cuda, params.use_hip), params.use_sycl) - 1;
 
   const int num_threads = std::max(params.use_openmp, params.use_threads);
 
-  Kokkos::initialize(Kokkos::InitArguments(num_threads, -1, device_id));
+  Kokkos::initialize(Kokkos::InitializationSettings().set_num_threads(num_threads).set_device_id(device_id));
 
   bool useThreads = params.use_threads != 0;
   bool useOMP     = params.use_openmp != 0;
   bool useCUDA    = params.use_cuda != 0;
-  bool useSerial  = !useThreads && !useOMP && !useCUDA;
+  bool useHIP     = params.use_hip != 0;
+  bool useSYCL    = params.use_sycl != 0;
+  bool useSerial  = !useThreads && !useOMP && !useCUDA && !useHIP && !useSYCL;
 
   if (useThreads) {
 #if defined(KOKKOS_ENABLE_THREADS)
@@ -221,6 +196,25 @@ int main(int argc, char** argv) {
     return 1;
 #endif
   }
+
+  if (useHIP) {
+#if defined(KOKKOS_ENABLE_HIP)
+    run<Kokkos::HIP>(params.m, params.repeat);
+#else
+    std::cout << "ERROR: HIP requested, but not available.\n";
+    return 1;
+#endif
+  }
+
+  if (useSYCL) {
+#if defined(KOKKOS_ENABLE_SYCL)
+    run<Kokkos::Experimental::SYCL>(params.m, params.repeat);
+#else
+    std::cout << "ERROR: SYCL requested, but not available.\n";
+    return 1;
+#endif
+  }
+
   if (useSerial) {
 #if defined(KOKKOS_ENABLE_SERIAL)
     run<Kokkos::Serial>(params.m, params.repeat);

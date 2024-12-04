@@ -1,46 +1,18 @@
-/*
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
 //               Solutions of Sandia, LLC (NTESS).
 //
 // Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Seher Acer (sacer@sandia.gov)
-//
-// ************************************************************************
 //@HEADER
-*/
 #include <iostream>
 #include "KokkosKernels_config.h"
 #include "KokkosKernels_default_types.hpp"
@@ -50,15 +22,12 @@
 
 void print_options() {
   std::cerr << "Options\n" << std::endl;
-  std::cerr
-      << "\t[Required] INPUT MATRIX: '--amtx [left_hand_side.mtx]' -- for C=AxA"
-      << std::endl;
+  std::cerr << "\t[Required] INPUT MATRIX: '--amtx [left_hand_side.mtx]' -- for C=AxA" << std::endl;
   std::cerr << "\t[Optional] BACKEND: '--threads [numThreads]' | '--openmp "
                "[numThreads]' | '--cuda [cudaDeviceIndex]' --> if none are "
                "specified, Serial is used (if enabled)"
             << std::endl;
-  std::cerr << "\t[Optional] --bmtx [righ_hand_side.mtx]' for C = AxB"
-            << std::endl;
+  std::cerr << "\t[Optional] --bmtx [righ_hand_side.mtx]' for C = AxB" << std::endl;
   std::cerr << "\t[Optional] OUTPUT MATRICES: '--cmtx [output_matrix.mtx]' --> "
                "to write output C=AxB"
             << std::endl;
@@ -67,17 +36,15 @@ void print_options() {
                "250k, which is max k value to choose dense accumulators. This "
                "can be increased with more memory bandwidth."
             << std::endl;
-  std::cerr
-      << "\t[Optional] The memory space used for each matrix: '--memspaces "
-         "[0|1|....15]' --> Bits representing the use of HBM for Work, C, B, "
-         "and A respectively. For example 12 = 1100, will store work arrays "
-         "and C on HBM. A and B will be stored DDR. To use this enable "
-         "multilevel memory in Kokkos, check generate_makefile.sh"
-      << std::endl;
-  std::cerr
-      << "\t[Optional] Loop scheduling: '--dynamic': Use this for dynamic "
-         "scheduling of the loops. (Better performance most of the time)"
-      << std::endl;
+  std::cerr << "\t[Optional] The memory space used for each matrix: '--memspaces "
+               "[0|1|....15]' --> Bits representing the use of HBM for Work, C, B, "
+               "and A respectively. For example 12 = 1100, will store work arrays "
+               "and C on HBM. A and B will be stored DDR. To use this enable "
+               "multilevel memory in Kokkos, check generate_makefile.sh"
+            << std::endl;
+  std::cerr << "\t[Optional] Loop scheduling: '--dynamic': Use this for dynamic "
+               "scheduling of the loops. (Better performance most of the time)"
+            << std::endl;
   std::cerr << "\t[Optional] Verbose Output: '--verbose'" << std::endl;
 }
 
@@ -90,8 +57,7 @@ static char* getNextArg(int& i, int argc, char** argv) {
   return argv[i];
 }
 
-int parse_inputs(KokkosKernels::Experiment::Parameters& params, int argc,
-                 char** argv) {
+int parse_inputs(KokkosKernels::Experiment::Parameters& params, int argc, char** argv) {
   for (int i = 1; i < argc; ++i) {
     if (0 == Test::string_compare_no_case(argv[i], "--threads")) {
       params.use_threads = atoi(getNextArg(i, argc, argv));
@@ -109,8 +75,7 @@ int parse_inputs(KokkosKernels::Experiment::Parameters& params, int argc,
       params.team_size = atoi(getNextArg(i, argc, argv));
     } else if (0 == Test::string_compare_no_case(argv[i], "--vectorsize")) {
       params.vector_size = atoi(getNextArg(i, argc, argv));
-    } else if (0 ==
-               Test::string_compare_no_case(argv[i], "--compression2step")) {
+    } else if (0 == Test::string_compare_no_case(argv[i], "--compression2step")) {
       params.compression2step = true;
     } else if (0 == Test::string_compare_no_case(argv[i], "--shmem")) {
       params.shmemsize = atoi(getNextArg(i, argc, argv));
@@ -222,14 +187,12 @@ int parse_inputs(KokkosKernels::Experiment::Parameters& params, int argc,
       } else if (0 == Test::string_compare_no_case(algoStr, "KKDEBUG")) {
         params.algorithm = KokkosSparse::SPGEMM_KK_LP;
       } else {
-        std::cerr << "Unrecognized command line argument #" << i << ": "
-                  << argv[i] << std::endl;
+        std::cerr << "Unrecognized command line argument #" << i << ": " << argv[i] << std::endl;
         print_options();
         return 1;
       }
     } else {
-      std::cerr << "Unrecognized command line argument #" << i << ": "
-                << argv[i] << std::endl;
+      std::cerr << "Unrecognized command line argument #" << i << ": " << argv[i] << std::endl;
       print_options();
       return 1;
     }
@@ -247,47 +210,32 @@ int main(int argc, char** argv) {
   if (parse_inputs(params, argc, argv)) {
     return 1;
   }
-  if (params.a_mtx_bin_file == NULL) {
+  if (params.a_mtx_bin_file == "") {
     std::cerr << "Provide a and b matrix files" << std::endl;
     print_options();
     return 0;
   }
-  if (params.b_mtx_bin_file == NULL) {
+  if (params.b_mtx_bin_file == "") {
     std::cout << "B is not provided. Multiplying AxA." << std::endl;
   }
 
   const int num_threads = std::max(params.use_openmp, params.use_threads);
   const int device_id   = params.use_cuda - 1;
 
-  Kokkos::initialize(Kokkos::InitArguments(num_threads, -1, device_id));
+  Kokkos::initialize(Kokkos::InitializationSettings().set_num_threads(num_threads).set_device_id(device_id));
   Kokkos::print_configuration(std::cout);
 
 #if defined(KOKKOS_ENABLE_OPENMP)
-
   if (params.use_openmp) {
-#ifdef KOKKOSKERNELS_INST_MEMSPACE_HBWSPACE
-    KokkosKernels::Experiment::run_spgemm_jacobi<
-        size_type, lno_t, scalar_t, Kokkos::OpenMP,
-        Kokkos::Experimental::HBWSpace, Kokkos::HostSpace>(params);
-#else
-    KokkosKernels::Experiment::run_spgemm_jacobi<
-        size_type, lno_t, scalar_t, Kokkos::OpenMP,
-        Kokkos::OpenMP::memory_space, Kokkos::OpenMP::memory_space>(params);
-#endif
+    KokkosKernels::Experiment::run_spgemm_jacobi<size_type, lno_t, scalar_t, Kokkos::OpenMP,
+                                                 Kokkos::OpenMP::memory_space, Kokkos::OpenMP::memory_space>(params);
   }
 #endif
 
 #if defined(KOKKOS_ENABLE_CUDA)
   if (params.use_cuda) {
-#ifdef KOKKOSKERNELS_INST_MEMSPACE_CUDAHOSTPINNEDSPACE
-    KokkosKernels::Experiment::run_spgemm_jacobi<
-        size_type, lno_t, scalar_t, Kokkos::Cuda, Kokkos::Cuda::memory_space,
-        Kokkos::CudaHostPinnedSpace>(params);
-#else
-    KokkosKernels::Experiment::run_spgemm_jacobi<
-        size_type, lno_t, scalar_t, Kokkos::Cuda, Kokkos::Cuda::memory_space,
-        Kokkos::Cuda::memory_space>(params);
-#endif
+    KokkosKernels::Experiment::run_spgemm_jacobi<size_type, lno_t, scalar_t, Kokkos::Cuda, Kokkos::Cuda::memory_space,
+                                                 Kokkos::Cuda::memory_space>(params);
   }
 #endif
 
@@ -295,9 +243,8 @@ int main(int argc, char** argv) {
   // If only serial is enabled (or no other device was specified), run with
   // serial
   if (params.use_threads) {
-    KokkosKernels::Experiment::run_spgemm_jacobi<
-        size_type, lno_t, scalar_t, Kokkos::Threads, Kokkos::HostSpace,
-        Kokkos::HostSpace>(params);
+    KokkosKernels::Experiment::run_spgemm_jacobi<size_type, lno_t, scalar_t, Kokkos::Threads, Kokkos::HostSpace,
+                                                 Kokkos::HostSpace>(params);
   }
 #endif
 
@@ -305,9 +252,8 @@ int main(int argc, char** argv) {
   // If only serial is enabled (or no other device was specified), run with
   // serial
   if (!params.use_openmp && !params.use_cuda && !params.use_threads) {
-    KokkosKernels::Experiment::run_spgemm_jacobi<
-        size_type, lno_t, scalar_t, Kokkos::Serial, Kokkos::HostSpace,
-        Kokkos::HostSpace>(params);
+    KokkosKernels::Experiment::run_spgemm_jacobi<size_type, lno_t, scalar_t, Kokkos::Serial, Kokkos::HostSpace,
+                                                 Kokkos::HostSpace>(params);
   }
 #endif
 

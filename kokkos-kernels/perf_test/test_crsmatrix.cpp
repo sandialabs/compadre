@@ -1,46 +1,18 @@
-/*
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
 //               Solutions of Sandia, LLC (NTESS).
 //
 // Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Siva Rajamanickam (srajama@sandia.gov)
-//
-// ************************************************************************
 //@HEADER
-*/
 #include <cstdio>
 
 #include <ctime>
@@ -64,10 +36,8 @@ typedef long long int LocalOrdinalType;
 typedef int LocalOrdinalType;
 #endif
 template <typename ScalarType, typename OrdinalType>
-int SparseMatrix_MatrixMarket_read(const char* filename, OrdinalType& nrows,
-                                   OrdinalType& ncols, OrdinalType& nnz,
-                                   ScalarType*& values, OrdinalType*& rowPtr,
-                                   OrdinalType*& colInd) {
+int SparseMatrix_MatrixMarket_read(const char* filename, OrdinalType& nrows, OrdinalType& ncols, OrdinalType& nnz,
+                                   ScalarType*& values, OrdinalType*& rowPtr, OrdinalType*& colInd) {
   FILE* file = fopen(filename, "r");
   char line[512];
   line[0]         = '%';
@@ -96,8 +66,7 @@ int SparseMatrix_MatrixMarket_read(const char* filename, OrdinalType& nrows,
   fscanf(file, "%i", &nrows);
   fscanf(file, "%i", &ncols);
   fscanf(file, "%i", &nlines);
-  printf("Matrix dimension: %i %i %i %s\n", nrows, ncols, nlines,
-         symmetric ? "Symmetric" : "General");
+  printf("Matrix dimension: %i %i %i %s\n", nrows, ncols, nlines, symmetric ? "Symmetric" : "General");
   if (symmetric)
     nnz = nlines * 2;
   else
@@ -111,16 +80,15 @@ int SparseMatrix_MatrixMarket_read(const char* filename, OrdinalType& nrows,
   for (int i = 0; i < nrows; i++) lastEntryWithRowInd[i] = -1;
   nnz = 0;
   for (int ii = 0; ii < nlines; ii++) {
-    fscanf(file, "%i %i %le", &rowIndtmp[nnz], &colIndtmp[nnz],
-           &valuestmp[nnz]);
-    priorEntrySameRowInd[nnz] = lastEntryWithRowInd[rowIndtmp[nnz] - 1];
+    fscanf(file, "%i %i %le", &rowIndtmp[nnz], &colIndtmp[nnz], &valuestmp[nnz]);
+    priorEntrySameRowInd[nnz]               = lastEntryWithRowInd[rowIndtmp[nnz] - 1];
     lastEntryWithRowInd[rowIndtmp[nnz] - 1] = nnz;
     if ((symmetric) && (rowIndtmp[nnz] != colIndtmp[nnz])) {
       nnz++;
-      rowIndtmp[nnz]            = colIndtmp[nnz - 1];
-      colIndtmp[nnz]            = rowIndtmp[nnz - 1];
-      valuestmp[nnz]            = valuestmp[nnz - 1];
-      priorEntrySameRowInd[nnz] = lastEntryWithRowInd[rowIndtmp[nnz] - 1];
+      rowIndtmp[nnz]                          = colIndtmp[nnz - 1];
+      colIndtmp[nnz]                          = rowIndtmp[nnz - 1];
+      valuestmp[nnz]                          = valuestmp[nnz - 1];
+      priorEntrySameRowInd[nnz]               = lastEntryWithRowInd[rowIndtmp[nnz] - 1];
       lastEntryWithRowInd[rowIndtmp[nnz] - 1] = nnz;
     }
     nnz++;
@@ -152,12 +120,9 @@ int SparseMatrix_MatrixMarket_read(const char* filename, OrdinalType& nrows,
 }
 
 template <typename ScalarType, typename OrdinalType>
-int SparseMatrix_ExtractBinaryGraph(const char* filename, OrdinalType& nrows,
-                                    OrdinalType& ncols, OrdinalType& nnz,
-                                    ScalarType*& values, OrdinalType*& rowPtr,
-                                    OrdinalType*& colInd) {
-  nnz = SparseMatrix_MatrixMarket_read<ScalarType, OrdinalType>(
-      filename, nrows, ncols, nnz, values, rowPtr, colInd);
+int SparseMatrix_ExtractBinaryGraph(const char* filename, OrdinalType& nrows, OrdinalType& ncols, OrdinalType& nnz,
+                                    ScalarType*& values, OrdinalType*& rowPtr, OrdinalType*& colInd) {
+  nnz = SparseMatrix_MatrixMarket_read<ScalarType, OrdinalType>(filename, nrows, ncols, nnz, values, rowPtr, colInd);
   char* filename_row = new char[strlen(filename) + 5];
   char* filename_col = new char[strlen(filename) + 5];
   strcpy(filename_row, filename);
@@ -175,10 +140,8 @@ int SparseMatrix_ExtractBinaryGraph(const char* filename, OrdinalType& nrows,
 }
 
 template <typename ScalarType, typename OrdinalType>
-int SparseMatrix_ReadBinaryGraph(const char* filename, OrdinalType& nrows,
-                                 OrdinalType& ncols, OrdinalType& nnz,
-                                 ScalarType*& values, OrdinalType*& rowPtr,
-                                 OrdinalType*& colInd) {
+int SparseMatrix_ReadBinaryGraph(const char* filename, OrdinalType& nrows, OrdinalType& ncols, OrdinalType& nnz,
+                                 ScalarType*& values, OrdinalType*& rowPtr, OrdinalType*& colInd) {
   char* filename_descr = new char[strlen(filename) + 7];
   strcpy(filename_descr, filename);
   strcat(filename_descr, "_descr");
@@ -199,8 +162,7 @@ int SparseMatrix_ReadBinaryGraph(const char* filename, OrdinalType& nrows,
   fscanf(file, "%i", &nrows);
   fscanf(file, "%i", &ncols);
   fscanf(file, "%i", &nlines);
-  printf("Matrix dimension: %i %i %i %s\n", nrows, ncols, nlines,
-         symmetric ? "Symmetric" : "General");
+  printf("Matrix dimension: %i %i %i %s\n", nrows, ncols, nlines, symmetric ? "Symmetric" : "General");
   if (symmetric)
     nnz = nlines * 2;
   else
@@ -228,10 +190,8 @@ int SparseMatrix_ReadBinaryGraph(const char* filename, OrdinalType& nrows,
 }
 
 template <typename ScalarType, typename OrdinalType>
-int SparseMatrix_generate(OrdinalType nrows, OrdinalType ncols,
-                          OrdinalType& nnz, OrdinalType varianz_nel_row,
-                          OrdinalType width_row, ScalarType*& values,
-                          OrdinalType*& rowPtr, OrdinalType*& colInd) {
+int SparseMatrix_generate(OrdinalType nrows, OrdinalType ncols, OrdinalType& nnz, OrdinalType varianz_nel_row,
+                          OrdinalType width_row, ScalarType*& values, OrdinalType*& rowPtr, OrdinalType*& colInd) {
   rowPtr = new OrdinalType[nrows + 1];
 
   OrdinalType elements_per_row = nnz / nrows;
@@ -257,17 +217,11 @@ int SparseMatrix_generate(OrdinalType nrows, OrdinalType ncols,
 }
 
 template <typename Scalar>
-int test_crs_matrix_test(LocalOrdinalType numRows, LocalOrdinalType numCols,
-                         LocalOrdinalType nnz, LocalOrdinalType numVecs,
-                         LocalOrdinalType test, const char* filename,
-                         const bool binaryfile) {
-  typedef Kokkos::CrsMatrix<Scalar, LocalOrdinalType, execution_space, void,
-                            int>
-      matrix_type;
-  typedef typename Kokkos::MultiVectorDynamic<Scalar, execution_space>::type
-      mv_type;
-  typedef typename Kokkos::MultiVectorDynamic<
-      Scalar, execution_space>::random_read_type mv_random_read_type;
+int test_crs_matrix_test(LocalOrdinalType numRows, LocalOrdinalType numCols, LocalOrdinalType nnz,
+                         LocalOrdinalType numVecs, LocalOrdinalType test, const char* filename, const bool binaryfile) {
+  typedef Kokkos::CrsMatrix<Scalar, LocalOrdinalType, execution_space, void, int> matrix_type;
+  typedef typename Kokkos::MultiVectorDynamic<Scalar, execution_space>::type mv_type;
+  typedef typename Kokkos::MultiVectorDynamic<Scalar, execution_space>::random_read_type mv_random_read_type;
   typedef typename mv_type::HostMirror h_mv_type;
 
   Scalar* val           = NULL;
@@ -276,28 +230,23 @@ int test_crs_matrix_test(LocalOrdinalType numRows, LocalOrdinalType numCols,
 
   srand(17312837);
   if (filename == NULL)
-    nnz = SparseMatrix_generate<Scalar, LocalOrdinalType>(
-        numRows, numCols, nnz, nnz / numRows * 0.2, numRows * 0.01, val, row,
-        col);
+    nnz = SparseMatrix_generate<Scalar, LocalOrdinalType>(numRows, numCols, nnz, nnz / numRows * 0.2, numRows * 0.01,
+                                                          val, row, col);
   else if (!binaryfile)
-    nnz = SparseMatrix_MatrixMarket_read<Scalar, LocalOrdinalType>(
-        filename, numRows, numCols, nnz, val, row, col);
+    nnz = SparseMatrix_MatrixMarket_read<Scalar, LocalOrdinalType>(filename, numRows, numCols, nnz, val, row, col);
   else
-    nnz = SparseMatrix_ReadBinaryGraph<Scalar, LocalOrdinalType>(
-        filename, numRows, numCols, nnz, val, row, col);
+    nnz = SparseMatrix_ReadBinaryGraph<Scalar, LocalOrdinalType>(filename, numRows, numCols, nnz, val, row, col);
 
   matrix_type A("CRS::A", numRows, numCols, nnz, val, row, col, false);
 
   mv_type x("X", numCols, numVecs);
   mv_random_read_type t_x(x);
   mv_type y("Y", numRows, numVecs);
-  h_mv_type h_x         = Kokkos::create_mirror_view(x);
-  h_mv_type h_y         = Kokkos::create_mirror_view(y);
-  h_mv_type h_y_compare = Kokkos::create_mirror(y);
-  typename matrix_type::StaticCrsGraphType::HostMirror h_graph =
-      Kokkos::create_mirror(A.graph);
-  typename matrix_type::values_type::HostMirror h_values =
-      Kokkos::create_mirror_view(A.values);
+  h_mv_type h_x                                                = Kokkos::create_mirror_view(x);
+  h_mv_type h_y                                                = Kokkos::create_mirror_view(y);
+  h_mv_type h_y_compare                                        = Kokkos::create_mirror(y);
+  typename matrix_type::StaticCrsGraphType::HostMirror h_graph = Kokkos::create_mirror(A.graph);
+  typename matrix_type::values_type::HostMirror h_values       = Kokkos::create_mirror_view(A.values);
 
   // Kokkos::deep_copy(h_graph.row_map,A.graph.row_map);
   for (LocalOrdinalType k = 0; k < numVecs; k++) {
@@ -317,8 +266,7 @@ int test_crs_matrix_test(LocalOrdinalType numRows, LocalOrdinalType numCols,
     for (LocalOrdinalType j = start; j < end; j++) {
       Scalar val           = h_graph.entries(j) + i;
       LocalOrdinalType idx = h_graph.entries(j);
-      for (LocalOrdinalType k = 0; k < numVecs; k++)
-        h_y_compare(i, k) += val * h_x(idx, k);
+      for (LocalOrdinalType k = 0; k < numVecs; k++) h_y_compare(i, k) += val * h_x(idx, k);
     }
   }
 
@@ -342,8 +290,7 @@ int test_crs_matrix_test(LocalOrdinalType numRows, LocalOrdinalType numCols,
   }
   for (LocalOrdinalType i = 0; i < numRows; i++)
     for (LocalOrdinalType k = 0; k < numVecs; k++) {
-      error[k] +=
-          (h_y_compare(i, k) - h_y(i, k)) * (h_y_compare(i, k) - h_y(i, k));
+      error[k] += (h_y_compare(i, k) - h_y(i, k)) * (h_y_compare(i, k) - h_y(i, k));
       sum[k] += h_y_compare(i, k) * h_y_compare(i, k);
       // prLocalOrdinalTypef("%i %i %lf %lf
       // %lf\n",i,k,h_y_compare(i,k),h_y(i,k),h_x(i,k));
@@ -369,34 +316,25 @@ int test_crs_matrix_test(LocalOrdinalType numRows, LocalOrdinalType numCols,
     Kokkos::MV_Multiply(y, A, x);
 #endif
   execution_space().fence();
-  double time        = timer.seconds();
-  double matrix_size = 1.0 *
-                       ((nnz * (sizeof(Scalar) + sizeof(LocalOrdinalType)) +
-                         numRows * sizeof(LocalOrdinalType))) /
-                       1024 / 1024;
-  double vector_size = 2.0 * numRows * numVecs * sizeof(Scalar) / 1024 / 1024;
-  double vector_readwrite =
-      (nnz + numCols) * numVecs * sizeof(Scalar) / 1024 / 1024;
+  double time = timer.seconds();
+  double matrix_size =
+      1.0 * ((nnz * (sizeof(Scalar) + sizeof(LocalOrdinalType)) + numRows * sizeof(LocalOrdinalType))) / 1024 / 1024;
+  double vector_size      = 2.0 * numRows * numVecs * sizeof(Scalar) / 1024 / 1024;
+  double vector_readwrite = (nnz + numCols) * numVecs * sizeof(Scalar) / 1024 / 1024;
 
   double problem_size = matrix_size + vector_size;
-  printf("%i %i %i %i %6.2lf MB %6.2lf GB/s %6.2lf GFlop/s %6.3lf ms %i\n", nnz,
-         numRows, numCols, numVecs, problem_size,
-         (matrix_size + vector_readwrite) / time * loop / 1024,
-         2.0 * nnz * numVecs * loop / time / 1e9, time / loop * 1000,
-         num_errors);
+  printf("%i %i %i %i %6.2lf MB %6.2lf GB/s %6.2lf GFlop/s %6.3lf ms %i\n", nnz, numRows, numCols, numVecs,
+         problem_size, (matrix_size + vector_readwrite) / time * loop / 1024, 2.0 * nnz * numVecs * loop / time / 1e9,
+         time / loop * 1000, num_errors);
   return (int)total_error;
 }
 
 template <typename Scalar>
-int test_crs_matrix_test_singlevec(int numRows, int numCols, int nnz, int test,
-                                   const char* filename,
+int test_crs_matrix_test_singlevec(int numRows, int numCols, int nnz, int test, const char* filename,
                                    const bool binaryfile) {
-  typedef Kokkos::CrsMatrix<Scalar, int, execution_space, void, int>
-      matrix_type;
-  typedef typename Kokkos::View<Scalar*, Kokkos::LayoutLeft, execution_space>
-      mv_type;
-  typedef typename Kokkos::View<Scalar*, Kokkos::LayoutLeft, execution_space,
-                                Kokkos::MemoryRandomAccess>
+  typedef Kokkos::CrsMatrix<Scalar, int, execution_space, void, int> matrix_type;
+  typedef typename Kokkos::View<Scalar*, Kokkos::LayoutLeft, execution_space> mv_type;
+  typedef typename Kokkos::View<Scalar*, Kokkos::LayoutLeft, execution_space, Kokkos::MemoryRandomAccess>
       mv_random_read_type;
   typedef typename mv_type::HostMirror h_mv_type;
 
@@ -406,28 +344,22 @@ int test_crs_matrix_test_singlevec(int numRows, int numCols, int nnz, int test,
 
   srand(17312837);
   if (filename == NULL)
-    nnz = SparseMatrix_generate<Scalar, int>(numRows, numCols, nnz,
-                                             nnz / numRows * 0.2,
-                                             numRows * 0.01, val, row, col);
+    nnz = SparseMatrix_generate<Scalar, int>(numRows, numCols, nnz, nnz / numRows * 0.2, numRows * 0.01, val, row, col);
   else if (!binaryfile)
-    nnz = SparseMatrix_MatrixMarket_read<Scalar, int>(
-        filename, numRows, numCols, nnz, val, row, col);
+    nnz = SparseMatrix_MatrixMarket_read<Scalar, int>(filename, numRows, numCols, nnz, val, row, col);
   else
-    nnz = SparseMatrix_ReadBinaryGraph<Scalar, int>(filename, numRows, numCols,
-                                                    nnz, val, row, col);
+    nnz = SparseMatrix_ReadBinaryGraph<Scalar, int>(filename, numRows, numCols, nnz, val, row, col);
 
   matrix_type A("CRS::A", numRows, numCols, nnz, val, row, col, false);
 
   mv_type x("X", numCols);
   mv_random_read_type t_x(x);
   mv_type y("Y", numRows);
-  h_mv_type h_x         = Kokkos::create_mirror_view(x);
-  h_mv_type h_y         = Kokkos::create_mirror_view(y);
-  h_mv_type h_y_compare = Kokkos::create_mirror(y);
-  typename matrix_type::StaticCrsGraphType::HostMirror h_graph =
-      Kokkos::create_mirror(A.graph);
-  typename matrix_type::values_type::HostMirror h_values =
-      Kokkos::create_mirror_view(A.values);
+  h_mv_type h_x                                                = Kokkos::create_mirror_view(x);
+  h_mv_type h_y                                                = Kokkos::create_mirror_view(y);
+  h_mv_type h_y_compare                                        = Kokkos::create_mirror(y);
+  typename matrix_type::StaticCrsGraphType::HostMirror h_graph = Kokkos::create_mirror(A.graph);
+  typename matrix_type::values_type::HostMirror h_values       = Kokkos::create_mirror_view(A.values);
 
   // Kokkos::deep_copy(h_graph.row_map,A.graph.row_map);
   // h_a(k) = (Scalar) (1.0*(rand()%40)-20.);
@@ -458,10 +390,8 @@ int test_crs_matrix_test_singlevec(int numRows, int numCols, int nnz, int test,
     //error[k]+=(h_y_compare(i,k)-h_y(i,k))*(h_y_compare(i,k)-h_y(i,k));
     printf("%i %i %lf %lf %lf\n",i,k,h_y_compare(i,k),h_y(i,k),h_x(i,k));
           }*/
-  typename Kokkos::CrsMatrix<Scalar, int, execution_space, void,
-                             int>::values_type x1("X1", numCols);
-  typename Kokkos::CrsMatrix<Scalar, int, execution_space, void,
-                             int>::values_type y1("Y1", numRows);
+  typename Kokkos::CrsMatrix<Scalar, int, execution_space, void, int>::values_type x1("X1", numCols);
+  typename Kokkos::CrsMatrix<Scalar, int, execution_space, void, int>::values_type y1("Y1", numRows);
 #ifdef NEWKERNEL
   KokkosSparse::spmv("N", 1.0, A, x1, 0.0, y1);
 #else
@@ -501,30 +431,24 @@ int test_crs_matrix_test_singlevec(int numRows, int numCols, int nnz, int test,
     Kokkos::MV_Multiply(y, A, x);
 #endif
   execution_space().fence();
-  double time = timer.seconds();
-  double matrix_size =
-      1.0 * ((nnz * (sizeof(Scalar) + sizeof(int)) + numRows * sizeof(int))) /
-      1024 / 1024;
+  double time             = timer.seconds();
+  double matrix_size      = 1.0 * ((nnz * (sizeof(Scalar) + sizeof(int)) + numRows * sizeof(int))) / 1024 / 1024;
   double vector_size      = 2.0 * numRows * sizeof(Scalar) / 1024 / 1024;
   double vector_readwrite = (nnz + numCols) * sizeof(Scalar) / 1024 / 1024;
 
   double problem_size = matrix_size + vector_size;
-  printf("%i %i %i %i %6.2lf MB %6.2lf GB/s %6.2lf GFlop/s %6.3lf ms %i\n", nnz,
-         numRows, numCols, 1, problem_size,
-         (matrix_size + vector_readwrite) / time * loop / 1024,
-         2.0 * nnz * loop / time / 1e9, time / loop * 1000, num_errors);
+  printf("%i %i %i %i %6.2lf MB %6.2lf GB/s %6.2lf GFlop/s %6.3lf ms %i\n", nnz, numRows, numCols, 1, problem_size,
+         (matrix_size + vector_readwrite) / time * loop / 1024, 2.0 * nnz * loop / time / 1e9, time / loop * 1000,
+         num_errors);
   return (int)total_error;
 }
 
-int test_crs_matrix_type(int numrows, int numcols, int nnz, int numVecs,
-                         int type, int test, const char* filename,
+int test_crs_matrix_type(int numrows, int numcols, int nnz, int numVecs, int type, int test, const char* filename,
                          const bool binaryfile) {
   if (numVecs == 1)
-    return test_crs_matrix_test_singlevec<double>(numrows, numcols, nnz, test,
-                                                  filename, binaryfile);
+    return test_crs_matrix_test_singlevec<double>(numrows, numcols, nnz, test, filename, binaryfile);
   else
-    return test_crs_matrix_test<double>(numrows, numcols, nnz, numVecs, test,
-                                        filename, binaryfile);
+    return test_crs_matrix_test<double>(numrows, numcols, nnz, numVecs, test, filename, binaryfile);
 }
 
 int main(int argc, char** argv) {
@@ -572,8 +496,7 @@ int main(int argc, char** argv) {
 
   int total_errors = 0;
   while (numVecs <= maxNumVecs) {
-    total_errors += test_crs_matrix_type(size, size, size * 10, numVecs, type,
-                                         test, filename, binaryfile);
+    total_errors += test_crs_matrix_type(size, size, size * 10, numVecs, type, test, filename, binaryfile);
     if (numVecs < maxNumVecs)
       numVecs = numVecsList[numVecIdx++];
     else

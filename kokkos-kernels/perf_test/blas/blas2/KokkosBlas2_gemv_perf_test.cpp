@@ -1,46 +1,18 @@
-/*
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
 //               Solutions of Sandia, LLC (NTESS).
 //
 // Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Siva Rajamanickam (srajama@sandia.gov)
-//
-// ************************************************************************
 //@HEADER
-*/
 
 #include "KokkosBlas2_gemv.hpp"
 #include <Kokkos_Random.hpp>
@@ -70,16 +42,13 @@ void print_options() {
   std::cerr << "\t[Optional] --layout :: matrix layout ('left' or 'right', "
                "default 'left')"
             << std::endl;
-  std::cerr << "\t[Optional] --m      :: number of rows to generate"
-            << std::endl;
-  std::cerr << "\t[Optional] --n      :: number of cols to generate"
-            << std::endl;
+  std::cerr << "\t[Optional] --m      :: number of rows to generate" << std::endl;
+  std::cerr << "\t[Optional] --n      :: number of cols to generate" << std::endl;
 }
 
 int parse_inputs(Params& params, int argc, char** argv) {
   for (int i = 1; i < argc; ++i) {
-    if (0 == Test::string_compare_no_case(argv[i], "--help") ||
-        0 == Test::string_compare_no_case(argv[i], "-h")) {
+    if (0 == Test::string_compare_no_case(argv[i], "--help") || 0 == Test::string_compare_no_case(argv[i], "-h")) {
       print_options();
       exit(0);  // note: this is before Kokkos::initialize
     } else if (0 == Test::string_compare_no_case(argv[i], "--threads")) {
@@ -109,8 +78,7 @@ int parse_inputs(Params& params, int argc, char** argv) {
       // has to have ".bin", or ".crs" extension.
       params.repeat = atoi(argv[++i]);
     } else {
-      std::cerr << "Unrecognized command line argument #" << i << ": "
-                << argv[i] << std::endl;
+      std::cerr << "Unrecognized command line argument #" << i << ": " << argv[i] << std::endl;
       print_options();
       return 1;
     }
@@ -129,14 +97,11 @@ void run(int m, int n, int repeat) {
 
   // Create a View containing a 2D matrix; allocate KokkosView with template
   // args of Scalar**, a layout, and
-  Kokkos::View<Scalar**, Layout, Device> A(
-      Kokkos::view_alloc(Kokkos::WithoutInitializing, "A"), m, n);
+  Kokkos::View<Scalar**, Layout, Device> A(Kokkos::view_alloc(Kokkos::WithoutInitializing, "A"), m, n);
   // Create Views containing 1D matrix; allocate (without) matrix "x" of size n
-  Kokkos::View<Scalar*, Device> x(
-      Kokkos::view_alloc(Kokkos::WithoutInitializing, "x"), n);
+  Kokkos::View<Scalar*, Device> x(Kokkos::view_alloc(Kokkos::WithoutInitializing, "x"), n);
   // Create Views containing 1D matrix; allocate (without) matrix "y" of size m
-  Kokkos::View<Scalar*, Device> y(
-      Kokkos::view_alloc(Kokkos::WithoutInitializing, "y"), m);
+  Kokkos::View<Scalar*, Device> y(Kokkos::view_alloc(Kokkos::WithoutInitializing, "y"), m);
 
   // Declaring variable pool w/ a number seed;
   // a parallel random number generator, so you
@@ -180,7 +145,7 @@ int main(int argc, char** argv) {
   const int num_threads = std::max(params.use_openmp, params.use_threads);
 
   const int device_id = std::max(params.use_cuda, params.use_hip) - 1;
-  Kokkos::initialize(Kokkos::InitArguments(num_threads, -1, device_id));
+  Kokkos::initialize(Kokkos::InitializationSettings().set_num_threads(num_threads).set_device_id(device_id));
 
   // Create booleans to handle pthreads, openmp and cuda params and initialize
   // to true;
@@ -196,11 +161,9 @@ int main(int argc, char** argv) {
   if (useThreads) {
 #if defined(KOKKOS_ENABLE_THREADS)
     if (params.layoutLeft)
-      run<Kokkos::Threads, Kokkos::LayoutLeft>(params.m, params.n,
-                                               params.repeat);
+      run<Kokkos::Threads, Kokkos::LayoutLeft>(params.m, params.n, params.repeat);
     else
-      run<Kokkos::Threads, Kokkos::LayoutRight>(params.m, params.n,
-                                                params.repeat);
+      run<Kokkos::Threads, Kokkos::LayoutRight>(params.m, params.n, params.repeat);
 #else
     std::cout << "ERROR:  PThreads requested, but not available.\n";
     return 1;
@@ -211,11 +174,9 @@ int main(int argc, char** argv) {
   if (useOMP) {
 #if defined(KOKKOS_ENABLE_OPENMP)
     if (params.layoutLeft)
-      run<Kokkos::OpenMP, Kokkos::LayoutLeft>(params.m, params.n,
-                                              params.repeat);
+      run<Kokkos::OpenMP, Kokkos::LayoutLeft>(params.m, params.n, params.repeat);
     else
-      run<Kokkos::OpenMP, Kokkos::LayoutRight>(params.m, params.n,
-                                               params.repeat);
+      run<Kokkos::OpenMP, Kokkos::LayoutRight>(params.m, params.n, params.repeat);
 #else
     std::cout << "ERROR: OpenMP requested, but not available.\n";
     return 1;
@@ -237,11 +198,9 @@ int main(int argc, char** argv) {
   if (useHIP) {
 #if defined(KOKKOS_ENABLE_HIP)
     if (params.layoutLeft)
-      run<Kokkos::Experimental::HIP, Kokkos::LayoutLeft>(params.m, params.n,
-                                                         params.repeat);
+      run<Kokkos::HIP, Kokkos::LayoutLeft>(params.m, params.n, params.repeat);
     else
-      run<Kokkos::Experimental::HIP, Kokkos::LayoutRight>(params.m, params.n,
-                                                          params.repeat);
+      run<Kokkos::HIP, Kokkos::LayoutRight>(params.m, params.n, params.repeat);
 #else
     std::cout << "ERROR: HIP requested, but not available.\n";
     return 1;
@@ -251,11 +210,9 @@ int main(int argc, char** argv) {
   if (useSerial) {
 #if defined(KOKKOS_ENABLE_SERIAL)
     if (params.layoutLeft)
-      run<Kokkos::Serial, Kokkos::LayoutLeft>(params.m, params.n,
-                                              params.repeat);
+      run<Kokkos::Serial, Kokkos::LayoutLeft>(params.m, params.n, params.repeat);
     else
-      run<Kokkos::Serial, Kokkos::LayoutRight>(params.m, params.n,
-                                               params.repeat);
+      run<Kokkos::Serial, Kokkos::LayoutRight>(params.m, params.n, params.repeat);
 #else
     std::cout << "ERROR: Serial device requested, but not available.\n";
     return 1;

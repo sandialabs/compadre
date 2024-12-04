@@ -1,46 +1,18 @@
-/*
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
 //               Solutions of Sandia, LLC (NTESS).
 //
 // Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Siva Rajamanickam (srajama@sandia.gov)
-//
-// ************************************************************************
 //@HEADER
-*/
 
 #ifdef KOKKOSKERNELS_ENABLE_TPL_CUSPARSE
 #include <cusparse_v2.h>
@@ -59,8 +31,7 @@ namespace Experimental {
 /* =========================================================================================
  */
 template <typename scalar_t>
-void forwardP_supernode(int n, int *perm_r, int nrhs, scalar_t *B, int ldb,
-                        scalar_t *X, int ldx) {
+void forwardP_supernode(int n, int *perm_r, int nrhs, scalar_t *B, int ldb, scalar_t *X, int ldx) {
   /* Permute right hand sides to form Pr*B */
   for (int j = 0; j < nrhs; j++) {
     scalar_t *rhs_work = &B[j * ldb];
@@ -72,8 +43,7 @@ void forwardP_supernode(int n, int *perm_r, int nrhs, scalar_t *B, int ldb,
 }
 
 template <typename scalar_t>
-void backwardP_supernode(int n, int *perm_c, int nrhs, scalar_t *B, int ldb,
-                         scalar_t *X, int ldx) {
+void backwardP_supernode(int n, int *perm_c, int nrhs, scalar_t *B, int ldb, scalar_t *X, int ldx) {
   /* Compute the final solution X := Pc*X. */
   for (int j = 0; j < nrhs; j++) {
     scalar_t *rhs_work = &B[j * ldb];
@@ -87,14 +57,13 @@ void backwardP_supernode(int n, int *perm_c, int nrhs, scalar_t *B, int ldb,
 /* =========================================================================================
  */
 template <typename mag_t, typename crsmat_t, typename scalar_view_t>
-bool check_errors(mag_t tol, crsmat_t &Mtx, scalar_view_t rhs,
-                  scalar_view_t sol) {
+bool check_errors(mag_t tol, crsmat_t &Mtx, scalar_view_t rhs, scalar_view_t sol) {
   using graph_t        = typename crsmat_t::StaticCrsGraphType;
   using entries_view_t = typename graph_t::entries_type::non_const_type;
   using lno_t          = typename entries_view_t::non_const_value_type;
   using values_view_t  = typename crsmat_t::values_type::non_const_type;
   using scalar_t       = typename values_view_t::value_type;
-  using STS            = Kokkos::Details::ArithTraits<scalar_t>;
+  using STS            = Kokkos::ArithTraits<scalar_t>;
 
   using execution_space = typename scalar_view_t::execution_space;
 
@@ -105,10 +74,7 @@ bool check_errors(mag_t tol, crsmat_t &Mtx, scalar_view_t rhs,
   mag_t normA = ZERO;
   Kokkos::parallel_reduce(
       Kokkos::RangePolicy<execution_space>(0, Mtx.nnz()),
-      KOKKOS_LAMBDA(const lno_t i, mag_t &tsum) {
-        tsum += STS::abs(Mtx.values(i)) * STS::abs(Mtx.values(i));
-      },
-      normA);
+      KOKKOS_LAMBDA(const lno_t i, mag_t &tsum) { tsum += STS::abs(Mtx.values(i)) * STS::abs(Mtx.values(i)); }, normA);
   normA = sqrt(normA);
 
   // normB
@@ -121,9 +87,8 @@ bool check_errors(mag_t tol, crsmat_t &Mtx, scalar_view_t rhs,
   KokkosSparse::spmv("N", -ONE, Mtx, sol, ONE, rhs);
   mag_t normR = KokkosBlas::nrm2(rhs);
 
-  std::cout << " > check : ||B - AX||/(||B|| + ||A||*||X||) = " << normR << "/("
-            << normB << " + " << normA << " * " << normX
-            << ") = " << normR / (normB + normA * normX) << std::endl;
+  std::cout << " > check : ||B - AX||/(||B|| + ||A||*||X||) = " << normR << "/(" << normB << " + " << normA << " * "
+            << normX << ") = " << normR / (normB + normA * normX) << std::endl;
 
   const int nrows = Mtx.graph.numRows();
   return (normR / (mag_t(nrows) * (normB + normA * normX)) <= tol);
@@ -142,8 +107,7 @@ void print_crsmat(crsmat_t &A) {
   std::cout << "[";
   for (int i = 0; i < n; i++) {
     for (int k = row_map[i]; k < row_map[i + 1]; k++) {
-      std::cout << i << " " << entries[k] << " " << values[k] << " " << k
-                << std::endl;
+      std::cout << i << " " << entries[k] << " " << values[k] << " " << k << std::endl;
     }
   }
   std::cout << "];" << std::endl;
@@ -212,8 +176,7 @@ crsmat_t remove_zeros_crsmat(crsmat_t &A) {
     hr(i) = nnz;
   }
   hr(n) = nnzA;
-  std::cout << "   > compressed from " << nnzA0 << " to " << nnzA << " nnzs"
-            << std::endl;
+  std::cout << "   > compressed from " << nnzA0 << " to " << nnzA << " nnzs" << std::endl;
 
   // allocate & create
   row_map_view_t new_row_map("rowmap_view", n + 1);
@@ -238,15 +201,12 @@ std::string getCuSparseErrorString(cusparseStatus_t status) {
 #else
   switch (status) {
     case CUSPARSE_STATUS_SUCCESS: return "CUSPARSE_STATUS_SUCCESS";
-    case CUSPARSE_STATUS_NOT_INITIALIZED:
-      return "CUSPARSE_STATUS_NOT_INITIALIZED";
+    case CUSPARSE_STATUS_NOT_INITIALIZED: return "CUSPARSE_STATUS_NOT_INITIALIZED";
     case CUSPARSE_STATUS_ALLOC_FAILED: return "CUSPARSE_STATUS_ALLOC_FAILED";
     case CUSPARSE_STATUS_INVALID_VALUE: return "CUSPARSE_STATUS_INVALID_VALUE";
     case CUSPARSE_STATUS_ARCH_MISMATCH: return "CUSPARSE_STATUS_ARCH_MISMATCH";
-    case CUSPARSE_STATUS_EXECUTION_FAILED:
-      return "USPARSE_STATUS_EXECUTION_FAILED";
-    case CUSPARSE_STATUS_INTERNAL_ERROR:
-      return "CUSPARSE_STATUS_INTERNAL_ERROR";
+    case CUSPARSE_STATUS_EXECUTION_FAILED: return "USPARSE_STATUS_EXECUTION_FAILED";
+    case CUSPARSE_STATUS_INTERNAL_ERROR: return "CUSPARSE_STATUS_INTERNAL_ERROR";
     default: return "un-handled error code";
   }
 #endif
@@ -256,17 +216,25 @@ std::string getCuSparseErrorString(cusparseStatus_t status) {
 /* =========================================================================================
  */
 #if defined(KOKKOSKERNELS_ENABLE_TPL_CUSPARSE)
+#if CUSPARSE_VERSION >= 12500
 template <typename crsmat_t, typename host_crsmat_t>
-bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
-                    bool col_majorU, crsmat_t &U, int *perm_r, int *perm_c,
-                    double tol, int loop) {
+bool check_cusparse(host_crsmat_t &, bool, crsmat_t &, bool, crsmat_t &, int *, int *, double, int) {
+  // TODO: call KokkosSparse::sptrsv (if hardcoded problem settings below are
+  // compatible), or add wrappers for modern interface (cusparseSpSV*)
+  throw std::logic_error("Legacy cuSPARSE csrsv interface not available.");
+  return false;
+}
+
+#else
+
+template <typename crsmat_t, typename host_crsmat_t>
+bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L, bool col_majorU, crsmat_t &U, int *perm_r,
+                    int *perm_c, double tol, int loop) {
   using values_view_t = typename crsmat_t::values_type::non_const_type;
   using scalar_t      = typename values_view_t::value_type;
   using size_type     = typename crsmat_t::size_type;
 
-  using host_values_view_t =
-      typename host_crsmat_t::values_type::non_const_type;
-  using host_scalar_t = typename host_values_view_t::value_type;
+  using host_values_view_t = typename host_crsmat_t::values_type::non_const_type;
 
   using execution_space = typename values_view_t::execution_space;
   using memory_space    = typename execution_space::memory_space;
@@ -289,19 +257,16 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   cusparseHandle_t handle = 0;
   status                  = cusparseCreate(&handle);
   if (CUSPARSE_STATUS_SUCCESS != status) {
-    std::cout << " ** cusparseCreate failed with "
-              << getCuSparseErrorString(status) << " ** " << std::endl;
+    std::cout << " ** cusparseCreate failed with " << getCuSparseErrorString(status) << " ** " << std::endl;
   }
-  cusparseSetPointerMode(
-      handle,
-      CUSPARSE_POINTER_MODE_HOST);  // scalars are passed by reference on host
+  cusparseSetPointerMode(handle,
+                         CUSPARSE_POINTER_MODE_HOST);  // scalars are passed by reference on host
 
   // > create a empty info structure for L-solve (e.g., analysis results)
   csrsv2Info_t infoL = 0;
   status             = cusparseCreateCsrsv2Info(&infoL);
   if (CUSPARSE_STATUS_SUCCESS != status) {
-    std::cout << " ** cusparseCreateCsrsv2Info failed with "
-              << getCuSparseErrorString(status) << " ** " << std::endl;
+    std::cout << " ** cusparseCreateCsrsv2Info failed with " << getCuSparseErrorString(status) << " ** " << std::endl;
   }
 
   // ==============================================
@@ -317,8 +282,7 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   cusparseMatDescr_t descrL = 0;
   status                    = cusparseCreateMatDescr(&descrL);
   if (CUSPARSE_STATUS_SUCCESS != status) {
-    std::cout << " ** cusparseCreateMatDescr failed with "
-              << getCuSparseErrorString(status) << " ** " << std::endl;
+    std::cout << " ** cusparseCreateMatDescr failed with " << getCuSparseErrorString(status) << " ** " << std::endl;
   }
   cusparseSetMatIndexBase(descrL, CUSPARSE_INDEX_BASE_ZERO);
   cusparseSetMatFillMode(descrL, CUSPARSE_FILL_MODE_UPPER);
@@ -330,18 +294,13 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   // pBuffer returned by cudaMalloc is automatically aligned to 128 bytes.
   int pBufferSize;
   void *pBufferL             = 0;
-  cusparseOperation_t transL = (col_majorL ? CUSPARSE_OPERATION_TRANSPOSE
-                                           : CUSPARSE_OPERATION_NON_TRANSPOSE);
+  cusparseOperation_t transL = (col_majorL ? CUSPARSE_OPERATION_TRANSPOSE : CUSPARSE_OPERATION_NON_TRANSPOSE);
   if (std::is_same<scalar_t, double>::value) {
-    cusparseDcsrsv2_bufferSize(handle, transL, nrows, nnzL, descrL,
-                               reinterpret_cast<double *>(valuesL.data()),
-                               row_mapL.data(), entriesL.data(), infoL,
-                               &pBufferSize);
+    cusparseDcsrsv2_bufferSize(handle, transL, nrows, nnzL, descrL, reinterpret_cast<double *>(valuesL.data()),
+                               row_mapL.data(), entriesL.data(), infoL, &pBufferSize);
   } else {
-    cusparseZcsrsv2_bufferSize(
-        handle, transL, nrows, nnzL, descrL,
-        reinterpret_cast<cuDoubleComplex *>(valuesL.data()), row_mapL.data(),
-        entriesL.data(), infoL, &pBufferSize);
+    cusparseZcsrsv2_bufferSize(handle, transL, nrows, nnzL, descrL, reinterpret_cast<cuDoubleComplex *>(valuesL.data()),
+                               row_mapL.data(), entriesL.data(), infoL, &pBufferSize);
   }
   cudaMalloc((void **)&pBufferL, pBufferSize);
 
@@ -351,21 +310,17 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   timer.reset();
   const cusparseSolvePolicy_t policy = CUSPARSE_SOLVE_POLICY_USE_LEVEL;
   if (std::is_same<scalar_t, double>::value) {
-    status = cusparseDcsrsv2_analysis(
-        handle, transL, nrows, nnzL, descrL,
-        reinterpret_cast<double *>(valuesL.data()), row_mapL.data(),
-        entriesL.data(), infoL, policy, pBufferL);
+    status = cusparseDcsrsv2_analysis(handle, transL, nrows, nnzL, descrL, reinterpret_cast<double *>(valuesL.data()),
+                                      row_mapL.data(), entriesL.data(), infoL, policy, pBufferL);
   } else {
-    status = cusparseZcsrsv2_analysis(
-        handle, transL, nrows, nnzL, descrL,
-        reinterpret_cast<cuDoubleComplex *>(valuesL.data()), row_mapL.data(),
-        entriesL.data(), infoL, policy, pBufferL);
+    status = cusparseZcsrsv2_analysis(handle, transL, nrows, nnzL, descrL,
+                                      reinterpret_cast<cuDoubleComplex *>(valuesL.data()), row_mapL.data(),
+                                      entriesL.data(), infoL, policy, pBufferL);
   }
   double time_symbolic = timer.seconds();
   std::cout << "  Cusparse Symbolic Time: " << time_symbolic << std::endl;
   if (CUSPARSE_STATUS_SUCCESS != status) {
-    std::cout << " ** cusparseZcsrsv2_analysis failed with "
-              << getCuSparseErrorString(status) << " ** " << std::endl;
+    std::cout << " ** cusparseZcsrsv2_analysis failed with " << getCuSparseErrorString(status) << " ** " << std::endl;
   }
   // L has unit diagonal, so no structural zero is reported.
 
@@ -389,8 +344,7 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   // ==============================================
   // step 1: apply forward-pivot to rhs on the host
   host_scalar_view_t tmp_host("temp", nrows);
-  forwardP_supernode<scalar_t>(nrows, perm_r, 1, rhs_host.data(), nrows,
-                               tmp_host.data(), nrows);
+  forwardP_supernode<scalar_t>(nrows, perm_r, 1, rhs_host.data(), nrows, tmp_host.data(), nrows);
 
   // copy rhs to the default host/device
   scalar_view_t rhs("rhs", nrows);
@@ -403,25 +357,22 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   timer.reset();
   if (std::is_same<scalar_t, double>::value) {
     const double alpha = 1.0;
-    status             = cusparseDcsrsv2_solve(
-        handle, transL, nrows, nnzL, &alpha, descrL,
-        reinterpret_cast<double *>(valuesL.data()), row_mapL.data(),
-        entriesL.data(), infoL, reinterpret_cast<double *>(rhs.data()),
-        reinterpret_cast<double *>(sol.data()), policy, pBufferL);
+    status =
+        cusparseDcsrsv2_solve(handle, transL, nrows, nnzL, &alpha, descrL, reinterpret_cast<double *>(valuesL.data()),
+                              row_mapL.data(), entriesL.data(), infoL, reinterpret_cast<double *>(rhs.data()),
+                              reinterpret_cast<double *>(sol.data()), policy, pBufferL);
   } else {
     const cuDoubleComplex alpha = make_cuDoubleComplex(1.0, 0.0);
-    status                      = cusparseZcsrsv2_solve(
-        handle, transL, nrows, nnzL, &alpha, descrL,
-        reinterpret_cast<cuDoubleComplex *>(valuesL.data()), row_mapL.data(),
-        entriesL.data(), infoL, reinterpret_cast<cuDoubleComplex *>(rhs.data()),
-        reinterpret_cast<cuDoubleComplex *>(sol.data()), policy, pBufferL);
+    status                      = cusparseZcsrsv2_solve(handle, transL, nrows, nnzL, &alpha, descrL,
+                                                        reinterpret_cast<cuDoubleComplex *>(valuesL.data()), row_mapL.data(),
+                                                        entriesL.data(), infoL, reinterpret_cast<cuDoubleComplex *>(rhs.data()),
+                                                        reinterpret_cast<cuDoubleComplex *>(sol.data()), policy, pBufferL);
   }
   Kokkos::fence();
   double time_solve = timer.seconds();
   std::cout << "  Cusparse Solve Time   : " << time_solve << std::endl;
   if (CUSPARSE_STATUS_SUCCESS != status) {
-    std::cout << " ** cusparseZcsrsv2_solve failed with "
-              << getCuSparseErrorString(status) << " ** " << std::endl;
+    std::cout << " ** cusparseZcsrsv2_solve failed with " << getCuSparseErrorString(status) << " ** " << std::endl;
   }
   // L has unit diagonal, so no numerical zero is reported.
   int numerical_zero;
@@ -442,8 +393,7 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   csrsv2Info_t infoU = 0;
   status             = cusparseCreateCsrsv2Info(&infoU);
   if (CUSPARSE_STATUS_SUCCESS != status) {
-    std::cout << " ** cusparseCreateCsrsv2Info failed with "
-              << getCuSparseErrorString(status) << " ** " << std::endl;
+    std::cout << " ** cusparseCreateCsrsv2Info failed with " << getCuSparseErrorString(status) << " ** " << std::endl;
   }
 
   // ==============================================
@@ -451,8 +401,8 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   cusparseMatDescr_t descrU = 0;
   status                    = cusparseCreateMatDescr(&descrU);
   if (CUSPARSE_STATUS_SUCCESS != status) {
-    std::cout << " ** cusparseCreateMatDescr create status error name "
-              << getCuSparseErrorString(status) << " ** " << std::endl;
+    std::cout << " ** cusparseCreateMatDescr create status error name " << getCuSparseErrorString(status) << " ** "
+              << std::endl;
   }
   // NOTE: if CSR, UPPER+NO-TRANSPOSE, else LOWER+Trans
   cusparseSetMatIndexBase(descrU, CUSPARSE_INDEX_BASE_ZERO);
@@ -468,18 +418,13 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   // step 2: query how much memory used in csrsv2, and allocate the buffer
   // pBuffer returned by cudaMalloc is automatically aligned to 128 bytes.
   void *pBufferU             = 0;
-  cusparseOperation_t transU = (col_majorU ? CUSPARSE_OPERATION_TRANSPOSE
-                                           : CUSPARSE_OPERATION_NON_TRANSPOSE);
+  cusparseOperation_t transU = (col_majorU ? CUSPARSE_OPERATION_TRANSPOSE : CUSPARSE_OPERATION_NON_TRANSPOSE);
   if (std::is_same<scalar_t, double>::value) {
-    cusparseDcsrsv2_bufferSize(handle, transU, nrows, nnzU, descrU,
-                               reinterpret_cast<double *>(valuesU.data()),
-                               row_mapU.data(), entriesU.data(), infoU,
-                               &pBufferSize);
+    cusparseDcsrsv2_bufferSize(handle, transU, nrows, nnzU, descrU, reinterpret_cast<double *>(valuesU.data()),
+                               row_mapU.data(), entriesU.data(), infoU, &pBufferSize);
   } else {
-    cusparseZcsrsv2_bufferSize(
-        handle, transU, nrows, nnzU, descrU,
-        reinterpret_cast<cuDoubleComplex *>(valuesU.data()), row_mapU.data(),
-        entriesU.data(), infoU, &pBufferSize);
+    cusparseZcsrsv2_bufferSize(handle, transU, nrows, nnzU, descrU, reinterpret_cast<cuDoubleComplex *>(valuesU.data()),
+                               row_mapU.data(), entriesU.data(), infoU, &pBufferSize);
   }
   cudaMalloc((void **)&pBufferU, pBufferSize);
 
@@ -488,21 +433,17 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   std::cout << std::endl << "  Upper-Triangular" << std::endl;
   timer.reset();
   if (std::is_same<scalar_t, double>::value) {
-    status = cusparseDcsrsv2_analysis(
-        handle, transU, nrows, nnzU, descrU,
-        reinterpret_cast<double *>(valuesU.data()), row_mapU.data(),
-        entriesU.data(), infoU, policy, pBufferU);
+    status = cusparseDcsrsv2_analysis(handle, transU, nrows, nnzU, descrU, reinterpret_cast<double *>(valuesU.data()),
+                                      row_mapU.data(), entriesU.data(), infoU, policy, pBufferU);
   } else {
-    status = cusparseZcsrsv2_analysis(
-        handle, transU, nrows, nnzU, descrU,
-        reinterpret_cast<cuDoubleComplex *>(valuesU.data()), row_mapU.data(),
-        entriesU.data(), infoU, policy, pBufferU);
+    status = cusparseZcsrsv2_analysis(handle, transU, nrows, nnzU, descrU,
+                                      reinterpret_cast<cuDoubleComplex *>(valuesU.data()), row_mapU.data(),
+                                      entriesU.data(), infoU, policy, pBufferU);
   }
   time_symbolic = timer.seconds();
   std::cout << "  Cusparse Symbolic Time: " << time_symbolic << std::endl;
   if (CUSPARSE_STATUS_SUCCESS != status) {
-    std::cout << " ** cusparseDcsrsv2_analysis failed with "
-              << getCuSparseErrorString(status) << " ** " << std::endl;
+    std::cout << " ** cusparseDcsrsv2_analysis failed with " << getCuSparseErrorString(status) << " ** " << std::endl;
   }
   status = cusparseXcsrsv2_zeroPivot(handle, infoU, &structural_zero);
   if (CUSPARSE_STATUS_ZERO_PIVOT == status) {
@@ -514,25 +455,22 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   timer.reset();
   if (std::is_same<scalar_t, double>::value) {
     const double alpha = 1.0;
-    status             = cusparseDcsrsv2_solve(
-        handle, transU, nrows, nnzU, &alpha, descrU,
-        reinterpret_cast<double *>(valuesU.data()), row_mapU.data(),
-        entriesU.data(), infoU, reinterpret_cast<double *>(sol.data()),
-        reinterpret_cast<double *>(rhs.data()), policy, pBufferU);
+    status =
+        cusparseDcsrsv2_solve(handle, transU, nrows, nnzU, &alpha, descrU, reinterpret_cast<double *>(valuesU.data()),
+                              row_mapU.data(), entriesU.data(), infoU, reinterpret_cast<double *>(sol.data()),
+                              reinterpret_cast<double *>(rhs.data()), policy, pBufferU);
   } else {
     const cuDoubleComplex alpha = make_cuDoubleComplex(1.0, 0.0);
-    status                      = cusparseZcsrsv2_solve(
-        handle, transU, nrows, nnzU, &alpha, descrU,
-        reinterpret_cast<cuDoubleComplex *>(valuesU.data()), row_mapU.data(),
-        entriesU.data(), infoU, reinterpret_cast<cuDoubleComplex *>(sol.data()),
-        reinterpret_cast<cuDoubleComplex *>(rhs.data()), policy, pBufferU);
+    status                      = cusparseZcsrsv2_solve(handle, transU, nrows, nnzU, &alpha, descrU,
+                                                        reinterpret_cast<cuDoubleComplex *>(valuesU.data()), row_mapU.data(),
+                                                        entriesU.data(), infoU, reinterpret_cast<cuDoubleComplex *>(sol.data()),
+                                                        reinterpret_cast<cuDoubleComplex *>(rhs.data()), policy, pBufferU);
   }
   Kokkos::fence();
   time_solve = timer.seconds();
   std::cout << "  Cusparse Solve Time   : " << time_solve << std::endl;
   if (CUSPARSE_STATUS_SUCCESS != status) {
-    std::cout << " ** usparseDcsrsv2_solve failed with "
-              << getCuSparseErrorString(status) << " ** " << std::endl;
+    std::cout << " ** usparseDcsrsv2_solve failed with " << getCuSparseErrorString(status) << " ** " << std::endl;
   }
   status = cusparseXcsrsv2_zeroPivot(handle, infoU, &numerical_zero);
   if (CUSPARSE_STATUS_ZERO_PIVOT == status) {
@@ -543,8 +481,7 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   // copy solution to host
   Kokkos::deep_copy(tmp_host, rhs);
   // apply backward-pivot
-  backwardP_supernode<scalar_t>(nrows, perm_c, 1, tmp_host.data(), nrows,
-                                sol_host.data(), nrows);
+  backwardP_supernode<scalar_t>(nrows, perm_c, 1, tmp_host.data(), nrows, sol_host.data(), nrows);
 
   // ==============================================
   // Error Check ** on host **
@@ -559,43 +496,33 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
     KokkosSparse::spmv("N", ONE, Mtx, sol_host, ZERO, rhs_host);
 
     // forward pivot
-    forwardP_supernode<scalar_t>(nrows, perm_r, 1, rhs_host.data(), nrows,
-                                 tmp_host.data(), nrows);
+    forwardP_supernode<scalar_t>(nrows, perm_r, 1, rhs_host.data(), nrows, tmp_host.data(), nrows);
 
     // copy & solve & copy back
     Kokkos::deep_copy(rhs, tmp_host);
     if (std::is_same<scalar_t, double>::value) {
       const double alpha = 1.0;
-      cusparseDcsrsv2_solve(
-          handle, transL, nrows, nnzL, &alpha, descrL,
-          reinterpret_cast<double *>(valuesL.data()), row_mapL.data(),
-          entriesL.data(), infoL, reinterpret_cast<double *>(rhs.data()),
-          reinterpret_cast<double *>(sol.data()), policy, pBufferL);
-      cusparseDcsrsv2_solve(
-          handle, transU, nrows, nnzU, &alpha, descrU,
-          reinterpret_cast<double *>(valuesU.data()), row_mapU.data(),
-          entriesU.data(), infoU, reinterpret_cast<double *>(sol.data()),
-          reinterpret_cast<double *>(rhs.data()), policy, pBufferU);
+      cusparseDcsrsv2_solve(handle, transL, nrows, nnzL, &alpha, descrL, reinterpret_cast<double *>(valuesL.data()),
+                            row_mapL.data(), entriesL.data(), infoL, reinterpret_cast<double *>(rhs.data()),
+                            reinterpret_cast<double *>(sol.data()), policy, pBufferL);
+      cusparseDcsrsv2_solve(handle, transU, nrows, nnzU, &alpha, descrU, reinterpret_cast<double *>(valuesU.data()),
+                            row_mapU.data(), entriesU.data(), infoU, reinterpret_cast<double *>(sol.data()),
+                            reinterpret_cast<double *>(rhs.data()), policy, pBufferU);
     } else {
       const cuDoubleComplex alpha = make_cuDoubleComplex(1.0, 0.0);
       cusparseZcsrsv2_solve(handle, transL, nrows, nnzL, &alpha, descrL,
-                            reinterpret_cast<cuDoubleComplex *>(valuesL.data()),
-                            row_mapL.data(), entriesL.data(), infoL,
-                            reinterpret_cast<cuDoubleComplex *>(rhs.data()),
-                            reinterpret_cast<cuDoubleComplex *>(sol.data()),
-                            policy, pBufferL);
+                            reinterpret_cast<cuDoubleComplex *>(valuesL.data()), row_mapL.data(), entriesL.data(),
+                            infoL, reinterpret_cast<cuDoubleComplex *>(rhs.data()),
+                            reinterpret_cast<cuDoubleComplex *>(sol.data()), policy, pBufferL);
       cusparseZcsrsv2_solve(handle, transU, nrows, nnzU, &alpha, descrU,
-                            reinterpret_cast<cuDoubleComplex *>(valuesU.data()),
-                            row_mapU.data(), entriesU.data(), infoU,
-                            reinterpret_cast<cuDoubleComplex *>(sol.data()),
-                            reinterpret_cast<cuDoubleComplex *>(rhs.data()),
-                            policy, pBufferU);
+                            reinterpret_cast<cuDoubleComplex *>(valuesU.data()), row_mapU.data(), entriesU.data(),
+                            infoU, reinterpret_cast<cuDoubleComplex *>(sol.data()),
+                            reinterpret_cast<cuDoubleComplex *>(rhs.data()), policy, pBufferU);
     }
     Kokkos::deep_copy(tmp_host, rhs);
 
     // backward pivot and check
-    backwardP_supernode<scalar_t>(nrows, perm_c, 1, tmp_host.data(), nrows,
-                                  sol_host.data(), nrows);
+    backwardP_supernode<scalar_t>(nrows, perm_c, 1, tmp_host.data(), nrows, sol_host.data(), nrows);
     success = check_errors(tol, Mtx, rhs_host, sol_host);
   }
   std::cout << std::endl;
@@ -613,22 +540,18 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
       if (std::is_same<scalar_t, double>::value) {
         const double alpha = 1.0;
         timer.reset();
-        cusparseDcsrsv2_solve(
-            handle, transL, nrows, nnzL, &alpha, descrL,
-            reinterpret_cast<double *>(valuesL.data()), row_mapL.data(),
-            entriesL.data(), infoL, reinterpret_cast<double *>(rhs.data()),
-            reinterpret_cast<double *>(sol.data()), policy, pBufferL);
+        cusparseDcsrsv2_solve(handle, transL, nrows, nnzL, &alpha, descrL, reinterpret_cast<double *>(valuesL.data()),
+                              row_mapL.data(), entriesL.data(), infoL, reinterpret_cast<double *>(rhs.data()),
+                              reinterpret_cast<double *>(sol.data()), policy, pBufferL);
         Kokkos::fence();
         time = timer.seconds();
       } else {
         const cuDoubleComplex alpha = make_cuDoubleComplex(1.0, 0.0);
         timer.reset();
-        cusparseZcsrsv2_solve(
-            handle, transL, nrows, nnzL, &alpha, descrL,
-            reinterpret_cast<cuDoubleComplex *>(valuesL.data()),
-            row_mapL.data(), entriesL.data(), infoL,
-            reinterpret_cast<cuDoubleComplex *>(rhs.data()),
-            reinterpret_cast<cuDoubleComplex *>(sol.data()), policy, pBufferL);
+        cusparseZcsrsv2_solve(handle, transL, nrows, nnzL, &alpha, descrL,
+                              reinterpret_cast<cuDoubleComplex *>(valuesL.data()), row_mapL.data(), entriesL.data(),
+                              infoL, reinterpret_cast<cuDoubleComplex *>(rhs.data()),
+                              reinterpret_cast<cuDoubleComplex *>(sol.data()), policy, pBufferL);
         Kokkos::fence();
         time = timer.seconds();
       }
@@ -651,22 +574,18 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
       if (std::is_same<scalar_t, double>::value) {
         double alpha = 1.0;
         timer.reset();
-        cusparseDcsrsv2_solve(
-            handle, transU, nrows, nnzU, &alpha, descrU,
-            reinterpret_cast<double *>(valuesU.data()), row_mapU.data(),
-            entriesU.data(), infoU, reinterpret_cast<double *>(sol.data()),
-            reinterpret_cast<double *>(rhs.data()), policy, pBufferU);
+        cusparseDcsrsv2_solve(handle, transU, nrows, nnzU, &alpha, descrU, reinterpret_cast<double *>(valuesU.data()),
+                              row_mapU.data(), entriesU.data(), infoU, reinterpret_cast<double *>(sol.data()),
+                              reinterpret_cast<double *>(rhs.data()), policy, pBufferU);
         Kokkos::fence();
         time = timer.seconds();
       } else {
         const cuDoubleComplex alpha = make_cuDoubleComplex(1.0, 0.0);
         timer.reset();
-        cusparseZcsrsv2_solve(
-            handle, transU, nrows, nnzU, &alpha, descrU,
-            reinterpret_cast<cuDoubleComplex *>(valuesU.data()),
-            row_mapU.data(), entriesU.data(), infoU,
-            reinterpret_cast<cuDoubleComplex *>(sol.data()),
-            reinterpret_cast<cuDoubleComplex *>(rhs.data()), policy, pBufferU);
+        cusparseZcsrsv2_solve(handle, transU, nrows, nnzU, &alpha, descrU,
+                              reinterpret_cast<cuDoubleComplex *>(valuesU.data()), row_mapU.data(), entriesU.data(),
+                              infoU, reinterpret_cast<cuDoubleComplex *>(sol.data()),
+                              reinterpret_cast<cuDoubleComplex *>(rhs.data()), policy, pBufferU);
         Kokkos::fence();
         time = timer.seconds();
       }
@@ -681,12 +600,12 @@ bool check_cusparse(host_crsmat_t &Mtx, bool col_majorL, crsmat_t &L,
   }
   return success;
 }
+#endif
+
 #else
 template <typename crsmat_t, typename host_crsmat_t>
-bool check_cusparse(host_crsmat_t & /*Mtx*/, bool /*col_majorL*/,
-                    crsmat_t & /*L*/, bool /*col_majorU*/, crsmat_t & /*U*/,
-                    int * /*perm_r*/, int * /*perm_c*/, double /*tol*/,
-                    int /*loop*/) {
+bool check_cusparse(host_crsmat_t & /*Mtx*/, bool /*col_majorL*/, crsmat_t & /*L*/, bool /*col_majorU*/,
+                    crsmat_t & /*U*/, int * /*perm_r*/, int * /*perm_c*/, double /*tol*/, int /*loop*/) {
   printf(" KOKKOSKERNELS_ENABLE_TPL_CUSPARSE **not** enabled\n");
   return false;
 }

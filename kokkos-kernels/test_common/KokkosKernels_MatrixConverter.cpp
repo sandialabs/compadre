@@ -1,46 +1,18 @@
-/*
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
 //               Solutions of Sandia, LLC (NTESS).
 //
 // Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Siva Rajamanickam (srajama@sandia.gov)
-//
-// ************************************************************************
 //@HEADER
-*/
 #include <cstdlib>
 #include <iostream>
 #include "KokkosKernels_IOUtils.hpp"
@@ -61,8 +33,7 @@ int main(int argc, char *argv[]) {
   for (int i = 1; i < argc; ++i) {
     if (0 == Test::string_compare_no_case(argv[i], "--symmetrize")) {
       symmetrize = true;
-    } else if (0 ==
-               Test::string_compare_no_case(argv[i], "--remove_diagonal")) {
+    } else if (0 == Test::string_compare_no_case(argv[i], "--remove_diagonal")) {
       remove_diagonal = true;
     } else if (0 == Test::string_compare_no_case(argv[i], "--transpose")) {
       transpose = true;
@@ -104,9 +75,7 @@ int main(int argc, char *argv[]) {
   {
     typedef Kokkos::DefaultHostExecutionSpace MyExecSpace;
 
-    typedef
-        typename KokkosSparse::CrsMatrix<wt, idx, MyExecSpace, void, size_type>
-            crstmat_t;
+    typedef typename KokkosSparse::CrsMatrix<wt, idx, MyExecSpace, void, size_type> crstmat_t;
     typedef typename crstmat_t::StaticCrsGraphType graph_t;
     typedef typename graph_t::row_map_type::non_const_type row_map_view_t;
     typedef typename graph_t::entries_type::non_const_type cols_view_t;
@@ -116,8 +85,7 @@ int main(int argc, char *argv[]) {
     typedef typename graph_t::entries_type::const_type c_cols_view_t;
     typedef typename crstmat_t::values_type::const_type c_values_view_t;
 
-    crstmat_t a_crsmat =
-        KokkosKernels::Impl::read_kokkos_crst_matrix<crstmat_t>(in_mtx);
+    crstmat_t a_crsmat = KokkosKernels::Impl::read_kokkos_crst_matrix<crstmat_t>(in_mtx);
 
     c_row_map_view_t orm    = a_crsmat.graph.row_map;
     c_cols_view_t oentries  = a_crsmat.graph.entries;
@@ -178,8 +146,7 @@ int main(int argc, char *argv[]) {
           }
         }
         if (obegin != nrm[i + 1]) {
-          std::cout << "i:" << i << " nrm[i+1]:" << nrm[i + 1]
-                    << " obegin:" << obegin << std::endl;
+          std::cout << "i:" << i << " nrm[i+1]:" << nrm[i + 1] << " obegin:" << obegin << std::endl;
           exit(1);
         }
       }
@@ -199,8 +166,7 @@ int main(int argc, char *argv[]) {
       }
 
       graph_t transpose_graph(new_entries, new_rowmap);
-      crstmat_t transpose_matrix("transpose", numrows, new_values,
-                                 transpose_graph);
+      crstmat_t transpose_matrix("transpose", numrows, new_values, transpose_graph);
       a_crsmat = transpose_matrix;
 
       orm      = a_crsmat.graph.row_map;
@@ -220,18 +186,16 @@ int main(int argc, char *argv[]) {
       row_map_view_t new_rowmap;
       cols_view_t new_entries;
 
-      KokkosKernels::Impl::symmetrize_graph_symbolic_hashmap<
-          c_row_map_view_t, c_cols_view_t, row_map_view_t, cols_view_t,
-          MyExecSpace>(numrows, orm, oentries, new_rowmap, new_entries);
+      KokkosKernels::Impl::symmetrize_graph_symbolic_hashmap<c_row_map_view_t, c_cols_view_t, row_map_view_t,
+                                                             cols_view_t, MyExecSpace>(numrows, orm, oentries,
+                                                                                       new_rowmap, new_entries);
       values_view_t new_values("new_values", new_entries.extent(0));
 
-      KokkosKernels::sort_crs_matrix<MyExecSpace, row_map_view_t, cols_view_t,
-                                     values_view_t>(new_rowmap, new_entries,
-                                                    new_values);
+      KokkosKernels::sort_crs_matrix<MyExecSpace, row_map_view_t, cols_view_t, values_view_t>(new_rowmap, new_entries,
+                                                                                              new_values);
 
       graph_t symmetric_graph(new_entries, new_rowmap);
-      crstmat_t symmetric_marix("transpose", numrows, new_values,
-                                symmetric_graph);
+      crstmat_t symmetric_marix("transpose", numrows, new_values, symmetric_graph);
       a_crsmat = symmetric_marix;
 
       orm      = a_crsmat.graph.row_map;
@@ -251,19 +215,16 @@ int main(int argc, char *argv[]) {
       cols_view_t new_entries("new_rowmap", a_crsmat.nnz());
       values_view_t new_values("new_rowmap", a_crsmat.nnz());
 
-      KokkosKernels::Impl::transpose_matrix<
-          c_row_map_view_t, c_cols_view_t, c_values_view_t, row_map_view_t,
-          cols_view_t, values_view_t, row_map_view_t, MyExecSpace>(
-          a_crsmat.numRows(), a_crsmat.numCols(), a_crsmat.graph.row_map,
-          a_crsmat.graph.entries, a_crsmat.values, new_rowmap, new_entries,
-          new_values);
+      KokkosSparse::Impl::transpose_matrix<c_row_map_view_t, c_cols_view_t, c_values_view_t, row_map_view_t,
+                                           cols_view_t, values_view_t, row_map_view_t, MyExecSpace>(
+          a_crsmat.numRows(), a_crsmat.numCols(), a_crsmat.graph.row_map, a_crsmat.graph.entries, a_crsmat.values,
+          new_rowmap, new_entries, new_values);
 
       std::cout << 1 << std::endl;
       std::cout << 2 << std::endl;
 
-      KokkosKernels::sort_crs_matrix<MyExecSpace, row_map_view_t, cols_view_t,
-                                     values_view_t>(new_rowmap, new_entries,
-                                                    new_values);
+      KokkosKernels::sort_crs_matrix<MyExecSpace, row_map_view_t, cols_view_t, values_view_t>(new_rowmap, new_entries,
+                                                                                              new_values);
 
       std::cout << 3 << std::endl;
       MyExecSpace().fence();
@@ -271,8 +232,7 @@ int main(int argc, char *argv[]) {
       KokkosKernels::Impl::kk_print_1Dview(new_values);
 
       graph_t transpose_graph(new_entries, new_rowmap);
-      crstmat_t transpose_matrix("transpose", a_crsmat.numRows(), new_values,
-                                 transpose_graph);
+      crstmat_t transpose_matrix("transpose", a_crsmat.numRows(), new_values, transpose_graph);
       a_crsmat = transpose_matrix;
 
       orm      = a_crsmat.graph.row_map;

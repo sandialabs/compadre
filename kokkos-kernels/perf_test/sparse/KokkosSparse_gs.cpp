@@ -1,46 +1,18 @@
-/*
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
 //               Solutions of Sandia, LLC (NTESS).
 //
 // Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Siva Rajamanickam (srajama@sandia.gov)
-//
-// ************************************************************************
 //@HEADER
-*/
 
 #include <Kokkos_Core.hpp>
 #include <Kokkos_Timer.hpp>
@@ -52,6 +24,7 @@
 #include <KokkosBlas1_nrm2.hpp>
 #include <KokkosKernels_config.h>
 #include "KokkosKernels_default_types.hpp"
+#include "KokkosSparse_IOUtils.hpp"
 #include <iostream>
 #include <random>
 #include <vector>
@@ -80,6 +53,7 @@ struct GS_Parameters {
   int maxNnzPerLongRow    = 2000;
   bool graph_symmetric    = false;
   int sweeps              = 1;
+  int nstreams            = 1;
   GSAlgorithm algo        = GS_DEFAULT;
   GSDirection direction   = GS_FORWARD;
   // Point:
@@ -120,8 +94,7 @@ crsMat_t generateLongRowMatrix(const GS_Parameters& params) {
     } else
       rowLengths.push_back(params.nnzPerRow);
   }
-  std::shuffle(rowLengths.begin(), rowLengths.end(),
-               std::mt19937(std::random_device()()));
+  std::shuffle(rowLengths.begin(), rowLengths.end(), std::mt19937(std::random_device()()));
   size_type totalEntries = 0;
   int randSteps          = 1000000;
   // Set of columns inserted so far into current short row
@@ -134,9 +107,7 @@ crsMat_t generateLongRowMatrix(const GS_Parameters& params) {
   for (lno_t i = 0; i < numRows; i++) {
     shortRowEntries.clear();
     bool rowIsLong = rowLengths[i] > params.nnzPerRow;
-    if (rowIsLong)
-      std::shuffle(longRowEntries.begin(), longRowEntries.end(),
-                   std::mt19937(std::random_device()()));
+    if (rowIsLong) std::shuffle(longRowEntries.begin(), longRowEntries.end(), std::mt19937(std::random_device()()));
     for (lno_t ent = 0; ent < rowLengths[i]; ent++) {
       if (ent == 0) {
         entries.push_back(i);
@@ -156,28 +127,20 @@ crsMat_t generateLongRowMatrix(const GS_Parameters& params) {
           }
           entries.push_back(col);
         }
-        values.push_back((-0.1 + (0.2 * (rand() % randSteps) / randSteps)) *
-                         one);
+        values.push_back((-0.1 + (0.2 * (rand() % randSteps) / randSteps)) * one);
       }
     }
     totalEntries += rowLengths[i];
     rowmap.push_back(totalEntries);
   }
-  scalar_view_t valuesView(
-      Kokkos::view_alloc(Kokkos::WithoutInitializing, "Values"), totalEntries);
-  entries_view_t entriesView(
-      Kokkos::view_alloc(Kokkos::WithoutInitializing, "Entries"), totalEntries);
-  rowmap_view_t rowmapView(
-      Kokkos::view_alloc(Kokkos::WithoutInitializing, "Rowmap"), numRows + 1);
-  Kokkos::deep_copy(valuesView, Kokkos::View<scalar_t*, Kokkos::HostSpace>(
-                                    values.data(), totalEntries));
-  Kokkos::deep_copy(entriesView, Kokkos::View<lno_t*, Kokkos::HostSpace>(
-                                     entries.data(), totalEntries));
-  Kokkos::deep_copy(rowmapView, Kokkos::View<size_type*, Kokkos::HostSpace>(
-                                    rowmap.data(), numRows + 1));
-  crsMat_t A("A", numRows, numRows, totalEntries, valuesView, rowmapView,
-             entriesView);
-  A = KokkosKernels::sort_and_merge_matrix(A);
+  scalar_view_t valuesView(Kokkos::view_alloc(Kokkos::WithoutInitializing, "Values"), totalEntries);
+  entries_view_t entriesView(Kokkos::view_alloc(Kokkos::WithoutInitializing, "Entries"), totalEntries);
+  rowmap_view_t rowmapView(Kokkos::view_alloc(Kokkos::WithoutInitializing, "Rowmap"), numRows + 1);
+  Kokkos::deep_copy(valuesView, Kokkos::View<scalar_t*, Kokkos::HostSpace>(values.data(), totalEntries));
+  Kokkos::deep_copy(entriesView, Kokkos::View<lno_t*, Kokkos::HostSpace>(entries.data(), totalEntries));
+  Kokkos::deep_copy(rowmapView, Kokkos::View<size_type*, Kokkos::HostSpace>(rowmap.data(), numRows + 1));
+  crsMat_t A("A", numRows, numRows, totalEntries, valuesView, rowmapView, entriesView);
+  A = KokkosSparse::sort_and_merge_matrix(A);
   if (params.graph_symmetric) {
     // Symmetrize on host, rather than relying on the parallel versions (those
     // can be tested for symmetric=false)
@@ -193,18 +156,14 @@ void runGS(const GS_Parameters& params) {
   typedef default_size_type size_type;
   typedef typename device_t::execution_space exec_space;
   typedef typename device_t::memory_space mem_space;
-  typedef KokkosKernels::Experimental::KokkosKernelsHandle<
-      size_type, lno_t, scalar_t, exec_space, mem_space, mem_space>
+  typedef KokkosKernels::Experimental::KokkosKernelsHandle<size_type, lno_t, scalar_t, exec_space, mem_space, mem_space>
       KernelHandle;
-  typedef typename KokkosSparse::CrsMatrix<scalar_t, lno_t, device_t, void,
-                                           size_type>
-      crsMat_t;
+  typedef typename KokkosSparse::CrsMatrix<scalar_t, lno_t, device_t, void, size_type> crsMat_t;
   // typedef typename crsMat_t::StaticCrsGraphType graph_t;
   typedef typename crsMat_t::values_type::non_const_type scalar_view_t;
   crsMat_t A;
   if (params.matrix_path)
-    A = KokkosKernels::Impl::read_kokkos_crst_matrix<crsMat_t>(
-        params.matrix_path);
+    A = KokkosSparse::Impl::read_kokkos_crst_matrix<crsMat_t>(params.matrix_path);
   else
     A = generateLongRowMatrix<crsMat_t>(params);
   lno_t nrows = A.numRows();
@@ -214,78 +173,152 @@ void runGS(const GS_Parameters& params) {
     Kokkos::finalize();
     exit(1);
   }
+  std::vector<exec_space> instances;
   // size_type nnz = A.nnz();
-  KernelHandle kh;
+  std::vector<KernelHandle> kh(params.nstreams);
   // use a random RHS - uniformly distributed over (-5, 5)
-  scalar_view_t b("b", nrows);
-  {
-    srand(54321);
-    auto bhost = Kokkos::create_mirror_view(b);
-    for (lno_t i = 0; i < nrows; i++) {
-      bhost(i) = 10.0 * rand() / RAND_MAX - 5.0;
-    }
-    Kokkos::deep_copy(b, bhost);
-  }
-  double bnorm = KokkosBlas::nrm2(b);
+  std::vector<scalar_view_t> b(params.nstreams);
   // initial LHS is 0
-  scalar_view_t x("x", nrows);
+  std::vector<scalar_view_t> x(params.nstreams);
+  // Extract diagonal blocks of CRS matrix
+  std::vector<crsMat_t> DiagBlks(params.nstreams);
   // how long symbolic/numeric phases take (the graph reuse case isn't that
   // interesting since numeric doesn't do much)
   Kokkos::Timer timer;
-  // cluster size of 1 is standard multicolor GS
-  if (params.algo == GS_DEFAULT) {
-    kh.create_gs_handle();
-    kh.get_point_gs_handle()->set_long_row_threshold(params.longRowThreshold);
-  } else if (params.algo == GS_CLUSTER) {
-    kh.create_gs_handle(params.coarse_algo, params.cluster_size);
-  } else {
-    kh.create_gs_handle(params.algo);
-    if (params.algo == GS_TWOSTAGE) kh.set_gs_twostage(!params.classic, nrows);
+
+  {
+    namespace KE = Kokkos::Experimental;
+    auto ns      = params.nstreams;
+    auto es      = exec_space();
+    std::vector<int> weights(ns);
+    std::fill(weights.begin(), weights.end(), 1);
+    instances = KE::partition_space(es, weights);
   }
+
+  double blockExtractionTime = 0, symbolicLaunchTimeTotal = 0, symbolicComputeTimeTotal = 0, numericLaunchTimeTotal = 0,
+         numericComputeTimeTotal = 0, applyLaunchTimeTotal = 0, applyComputeTimeTotal = 0;
+
   timer.reset();
-  KokkosSparse::Experimental::gauss_seidel_symbolic(
-      &kh, nrows, nrows, A.graph.row_map, A.graph.entries,
-      params.graph_symmetric);
-  double symbolicTime = timer.seconds();
-  std::cout << "\n*** Symbolic time: " << symbolicTime << '\n';
-  timer.reset();
-  KokkosSparse::Experimental::gauss_seidel_numeric(
-      &kh, nrows, nrows, A.graph.row_map, A.graph.entries, A.values,
-      params.graph_symmetric);
-  double numericTime = timer.seconds();
-  std::cout << "\n*** Numeric time: " << numericTime << '\n';
-  timer.reset();
-  // Last two parameters are damping factor (should be 1) and sweeps
-  switch (params.direction) {
-    case GS_SYMMETRIC:
-      KokkosSparse::Experimental::symmetric_gauss_seidel_apply(
-          &kh, nrows, nrows, A.graph.row_map, A.graph.entries, A.values, x, b,
-          true, true, 1.0, params.sweeps);
-      break;
-    case GS_FORWARD:
-      KokkosSparse::Experimental::forward_sweep_gauss_seidel_apply(
-          &kh, nrows, nrows, A.graph.row_map, A.graph.entries, A.values, x, b,
-          true, true, 1.0, params.sweeps);
-      break;
-    case GS_BACKWARD:
-      KokkosSparse::Experimental::backward_sweep_gauss_seidel_apply(
-          &kh, nrows, nrows, A.graph.row_map, A.graph.entries, A.values, x, b,
-          true, true, 1.0, params.sweeps);
-      break;
+  KokkosSparse::Impl::kk_extract_diagonal_blocks_crsmatrix_sequential(A, DiagBlks);
+  Kokkos::fence();
+  blockExtractionTime = timer.seconds();
+
+  /////////////////// Handle creation ///////////////////
+  for (int i = 0; i < params.nstreams; i++) {
+    auto blk_A     = DiagBlks[i];
+    auto blk_nrows = blk_A.numRows();
+    auto blk_ncols = blk_A.numCols();
+    if (blk_nrows != blk_ncols) {
+      cout << "ERROR: Gauss-Seidel only works for square matrices\n";
+      Kokkos::finalize();
+      exit(1);
+    }
+    b[i] = scalar_view_t("b[" + std::to_string(i) + "]", blk_nrows);
+    x[i] = scalar_view_t("x[" + std::to_string(i) + "]", blk_nrows);
+    {
+      srand(54321 + i);
+      auto bhost = Kokkos::create_mirror_view(b[i]);
+      for (lno_t row_id = 0; row_id < blk_nrows; row_id++) {
+        bhost(row_id) = 10.0 * rand() / RAND_MAX - 5.0;
+      }
+      Kokkos::deep_copy(instances[i], b[i], bhost);
+    }
+    // cluster size of 1 is standard multicolor GS
+    if (params.algo == GS_DEFAULT) {
+      kh[i].create_gs_handle(instances[i], params.nstreams);
+      kh[i].get_point_gs_handle()->set_long_row_threshold(params.longRowThreshold);
+    } else if (params.algo == GS_CLUSTER) {
+      kh[i].create_gs_handle(params.coarse_algo, params.cluster_size);
+    } else {
+      kh[i].create_gs_handle(params.algo);
+      if (params.algo == GS_TWOSTAGE) kh[i].set_gs_twostage(!params.classic, blk_nrows);
+    }
   }
-  double applyTime = timer.seconds();
-  std::cout << "\n*** Apply time: " << applyTime << '\n';
-  kh.destroy_gs_handle();
-  // Now, compute the 2-norm of residual
-  scalar_view_t res("Ax-b", nrows);
-  Kokkos::deep_copy(res, b);
-  scalar_t alpha = Kokkos::reduction_identity<scalar_t>::prod();
-  scalar_t beta  = -alpha;
-  KokkosSparse::spmv<scalar_t, crsMat_t, scalar_view_t, scalar_t,
-                     scalar_view_t>("N", alpha, A, x, beta, res);
-  double resnorm = KokkosBlas::nrm2(res);
-  // note: this still works if the solution diverges
-  std::cout << "Relative res norm: " << resnorm / bnorm << '\n';
+
+  /////////////////// Symbolic /////////////////
+  timer.reset();
+  for (int i = 0; i < params.nstreams; i++) {
+    auto blk_A     = DiagBlks[i];
+    auto blk_nrows = blk_A.numRows();
+    KokkosSparse::Experimental::gauss_seidel_symbolic(instances[i], &kh[i], blk_nrows, blk_nrows, blk_A.graph.row_map,
+                                                      blk_A.graph.entries, params.graph_symmetric);
+  }
+  symbolicLaunchTimeTotal = timer.seconds();
+  timer.reset();
+  Kokkos::fence();
+  symbolicComputeTimeTotal = timer.seconds();
+
+  /////////////////// Numeric /////////////////
+  timer.reset();
+  for (int i = 0; i < params.nstreams; i++) {
+    auto blk_A     = DiagBlks[i];
+    auto blk_nrows = blk_A.numRows();
+    KokkosSparse::Experimental::gauss_seidel_numeric(instances[i], &kh[i], blk_nrows, blk_nrows, blk_A.graph.row_map,
+                                                     blk_A.graph.entries, blk_A.values, params.graph_symmetric);
+  }
+  numericLaunchTimeTotal = timer.seconds();
+  timer.reset();
+  Kokkos::fence();
+  numericComputeTimeTotal = timer.seconds();
+
+  /////////////////// Apply /////////////////
+  timer.reset();
+  for (int i = 0; i < params.nstreams; i++) {
+    auto blk_A     = DiagBlks[i];
+    auto blk_nrows = blk_A.numRows();
+    // Last two parameters are damping factor (should be 1) and sweeps
+    switch (params.direction) {
+      case GS_SYMMETRIC:
+        KokkosSparse::Experimental::symmetric_gauss_seidel_apply(instances[i], &kh[i], blk_nrows, blk_nrows,
+                                                                 blk_A.graph.row_map, blk_A.graph.entries, blk_A.values,
+                                                                 x[i], b[i], true, true, 1.0, params.sweeps);
+        break;
+      case GS_FORWARD:
+        KokkosSparse::Experimental::forward_sweep_gauss_seidel_apply(
+            instances[i], &kh[i], blk_nrows, blk_nrows, blk_A.graph.row_map, blk_A.graph.entries, blk_A.values, x[i],
+            b[i], true, true, 1.0, params.sweeps);
+        break;
+      case GS_BACKWARD:
+        KokkosSparse::Experimental::backward_sweep_gauss_seidel_apply(
+            instances[i], &kh[i], blk_nrows, blk_nrows, blk_A.graph.row_map, blk_A.graph.entries, blk_A.values, x[i],
+            b[i], true, true, 1.0, params.sweeps);
+        break;
+    }
+  }
+  applyLaunchTimeTotal = timer.seconds();
+  timer.reset();
+  Kokkos::fence();
+  applyComputeTimeTotal = timer.seconds();
+  timer.reset();
+
+  for (int i = 0; i < params.nstreams; i++) {
+    auto blk_A     = DiagBlks[i];
+    auto blk_nrows = blk_A.numRows();
+    kh[i].destroy_gs_handle();
+    // Now, compute the 2-norm of residual
+    scalar_view_t res("Ax-b", blk_nrows);
+    Kokkos::deep_copy(instances[i], res, b[i]);
+    double bnorm   = KokkosBlas::nrm2(instances[i], b[i]);
+    scalar_t alpha = Kokkos::reduction_identity<scalar_t>::prod();
+    scalar_t beta  = -alpha;
+    KokkosSparse::spmv<exec_space, scalar_t, crsMat_t, scalar_view_t, scalar_t, scalar_view_t>(instances[i], "N", alpha,
+                                                                                               blk_A, x[i], beta, res);
+    double resnorm = KokkosBlas::nrm2(instances[i], res);
+    // note: this still works if the solution diverges
+    std::cout << "StreamID(" << i << "): Relative res norm: " << resnorm / bnorm << '\n';
+  }
+  std::cout << "\n*** Total block extraction time: " << blockExtractionTime << '\n';
+  std::cout << "\n*** Total Symbolic launch time: " << symbolicLaunchTimeTotal << '\n';
+  std::cout << "*** Total Symbolic compute time: " << symbolicComputeTimeTotal << '\n';
+  std::cout << "\n*** Total Numeric launch time: " << numericLaunchTimeTotal << '\n';
+  std::cout << "*** Total Numeric compute time: " << numericComputeTimeTotal << '\n';
+  std::cout << "\n*** Total Apply launch time: " << applyLaunchTimeTotal << '\n';
+  std::cout << "*** Total Apply compute time: " << applyComputeTimeTotal << '\n';
+  double launchTimeTotal = symbolicLaunchTimeTotal + numericLaunchTimeTotal + applyLaunchTimeTotal;
+  std::cout << "\n*** Total launch time: " << launchTimeTotal << '\n';
+  double computeTimeTotal = symbolicComputeTimeTotal + numericComputeTimeTotal + applyComputeTimeTotal;
+  std::cout << "*** Total compute time: " << computeTimeTotal << '\n';
+  std::cout << "\n*** Total compute and launch time: " << launchTimeTotal + computeTimeTotal << '\n';
 }
 
 int main(int argc, char** argv) {
@@ -301,6 +334,8 @@ int main(int argc, char** argv) {
             "symmetric.\n";
     cout << "            : if generating matrix randomly, it is symmetrized\n";
     cout << "--sweeps S: run S times (default 1)\n";
+    cout << "--streams N: partition matrix and run across N streams (default "
+            "1)\n";
     cout << "Randomized matrix settings, if not reading from file:\n";
     cout << "  --n <N> : number of rows/columns\n";
     cout << "  --nnz <N> : number of nonzeros in each regular row\n";
@@ -367,6 +402,8 @@ int main(int argc, char** argv) {
       params.direction = GS_BACKWARD;
     else if (!strcmp(argv[i], "--sweeps"))
       params.sweeps = atoi(getNextArg(i, argc, argv));
+    else if (!strcmp(argv[i], "--streams"))
+      params.nstreams = atoi(getNextArg(i, argc, argv));
     else if (!strcmp(argv[i], "--point"))
       params.algo = GS_DEFAULT;
     else if (!strcmp(argv[i], "--cluster"))
@@ -428,8 +465,7 @@ int main(int argc, char** argv) {
   }
 #endif
   if (!run) {
-    std::cerr << "Error: device " << deviceName
-              << " was requested but it's not enabled in this build.\n";
+    std::cerr << "Error: device " << deviceName << " was requested but it's not enabled in this build.\n";
     return 1;
   }
   Kokkos::finalize();

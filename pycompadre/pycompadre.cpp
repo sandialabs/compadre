@@ -9,6 +9,7 @@
 #include <Kokkos_Random.hpp>
 #include <assert.h>
 #include <memory>
+#include <iostream>
 #ifdef COMPADRE_USE_MPI
     #include <mpi.h>
 #endif
@@ -123,8 +124,7 @@ struct cknp2d {
         size_t dim_out_0 = kokkos_array_host.extent(0);
         size_t dim_out_1 = kokkos_array_host.extent(1);
 
-        result = py::array_t<typename T::value_type>(dim_out_0*dim_out_1);
-        result.resize({dim_out_0,dim_out_1});
+        result = py::array_t<typename T::value_type>({dim_out_0,dim_out_1});
         auto data = result.template mutable_unchecked<T::rank>();
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](size_t i) {
             for (size_t j=0; j<dim_out_1; ++j) {
@@ -155,8 +155,7 @@ struct cknp3d {
         auto dim_out_1 = kokkos_array_host.extent(1);
         auto dim_out_2 = kokkos_array_host.extent(2);
 
-        result = py::array_t<typename T::value_type>(dim_out_0*dim_out_1*dim_out_2);
-        result.resize({dim_out_0,dim_out_1,dim_out_2});
+        result = py::array_t<typename T::value_type>({dim_out_0,dim_out_1,dim_out_2});
         auto data = result.template mutable_unchecked<T::rank>();
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
             for (int j=0; j<dim_out_1; ++j) {
@@ -399,6 +398,23 @@ public:
     void generateKDTree() {
         compadre_assert_release(gmls_object!=nullptr &&
                 "ParticleHelper used without an internal GMLS object set");
+        //auto d_val = gmls_object->getPointConnections()->_source_coordinates;
+        ////compadre_assert_release((gmls_object->getPointConnections()->_source_coordinates.extent(0)>0) &&
+        ////"getSourceSites() called, but source sites were never set.");
+        //std::cout << "T" << d_val.extent(0) << std::endl;
+        //auto h_val = 
+        //    Kokkos::create_mirror_view(d_val);
+        //Kokkos::deep_copy(h_val, d_val);
+        //if (d_val.extent(0)>0) {
+        //    std::cout << "N" << h_val(0,0) << std::endl;
+        //    point_cloud_search = std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> >(
+        //            new Compadre::PointCloudSearch<double_2d_view_type>(
+        //                h_val,
+        //                gmls_object->getGlobalDimensions()
+        //            )
+        //    );
+        //}
+        //auto h_val = gmls_object->getPointConnections()->_source_coordinates;
         point_cloud_search = std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> >(
                 new Compadre::PointCloudSearch<double_2d_view_type>(
                     convert_np_to_kokkos_2d<host_memory_space>(
@@ -541,18 +557,16 @@ public:
         auto dim_out_0 = polynomial_coefficients.extent(0);
         auto dim_out_1 = polynomial_coefficients.extent(1);
 
-        auto result = py::array_t<double>(dim_out_0*dim_out_1);
-        py::buffer_info buf_out = result.request();
-
-        double *ptr = (double *) buf_out.ptr;
-        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0*dim_out_1), [&](int i) {
-            ptr[i] = *(polynomial_coefficients.data()+i);
+        auto result = py::array_t<double>({dim_out_0, dim_out_1});
+        auto out = result.template mutable_unchecked<2>();
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, dim_out_0), [&](int i) {
+            for (int j = 0; j < dim_out_1; ++j)
+            {
+                out(i, j) = polynomial_coefficients(i, j);
+            }
         });
         Kokkos::fence();
 
-        if (dim_out_1>1) {
-            result.resize({dim_out_0,dim_out_1});
-        }
         return result;
     }
  
@@ -579,7 +593,7 @@ public:
         auto result = py::array_t<double>(dim_out_0*dim_out_1);
 
         if (dim_out_1>=2) {
-            result.resize({dim_out_0,dim_out_1});
+            result = py::array_t<double>({dim_out_0,dim_out_1});
             auto result_data = result.mutable_unchecked<2>();
             Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
                 for (size_t j=0; j<dim_out_1; ++j) {

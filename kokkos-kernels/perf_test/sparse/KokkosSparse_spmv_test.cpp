@@ -1,46 +1,18 @@
-/*
 //@HEADER
 // ************************************************************************
 //
-//                        Kokkos v. 3.0
-//       Copyright (2020) National Technology & Engineering
+//                        Kokkos v. 4.0
+//       Copyright (2022) National Technology & Engineering
 //               Solutions of Sandia, LLC (NTESS).
 //
 // Under the terms of Contract DE-NA0003525 with NTESS,
 // the U.S. Government retains certain rights in this software.
 //
-// Redistribution and use in source and binary forms, with or without
-// modification, are permitted provided that the following conditions are
-// met:
+// Part of Kokkos, under the Apache License v2.0 with LLVM Exceptions.
+// See https://kokkos.org/LICENSE for license information.
+// SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 //
-// 1. Redistributions of source code must retain the above copyright
-// notice, this list of conditions and the following disclaimer.
-//
-// 2. Redistributions in binary form must reproduce the above copyright
-// notice, this list of conditions and the following disclaimer in the
-// documentation and/or other materials provided with the distribution.
-//
-// 3. Neither the name of the Corporation nor the names of the
-// contributors may be used to endorse or promote products derived from
-// this software without specific prior written permission.
-//
-// THIS SOFTWARE IS PROVIDED BY NTESS "AS IS" AND ANY
-// EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE
-// IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
-// PURPOSE ARE DISCLAIMED. IN NO EVENT SHALL NTESS OR THE
-// CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, SPECIAL,
-// EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-// PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR
-// PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF
-// LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING
-// NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
-// SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
-//
-// Questions? Contact Siva Rajamanickam (srajama@sandia.gov)
-//
-// ************************************************************************
 //@HEADER
-*/
 
 #include <cstdio>
 
@@ -74,8 +46,7 @@
 //    rows_per_thread, team_size, vector_length,
 //    test, schedule, ave_time, max_time, min_time);
 
-SPMVTestData setup_test(spmv_additional_data* data, SPMVTestData::matrix_type A,
-                        Ordinal rows_per_thread, int team_size,
+SPMVTestData setup_test(spmv_additional_data* data, SPMVTestData::matrix_type A, Ordinal rows_per_thread, int team_size,
                         int vector_length, int schedule, int) {
   SPMVTestData test_data;
   using mv_type         = SPMVTestData::mv_type;
@@ -114,8 +85,7 @@ SPMVTestData setup_test(spmv_additional_data* data, SPMVTestData::matrix_type A,
   test_data.y1 = mv_type("Y1", test_data.numRows);
 
   // int nnz_per_row = A.nnz()/A.numRows(); // TODO: relocate
-  matvec(A, test_data.x1, test_data.y1, rows_per_thread, team_size,
-         vector_length, data, schedule);
+  matvec(A, test_data.x1, test_data.y1, rows_per_thread, team_size, vector_length, data, schedule);
 
   // Error Check
   Kokkos::deep_copy(test_data.h_y, test_data.y1);
@@ -134,8 +104,7 @@ SPMVTestData setup_test(spmv_additional_data* data, SPMVTestData::matrix_type A,
 }
 void run_benchmark(SPMVTestData& data) {
   Kokkos::Timer timer;
-  matvec(data.A, data.x1, data.y1, data.rows_per_thread, data.team_size,
-         data.vector_length, data.data, data.schedule);
+  matvec(data.A, data.x1, data.y1, data.rows_per_thread, data.team_size, data.vector_length, data.data, data.schedule);
   Kokkos::fence();
   double time = timer.seconds();
   data.ave_time += time;
@@ -160,8 +129,8 @@ struct test_reader<SPMVConfiguration> {
   static SPMVConfiguration read(const std::string& filename) {
     std::ifstream input(filename);
     SPMVConfiguration config;
-    input >> config.test >> config.rows_per_thread >> config.team_size >>
-        config.vector_length >> config.schedule >> config.loop;
+    input >> config.test >> config.rows_per_thread >> config.team_size >> config.vector_length >> config.schedule >>
+        config.loop;
     return config;
   }
 };
@@ -170,8 +139,7 @@ struct test_reader<SPMVConfiguration> {
 test_list construct_kernel_base(const rajaperf::RunParams& run_params) {
   using matrix_type = SPMVTestData::matrix_type;
   srand(17312837);
-  data_retriever<matrix_type, SPMVConfiguration> reader(
-      "sparse/spmv/", "sample.mtx", "config.cfg");
+  data_retriever<matrix_type, SPMVConfiguration> reader("sparse/spmv/", "sample.mtx", "config.cfg");
   std::vector<rajaperf::KernelBase*> test_cases;
   for (auto test_case : reader.test_cases) {
     auto& config = std::get<1>(test_case.test_data);
@@ -179,20 +147,15 @@ test_list construct_kernel_base(const rajaperf::RunParams& run_params) {
         "Sparse_SPMV:" + test_case.filename, run_params,
         [=](const int, const int) {
           spmv_additional_data data(config.test);
-          return std::make_tuple(
-              setup_test(&data, std::get<0>(test_case.test_data),
-                         config.rows_per_thread, config.team_size,
-                         config.vector_length, config.schedule, config.loop));
+          return std::make_tuple(setup_test(&data, std::get<0>(test_case.test_data), config.rows_per_thread,
+                                            config.team_size, config.vector_length, config.schedule, config.loop));
         },
-        [&](const int, const int, SPMVTestData& data) {
-          run_benchmark(data);
-        }));
+        [&](const int, const int, SPMVTestData& data) { run_benchmark(data); }));
   }
   return test_cases;
 }
 
-std::vector<rajaperf::KernelBase*> make_spmv_kernel_base(
-    const rajaperf::RunParams& params) {
+std::vector<rajaperf::KernelBase*> make_spmv_kernel_base(const rajaperf::RunParams& params) {
   return construct_kernel_base(params);
 }
 
