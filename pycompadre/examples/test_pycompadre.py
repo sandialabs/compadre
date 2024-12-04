@@ -21,6 +21,10 @@ try:
 except:
     from functools import partialmethod
 
+# 2D cross product as numpy deprecated cross with 2D vectors for numpy>2
+def cross2d(x,y):
+    return x[0]*y[1] - x[1]*y[0]
+
 # function used to generate sample data
 def exact(coord,order,dimension):
     x = coord[0]
@@ -286,7 +290,7 @@ class TestPyCOMPADRE(KokkosTestCase):
                 new_q += qpoints[i][j] * new_dir[j]
 
             # cross product gives stretch factor
-            scaling = np.abs(np.cross(new_dir[0], new_dir[1]))
+            scaling = np.abs(cross2d(new_dir[0], new_dir[1]))
             result += f(new_q)*qweights[i]*scaling
 
         self.assertAlmostEqual(result, solution, places=13)
