@@ -157,7 +157,7 @@ py::array mkarray_via_buffer(size_t n) {
     do {                                                                                          \
         (s).bool_ = (i) % 2 != 0;                                                                 \
         (s).uint_ = (uint32_t) (i);                                                               \
-        (s).float_ = (float) (i) *1.5f;                                                           \
+        (s).float_ = (float) (i) * 1.5f;                                                          \
         (s).ldbl_ = (long double) (i) * -2.5L;                                                    \
     } while (0)
 
@@ -266,6 +266,8 @@ py::array_t<int32_t, 0> test_array_ctors(int i) {
             return fill(arr_t(buf_ndim1_null));
         case 44:
             return fill(py::array(buf_ndim1_null));
+        default:
+            break;
     }
     return arr_t();
 }
@@ -289,8 +291,9 @@ py::list test_dtype_ctors() {
     dict["itemsize"] = py::int_(20);
     list.append(py::dtype::from_args(dict));
     list.append(py::dtype(names, formats, offsets, 20));
-    list.append(py::dtype(py::buffer_info((void *) 0, sizeof(unsigned int), "I", 1)));
-    list.append(py::dtype(py::buffer_info((void *) 0, 0, "T{i:a:f:b:}", 1)));
+    list.append(py::dtype(py::buffer_info((void *) nullptr, sizeof(unsigned int), "I", 1)));
+    list.append(py::dtype(py::buffer_info((void *) nullptr, 0, "T{i:a:f:b:}", 1)));
+    list.append(py::dtype(py::detail::npy_api::NPY_DOUBLE_));
     return list;
 }
 
@@ -300,7 +303,7 @@ struct B {};
 TEST_SUBMODULE(numpy_dtypes, m) {
     try {
         py::module_::import("numpy");
-    } catch (...) {
+    } catch (const py::error_already_set &) {
         return;
     }
 
@@ -347,7 +350,7 @@ TEST_SUBMODULE(numpy_dtypes, m) {
     // is not a POD type
     struct NotPOD {
         std::string v;
-        NotPOD() : v("hi"){};
+        NotPOD() : v("hi") {};
     };
     PYBIND11_NUMPY_DTYPE(NotPOD, v);
 #endif
@@ -404,10 +407,35 @@ TEST_SUBMODULE(numpy_dtypes, m) {
     });
 
     // test_dtype
+    // Below we use `L` for unsigned long as unfortunately the only name that
+    // works reliably on Both NumPy 2.x and old NumPy 1.x.
     std::vector<const char *> dtype_names{
-        "byte",    "short",   "intc",        "int_",  "longlong",   "ubyte",       "ushort",
-        "uintc",   "uint",    "ulonglong",   "half",  "single",     "double",      "longdouble",
-        "csingle", "cdouble", "clongdouble", "bool_", "datetime64", "timedelta64", "object_"};
+        "byte",
+        "short",
+        "intc",
+        "long",
+        "longlong",
+        "ubyte",
+        "ushort",
+        "uintc",
+        "L",
+        "ulonglong",
+        "half",
+        "single",
+        "double",
+        "longdouble",
+        "csingle",
+        "cdouble",
+        "clongdouble",
+        "bool_",
+        "datetime64",
+        "timedelta64",
+        "object_",
+        // platform dependent aliases (int_ and uint are also NumPy version dependent on windows)
+        "int_",
+        "uint",
+        "intp",
+        "uintp"};
 
     m.def("print_dtypes", []() {
         py::list l;
@@ -437,6 +465,34 @@ TEST_SUBMODULE(numpy_dtypes, m) {
         py::list list;
         for (const auto &dt_name : dtype_names) {
             list.append(py::dtype(dt_name).char_());
+        }
+        return list;
+    });
+    m.def("test_dtype_num", [dtype_names]() {
+        py::list list;
+        for (const auto &dt_name : dtype_names) {
+            list.append(py::dtype(dt_name).num());
+        }
+        return list;
+    });
+    m.def("test_dtype_byteorder", [dtype_names]() {
+        py::list list;
+        for (const auto &dt_name : dtype_names) {
+            list.append(py::dtype(dt_name).byteorder());
+        }
+        return list;
+    });
+    m.def("test_dtype_alignment", [dtype_names]() {
+        py::list list;
+        for (const auto &dt_name : dtype_names) {
+            list.append(py::dtype(dt_name).alignment());
+        }
+        return list;
+    });
+    m.def("test_dtype_flags", [dtype_names]() {
+        py::list list;
+        for (const auto &dt_name : dtype_names) {
+            list.append(py::dtype(dt_name).flags());
         }
         return list;
     });
@@ -581,5 +637,5 @@ TEST_SUBMODULE(numpy_dtypes, m) {
           []() { PYBIND11_NUMPY_DTYPE(SimpleStruct, bool_, uint_, float_, ldbl_); });
 
     // test_str_leak
-    m.def("dtype_wrapper", [](py::object d) { return py::dtype::from_args(std::move(d)); });
+    m.def("dtype_wrapper", [](const py::object &d) { return py::dtype::from_args(d); });
 }
