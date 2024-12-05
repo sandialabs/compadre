@@ -1,0 +1,105 @@
+name: pycompadre SDIST serial (Build/Upload)
+
+on: 
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: 'branch'
+        required: true
+        default: 'master'
+      publish:
+        description: 'Publish to PyPi? (y/n)'
+        required: true
+        default: 'n'
+
+jobs:
+  build:
+    name: Build SDIST ${{ matrix.pycompadre-type }}
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        pycompadre-type: [ 'pycompadre-serial',]
+    steps:
+    - uses: actions/checkout@v2
+      with:
+        ref: ${{ github.event.inputs.branch }}
+    
+    - name: Setup python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.9'
+        architecture: x64
+        
+    - name: Install Python dependencies
+      run: |
+        python3 -m pip install --upgrade pip
+        pip install numpy
+        
+    - name: Generate Python package (parallel)
+      if: ${{ matrix.pycompadre-type == 'pycompadre' }}
+      run: |
+          cd ${{github.workspace}}/pycompadre
+          echo "./install.sh -p"
+          ./install.sh -p
+    - name: Generate Python package (serial)
+      if: ${{ matrix.pycompadre-type == 'pycompadre-serial' }}
+      run: |
+          cd ${{github.workspace}}/pycompadre
+          echo "./install.sh -p -s"
+          ./install.sh -p -s
+          
+    - uses: actions/upload-artifact@v4
+      with:
+        name: ${{matrix.pycompadre-type}}.tar.gz
+        path: ${{github.workspace}}/dist/*.tar.gz
+
+    - name: Install pycompadre from test repo
+      run: |
+        cd ${{github.workspace}}/dist/
+        python3 -m pip -v -v -v install --no-cache `ls pycompadre*.gz`
+        cd ${{github.workspace}}
+
+    - name: Test pycompadre using unittests
+      run: |
+        cd ${{github.workspace}}/pycompadre/examples
+        python3 -m unittest
+        
+    - name: Test pycompadre using .test()
+      run: |
+        cd ${{github.workspace}}
+        python3 -c "import pycompadre; pycompadre.test()" 2>&1 | tee tests.log
+
+    - name: Test unique install using .is_unique_installation()
+      run: |
+        cd ${{github.workspace}}
+        python3 -c "import pycompadre; pycompadre.is_unique_installation()" 2>&1 | tee tests.log
+      
+    - uses: actions/upload-artifact@v4
+      with:
+        name: tests-${{matrix.pycompadre-type}}.log
+        path: ${{github.workspace}}/tests.log
+              
+  upload:
+    runs-on: ubuntu-latest
+    needs: build
+    if: ${{ github.event.inputs.publish == 'y'}}
+    strategy:
+      matrix:
+        pycompadre-type: [ 'pycompadre-serial',]
+    environment:
+      name: pypi
+      url: https://pypi.org/p/${{matrix.pycompadre-type}}  # Replace <package-name> with your PyPI project name
+    permissions:
+      id-token: write  # IMPORTANT: mandatory for trusted publishing
+    steps:
+    - name: Download all the dists
+      uses: actions/download-artifact@v4
+      with:
+        name: ${{matrix.pycompadre-type}}.tar.gz
+        path: dist/
+    - name: Publish distribution 📦 to PyPI
+      uses: pypa/gh-action-pypi-publish@release/v1
+    #  if: ${{ matrix.pycompadre-type == 'pycompadre-serial' }}
+    #  uses: pypa/gh-action-pypi-publish@release/v1
+    #  with:
+    #    password: ${{ secrets.PIP_PYCOMPADRE_SERIAL_SECRET }}
