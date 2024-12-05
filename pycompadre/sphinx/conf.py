@@ -23,7 +23,7 @@ tls_verify = False
 # -- Project information -----------------------------------------------------
 
 project = 'PyCOMPADRE v%s'%pycompadre.__version__
-copyright = '2021, National Technology & Engineering Solutions of Sandia, LLC (NTESS)'
+copyright = '2024, National Technology & Engineering Solutions of Sandia, LLC (NTESS)'
 author = 'Paul Kuberry'
 
 # The full version, including alpha/beta/rc tags
@@ -61,7 +61,7 @@ html_theme = 'sphinx_rtd_theme'
 # Add any paths that contain custom static files (such as style sheets) here,
 # relative to this directory. They are copied after the builtin static files,
 # so a file named "default.css" will overwrite the builtin "default.css".
-html_static_path = ['_static']
+html_static_path = []
 
 #latex_documents = [
 #    (master_doc, 'python_example.tex', u'python_example Documentation',
@@ -77,4 +77,4 @@ html_static_path = ['_static']
 #     author, 'python_example', 'One line description of project.',
 #     'Miscellaneous'),
 #]
-intersphinx_mapping = {'https://docs.python.org/': None}
+intersphinx_mapping = {'python': ('https://docs.python.org/3', None)}
