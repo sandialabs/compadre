@@ -277,9 +277,9 @@ setup(
         'test': SetupTest,
     },
     packages=['pycompadre'],
-    include_package_data=True,
+    include_package_data=False,
     exclude_package_data={
-        'pycompadre': ['pybind11/*', 'pycompadre.cpp', 'sphinx/*', 'install.sh', 'Matlab*', 'cmake_*', '__init__.py.in'],
+        'pycompadre': ['pybind11/**', 'pycompadre.cpp', 'sphinx/*', 'install.sh', 'Matlab*', 'cmake_*', '__init__.py.in'],
     },
     zip_safe=False,
 )
