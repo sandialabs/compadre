@@ -48,7 +48,7 @@ jobs:
           echo "./install.sh -p -s"
           ./install.sh -p -s
           
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       with:
         name: ${{matrix.pycompadre-type}}.tar.gz
         path: ${{github.workspace}}/dist/*.tar.gz
@@ -74,9 +74,9 @@ jobs:
         cd ${{github.workspace}}
         python3 -c "import pycompadre; pycompadre.is_unique_installation()" 2>&1 | tee tests.log
       
-    - uses: actions/upload-artifact@v2
+    - uses: actions/upload-artifact@v4
       with:
-        name: tests.log
+        name: tests-${{matrix.pycompadre-type}}.log
         path: ${{github.workspace}}/tests.log
               
   upload:
