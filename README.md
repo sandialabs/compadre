@@ -7,19 +7,6 @@ The Compadre Toolkit provides a performance portable solution for the parallel e
 This toolkit focuses on the 'on-node' aspects of meshless PDE solution and remap, namely the parallel construction of small dense matrices and their inversion. What it does **not** provide is the tools for managing fields, inverting globally sparse matrices, or neighbor search that requires orchestration over many MPI processes. This toolkit is designed to be easily dropped-in to an existing MPI (or serial) based framework for PDE solution or remap, with minimal dependencies ([Kokkos](https://github.com/kokkos/kokkos) and [KokkosKernels](https://github.com/kokkos/kokkos-kernels)).
 
 ### Generalized Moving Least Squares (GMLS)
-<!---
-A GMLS problem requires the specification of a target functional ![equation](https://latex.codecogs.com/gif.latex?\tau) (Compadre::TargetOperation), a reconstruction space ![equation](https://latex.codecogs.com/gif.latex?V) (Compadre::ReconstructionSpace), and a sampling functional ![equation](https://latex.codecogs.com/gif.latex?\lambda) (Compadre::SamplingFunctional).
-
-The Compadre Toolkit is designed to efficiently assemble, factorize, and solve large batches of minimization problems having the form:
-
-![equation](https://latex.codecogs.com/png.latex?%5Cbg_white%20%5Clarge%20%5C%5C%20%5Cbegin%7Balign*%7D%20p%5E%7B*%7D%26%20%3D%26%20%5Cunderset%7Bp%20%5Cin%20V%7D%7B%5Ctext%7Barg%20min%7D%7D%5C%3B%5Cfrac%7B1%7D%7B2%7D%5Csum_%7Bj%3D1%7D%5EN%20%28%5Clambda_j%28u%29-%5Clambda_j%28p%29%29%5E%7B2%7D%5Comega%28%5Ctau%3B%5Clambda_j%29%5C%5C%5C%5C%20%26%26%5Ctau%28u%29%20%5Capprox%20%5Ctau%28p%5E%7B*%7D%29%20%5Cend%7Balign*%7D)
-
-https://www.codecogs.com/latex/eqneditor.php
-\[\large \begin{align*}
-p^{*}& =& \underset{p \in V}{\text{arg min}}\;\frac{1}{2}\sum_{j=1}^N (\lambda_j(u)-\lambda_j(p))^{2}\omega(\tau;\lambda_j)\\\\
-&&\tau(u) \approx \tau(p^{*})
-\end{align*} \]
---->
 
 Here is a brief overview of the GMLS framework:
 
@@ -34,7 +21,7 @@ With an optimal reconstruction $p$ in hand, the target functional is approximate
 As an unconstrained $\ell_2$-optimization problem, this process admits the explicit form:
 
 
-$$\tau^h_{\tilde{x}}(\phi) = \tau_{\tilde{x}}(\mathbf{P})^\intercal \left(\Lambda(\mathbf{P})^\intercal \mathbf{W} \Lambda(\mathbf{P})\right)^{-1} \Lambda(\mathbf{P})^\intercal \mathbf{W} \Lambda(\phi),$$
+$$\tau^h_{\tilde{x}}(\phi) = \tau_{\tilde{x}}(\mathbf{P})^\top \left(\Lambda(\mathbf{P})^\top \mathbf{W} \Lambda(\mathbf{P})\right)^{-1} \Lambda(\mathbf{P})^\top \mathbf{W} \Lambda(\phi),$$
 
 where:
 * $\tau_{\tilde{x}}(\mathbf{P}) \in \mathbb{R}^{dim(V_h)}$ is a vector with components consisting of the target functional applied to each basis function,
