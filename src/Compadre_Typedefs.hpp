@@ -20,6 +20,7 @@
 #include <functional>
 #include <string>
 
+namespace Compadre {
 /*!
  
   Data types in Compadre Toolkit:
@@ -183,5 +184,7 @@ typename std::enable_if<2==T::rank,T>::type createView(std::string str, int dim_
 #endif
 //! compadre_kernel_assert_extreme_debug is similar to compadre_assert_debug, but is a call on the device, 
 //! namely inside of a function marked KOKKOS_INLINE_FUNCTION
+
+}  // Compadre namespace
 
 #endif
