@@ -595,6 +595,28 @@ public:
         }
     }
 
+    //! Type for weighting kernel for GMLS problem
+    static WeightingFunctionType translateWeightingType( const std::string &wt) {
+        std::string wt_to_lower = wt;
+        transform(wt_to_lower.begin(), wt_to_lower.end(), wt_to_lower.begin(), ::tolower);
+        if (wt_to_lower == "power") {
+            return WeightingFunctionType::Power;
+        } else if (wt_to_lower == "gaussian") {
+            return WeightingFunctionType::Gaussian;
+        } else if (wt_to_lower == "cubicspline") {
+            return WeightingFunctionType::CubicSpline;
+        } else if (wt_to_lower == "cardinalcubicbspline") {
+            return WeightingFunctionType::CardinalCubicBSpline;
+        } else if (wt_to_lower == "cosine") {
+            return WeightingFunctionType::Cosine;
+        } else if (wt_to_lower == "sigmoid") {
+            return WeightingFunctionType::Sigmoid;
+        } else {
+            // Power is default
+            return WeightingFunctionType::Power;
+        }
+    }
+
 
 ///@}
 
@@ -1169,24 +1191,7 @@ public:
 
     //! Type for weighting kernel for GMLS problem
     void setWeightingType( const std::string &wt) {
-        std::string wt_to_lower = wt;
-        transform(wt_to_lower.begin(), wt_to_lower.end(), wt_to_lower.begin(), ::tolower);
-        if (wt_to_lower == "power") {
-            _weighting_type = WeightingFunctionType::Power;
-        } else if (wt_to_lower == "gaussian") {
-            _weighting_type = WeightingFunctionType::Gaussian;
-        } else if (wt_to_lower == "cubicspline") {
-            _weighting_type = WeightingFunctionType::CubicSpline;
-        } else if (wt_to_lower == "cardinalcubicbspline") {
-            _weighting_type = WeightingFunctionType::CardinalCubicBSpline;
-        } else if (wt_to_lower == "cosine") {
-            _weighting_type = WeightingFunctionType::Cosine;
-        } else if (wt_to_lower == "sigmoid") {
-            _weighting_type = WeightingFunctionType::Sigmoid;
-        } else {
-            // Power is default
-            _weighting_type = WeightingFunctionType::Power;
-        }
+        _weighting_type = translateWeightingType(wt);
         this->resetCoefficientData();
     }
 
@@ -1198,24 +1203,7 @@ public:
 
     //! Type for weighting kernel for curvature 
     void setCurvatureWeightingType( const std::string &wt) {
-        std::string wt_to_lower = wt;
-        transform(wt_to_lower.begin(), wt_to_lower.end(), wt_to_lower.begin(), ::tolower);
-        if (wt_to_lower == "power") {
-            _curvature_weighting_type = WeightingFunctionType::Power;
-        } else if (wt_to_lower == "gaussian") {
-            _curvature_weighting_type = WeightingFunctionType::Gaussian;
-        } else if (wt_to_lower == "cubicspline") {
-            _curvature_weighting_type = WeightingFunctionType::CubicSpline;
-        } else if (wt_to_lower == "cardinalcubicbspline") {
-            _curvature_weighting_type = WeightingFunctionType::CardinalCubicBSpline;
-        } else if (wt_to_lower == "cosine") {
-            _curvature_weighting_type = WeightingFunctionType::Cosine;
-        } else if (wt_to_lower == "sigmoid") {
-            _curvature_weighting_type = WeightingFunctionType::Sigmoid;
-        } else {
-            // Power is default
-            _curvature_weighting_type = WeightingFunctionType::Power;
-        }
+        _curvature_weighting_type = translateWeightingType(wt);
         this->resetCoefficientData();
     }
 
