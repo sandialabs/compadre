@@ -80,19 +80,24 @@ import re
 import sys
 import platform
 import subprocess
-from pkg_resources import parse_version
+from packaging.version import Version
+import shutil
 
 from setuptools import setup, Extension, Command
 from setuptools.command.build_ext import build_ext
-from setuptools.command.install import install
+import importlib.resources
+import platform
+
 
 class CMakeExtension(Extension):
     def __init__(self, name, sourcedir=''):
         Extension.__init__(self, name, sources=[])
         self.sourcedir = os.path.abspath(sourcedir)
+        if not self.sourcedir.endswith(os.path.sep):
+            self.sourcedir += os.path.sep
 
 # Overload Command for SetupTest to prevent build_ext being called again
-class SetupTest(Command):
+class CustomTest(Command):
     '''
     Tests the installed pycompadre module
     '''
@@ -106,25 +111,25 @@ class SetupTest(Command):
             print('Install pycompadre before running test')
         pycompadre.test()
 
-class CMakeBuild(build_ext):
+class CustomBuild(build_ext):
+
     def run(self):
         try:
             out = subprocess.check_output(['cmake', '--version'])
-        except OSError:
-            raise RuntimeError("CMake must be installed to build the following extensions: " +
+        except oserror:
+            raise runtimeerror("cmake must be installed to build the following extensions: " +
                                ", ".join(e.name for e in self.extensions) + 
-                               "\nInstall cmake with `pip install cmake` or install from: https://cmake.org/download/.")
+                               "\ninstall cmake with `pip install cmake` or install from: https://cmake.org/download/.")
 
-        cmake_version = parse_version(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
-        if cmake_version < parse_version('3.16.0'):
-            raise RuntimeError("CMake >= 3.16.0 is required")
-        assert sys.version_info >= (3,6), "\n\n\n\n\nPyCompadre requires Python version 3.6+\n\n\n\n\n"
+        cmake_version = Version(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
+        if cmake_version < Version('3.16.0'):
+            raise runtimeerror("cmake >= 3.16.0 is required")
+        assert sys.version_info >= (3,6), "\n\n\n\n\npycompadre requires python version 3.6+\n\n\n\n\n"
 
         for ext in self.extensions:
-            self.build_extension(ext)
+            self.configure_pycompadre(ext)
 
-    def build_extension(self, ext):
-        print("build_extension called.")
+    def configure_pycompadre(self, ext):
         extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name))+"/pycompadre")
         # required for auto-detection of auxiliary "native" libs
         if not extdir.endswith(os.path.sep):
@@ -143,21 +148,28 @@ class CMakeBuild(build_ext):
                     cmake_config = sys.path[0] + os.sep + cmake_config
                     print("Custom cmake args file set to absolute path: %s"%(cmake_config,))
             if not os.path.exists(cmake_config):
-                assert False, "CMAKE_CONFIG_FILE specified, but does not exist." 
+                assert False, "CMAKE_CONFIG_FILE specified, but does not exist."
         else:
             # look for cmake_opts.txt and use it if found
-            if os.path.exists(ext.sourcedir+"/cmake_opts.txt"):
-                cmake_config = ext.sourcedir+"/cmake_opts.txt"
+            if os.path.exists(ext.sourcedir+"cmake_opts.txt"):
+                cmake_config = ext.sourcedir+"cmake_opts.txt"
                 print("CMAKE_CONFIG_FILE not set, but cmake_opts.txt FOUND, so using: %s"%(cmake_config,))
             else:
                 cmake_config = ""
                 print("Custom cmake args file not set.")
+
+        if Version(platform.python_version()) >= Version('3.9.0'):
+            pybind11_path = str(importlib.resources.files('pybind11'))
+        else:
+            import pybind11
+            pybind11_path = str(os.path.abspath(os.path.dirname(pybind11.__file__)))
 
         # Configure CMake
         cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir,
                       '-DPYTHON_EXECUTABLE=' + sys.executable,
                       '-DCMAKE_INSTALL_PREFIX=' + extdir,
                       '-DCompadre_USE_PYTHON:BOOL=ON',
+                      '-Dpybind11_DIR=' + pybind11_path + '/share/cmake/pybind11/',
                       '-DPYTHON_CALLING_BUILD:BOOL=ON',]
 
         cmake_file_list = list()
@@ -244,6 +256,18 @@ class CMakeBuild(build_ext):
 
         # move __init__.py to install directory
         os.rename(self.build_temp + "/__init__.py", extdir + "/__init__.py")
+        # move examples/* from source directory to install directory (supports pycompadre.test())
+        try:
+            os.mkdir(extdir + "/examples")
+        except:
+            pass
+        files_to_copy = os.listdir(ext.sourcedir + "pycompadre/examples/")
+        for fname in files_to_copy:
+            try:
+                shutil.copyfile(ext.sourcedir + "pycompadre/examples/" + fname, 
+                                extdir + "examples/" + os.path.basename(fname))
+            except:
+                print("WARNING: Copying pycompadre test files failed.")
 
         print("Build Args:", build_args)
         subprocess.check_call(['cmake', '--build', '.'] + build_args, cwd=self.build_temp)
@@ -253,33 +277,16 @@ with open("README.md", "r") as fh:
     long_description = fh.read()
 
 with open("cmake/Compadre_Version.txt", "r") as fh:
-    version_string = str(parse_version(fh.read()))
+    version_string = str(Version(fh.read()))
 
 setup(
-    name='pycompadre',
-    version=version_string,
-    author='Paul Kuberry',
-    author_email='pkuberry@gmail.com',
-    description="Compatible Particle Discretization and Remap",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
-    url="https://github.com/sandialabs/compadre",
-    classifiers=[
-        "Programming Language :: Python :: 3",
-        "License :: OSI Approved :: BSD License",
-        "Operating System :: Unix",
-    ],
-    install_requires=['numpy'],
-    python_requires='>=3.6.0',
-    ext_modules=[CMakeExtension('_pycompadre'),],
     cmdclass={
-        'build_ext': CMakeBuild,
-        'test': SetupTest,
+        'build_ext' : CustomBuild,
+        'test': CustomTest,
     },
-    packages=['pycompadre'],
-    include_package_data=False,
-    exclude_package_data={
-        'pycompadre': ['pybind11/**', 'pycompadre.cpp', 'sphinx/*', 'install.sh', 'Matlab*', 'cmake_*', '__init__.py.in'],
-    },
-    zip_safe=False,
+    version=version_string,
+    description = "Compatible Particle Discretization and Remap",
+    long_description_content_type = "text/markdown",
+    long_description=long_description,
+    ext_modules=[CMakeExtension('_pycompadre'),],
 )

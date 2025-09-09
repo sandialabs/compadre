@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0","packaging","cmake>=3.15","numpy","pybind11"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pycompadre"
+dependencies = [
+    "numpy",
+]
+authors = [
+  {name = "Paul Kuberry", email = "pakuber@sandia.gov"},
+]
+classifiers=[
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: Unix",
+]
+requires-python = ">=3.7"
+dynamic = ["version", "description"]
+readme = "README.md"
+
+[project.urls]
+Homepage = "https://github.com/sandialabs/compadre"
+Documentation = "https://sandialabs.github.io/compadre/pycompadre/index.html"
+Repository = "https://github.com/sandialabs/compadre.git"
+Issues = "https://github.com/sandialabs/compadre/issues"
+Changelog = "https://github.com/sandialabs/compadre/wiki/Changelog"

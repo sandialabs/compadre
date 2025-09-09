@@ -523,7 +523,11 @@ else() # Raw CMake Project
         Set Compadre_USE_PYTHON:BOOL=OFF or switch compilers.
         ")
     endif()
-    add_subdirectory(pycompadre/pybind11)
+    if (PYTHON_CALLING_BUILD)
+        find_package(pybind11 REQUIRED)
+    else()
+        add_subdirectory(pycompadre/pybind11)
+    endif()
     if (${PYTHON_VERSION} VERSION_LESS "3.6")
         MESSAGE(FATAL_ERROR "
         Compadre_USE_PYTHON:BOOL=ON but Python version <3.6 is not supported.
@@ -532,10 +536,10 @@ else() # Raw CMake Project
     pybind11_add_module(_pycompadre pycompadre/pycompadre.cpp)
     target_link_libraries(_pycompadre PUBLIC compadre)
     if (PYTHON_CALLING_BUILD)
-      configure_file("${CMAKE_CURRENT_SOURCE_DIR}/pycompadre/__init__.py.in" "${CMAKE_CURRENT_BINARY_DIR}/__init__.py" COPYONLY)
+      configure_file("${CMAKE_CURRENT_SOURCE_DIR}/pycompadre/__init__.py" "${CMAKE_CURRENT_BINARY_DIR}/__init__.py" COPYONLY)
     else()
       set_target_properties(_pycompadre PROPERTIES LIBRARY_OUTPUT_DIRECTORY "${CMAKE_CURRENT_BINARY_DIR}/pycompadre")
-      configure_file("${CMAKE_CURRENT_SOURCE_DIR}/pycompadre/__init__.py.in" "${CMAKE_CURRENT_BINARY_DIR}/pycompadre/__init__.py" COPYONLY)
+      configure_file("${CMAKE_CURRENT_SOURCE_DIR}/pycompadre/__init__.py" "${CMAKE_CURRENT_BINARY_DIR}/pycompadre/__init__.py" COPYONLY)
     endif()
     set(CMAKE_POLICY_DEFAULT_CMP0127 NEW)
   endif()

@@ -1171,11 +1171,7 @@ else:
             py::object this_pycompadre = py::module::import("pycompadre");
             auto location = this_pycompadre.attr("__file__").cast<std::string>();
             py::object path = os.attr("path").attr("dirname")(location);
-#ifdef PYTHON_CALLING_BUILD
             examples_path = path.cast<std::string>() + "/examples";
-#else
-            examples_path = path.cast<std::string>() + "/pycompadre/examples";
-#endif
         } catch (...) {
             std::cerr << "Error getting examples path from pycompadre module." << std::endl;
         }
