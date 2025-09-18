@@ -33,7 +33,7 @@ jobs:
     - name: Install Python dependencies
       run: |
         python3 -m pip install --upgrade pip
-        pip install numpy
+        pip install numpy build
         
     - name: Generate Python package (parallel)
       if: ${{ matrix.pycompadre-type == 'pycompadre' }}

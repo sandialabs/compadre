@@ -254,8 +254,8 @@ class CustomBuild(build_ext):
         print("CMake Args:", cmake_args)
         subprocess.check_call(['cmake', ext.sourcedir] + cmake_args, cwd=self.build_temp, env=env)
 
-        # move __init__.py to install directory
-        os.rename(self.build_temp + "/__init__.py", extdir + "/__init__.py")
+        # copy __init__.py to install directory
+        shutil.copyfile(self.build_temp + "/__init__.py", extdir + "/__init__.py")
         # move examples/* from source directory to install directory (supports pycompadre.test())
         try:
             os.mkdir(extdir + "/examples")

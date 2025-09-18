@@ -91,7 +91,7 @@ if [ "$PACKAGE" == "YES" ]; then
         perl -pi -e "s/name='pycompadre',/name='pycompadre-serial',/" -- setup.py
     fi
 
-    CMAKE_CONFIG_FILE=cmake_opts.txt $EXECUTABLE setup.py sdist
+    CMAKE_CONFIG_FILE=cmake_opts.txt $EXECUTABLE -m build --sdist
 
     if [ "$SERIAL" == "YES" ]; then
         perl -pi -e "s/name='pycompadre-serial',/name='pycompadre',/" -- setup.py
