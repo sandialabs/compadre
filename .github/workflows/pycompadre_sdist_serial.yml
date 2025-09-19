@@ -45,6 +45,7 @@ jobs:
       if: ${{ matrix.pycompadre-type == 'pycompadre-serial' }}
       run: |
           cd ${{github.workspace}}/pycompadre
+          sed -i 's/name = "pycompadre"/name = "pycompadre-serial"/g' ../pyproject.toml
           echo "./install.sh -p -s"
           ./install.sh -p -s
           mv "${{github.workspace}}/dist/pycompadre-`cat ${{github.workspace}}/cmake/Compadre_Version.txt`.tar.gz"  "${{github.workspace}}/dist/${{matrix.pycompadre-type}}-`cat ${{github.workspace}}/cmake/Compadre_Version.txt`.tar.gz"
