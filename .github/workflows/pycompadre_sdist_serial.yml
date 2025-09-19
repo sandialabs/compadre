@@ -47,7 +47,7 @@ jobs:
           cd ${{github.workspace}}/pycompadre
           echo "./install.sh -p -s"
           ./install.sh -p -s
-          mv "pycompadre-`cat ${{github.workspace}}/cmake/Compadre_Version.txt`.tar.gz"  "${{matrix.pycompadre-type}}-`cat ${{github.workspace}}/cmake/Compadre_Version.txt`.tar.gz"
+          mv "${{github.workspace}}/dist/pycompadre-`cat ${{github.workspace}}/cmake/Compadre_Version.txt`.tar.gz"  "${{github.workspace}}/dist/${{matrix.pycompadre-type}}-`cat ${{github.workspace}}/cmake/Compadre_Version.txt`.tar.gz"
           
     - uses: actions/upload-artifact@v4
       with:
