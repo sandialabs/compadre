@@ -753,7 +753,7 @@ public:
     //! Get component of tangent or normal directions for manifold problems
     double getReferenceNormalDirection(const int target_index, const int component) const {
         compadre_assert_debug(_reference_outward_normal_direction_provided && 
-                "getRefenceNormalDirection called, but reference outwrad normal directions were never provided.");
+                "getRefenceNormalDirection called, but reference outward normal directions were never provided.");
         device_unmanaged_vector_type::host_mirror_type 
                 ref_N(_host_ref_N.data() + target_index*_dimensions, _dimensions);
         return ref_N(component);
