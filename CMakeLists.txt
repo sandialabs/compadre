@@ -103,15 +103,17 @@ else() # Raw CMake Project
   bob_option(Compadre_USE_MPI "Use MPI (not needed for Compadre toolkit)" OFF)
   set(PYTHON_LIBRARY_PREFIX "..") # relative to examples folder
   bob_input(PYTHON_EXECUTABLE "" PATH "Python executable location")
-  IF(NOT(PYTHON_EXECUTABLE))
-    MESSAGE(STATUS "Python executable location PYTHON_EXECUTABLE not given. Search made using 'which python'")
-    EXECUTE_PROCESS(
-      COMMAND which "python"
-      OUTPUT_VARIABLE PYTHON_EXECUTABLE
-      OUTPUT_STRIP_TRAILING_WHITESPACE )
-  ENDIF()
-  MESSAGE(STATUS "PYTHON_EXECUTABLE: ${PYTHON_EXECUTABLE}")
   if (Compadre_USE_PYTHON)
+    IF(PYTHON_EXECUTABLE)
+      set(Python_EXECUTABLE "${PYTHON_EXECUTABLE}")
+    ENDIF()
+    find_package(Python REQUIRED COMPONENTS Interpreter Development)
+    if (${Python_VERSION} VERSION_LESS "3.8")
+        MESSAGE(FATAL_ERROR "
+        Compadre_USE_PYTHON:BOOL=ON but Python version <3.8 is not supported.
+        ")
+    endif()
+    MESSAGE(STATUS "PYTHON_EXECUTABLE: ${Python_EXECUTABLE}")
     # change RPATH for a flat directory structure
     # when installing pycompadre as Python package
     if (PYTHON_CALLING_BUILD)
@@ -519,22 +521,20 @@ else() # Raw CMake Project
     set(CMAKE_POLICY_DEFAULT_CMP0127 OLD)
     if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
         MESSAGE(FATAL_ERROR "
-        IBM XL compiler not supported for pybind11.
+        IBM XL compiler not supported for nanobind.
         Set Compadre_USE_PYTHON:BOOL=OFF or switch compilers.
         ")
     endif()
-    if (PYTHON_CALLING_BUILD)
-        find_package(pybind11 REQUIRED)
-    else()
-        add_subdirectory(pycompadre/pybind11)
-    endif()
-    if (${PYTHON_VERSION} VERSION_LESS "3.10")
-        MESSAGE(FATAL_ERROR "
-        Compadre_USE_PYTHON:BOOL=ON but Python version <3.10 is not supported.
-        ")
-    endif()
-    pybind11_add_module(_pycompadre pycompadre/pycompadre.cpp)
-    target_link_libraries(_pycompadre PUBLIC compadre)
+    execute_process(
+        COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
+        OUTPUT_STRIP_TRAILING_WHITESPACE
+        OUTPUT_VARIABLE nanobind_DIR
+    )
+    find_package(nanobind CONFIG REQUIRED)
+    nanobind_add_module(_pycompadre NB_DOMAIN "pycompadre_domain" pycompadre/pycompadre.cpp)
+    set_property(TARGET _pycompadre PROPERTY CXX_STANDARD 20)
+    set_property(TARGET _pycompadre PROPERTY CXX_STANDARD_REQUIRED ON)
+    target_link_libraries(_pycompadre PRIVATE compadre)
     if (PYTHON_CALLING_BUILD)
       configure_file("${CMAKE_CURRENT_SOURCE_DIR}/pycompadre/__init__.py" "${CMAKE_CURRENT_BINARY_DIR}/__init__.py" COPYONLY)
     else()

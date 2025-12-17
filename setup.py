@@ -159,17 +159,17 @@ class CustomBuild(build_ext):
                 print("Custom cmake args file not set.")
 
         if Version(platform.python_version()) >= Version('3.9.0'):
-            pybind11_path = str(importlib.resources.files('pybind11'))
+            nanobind_path = str(importlib.resources.files('nanobind'))
         else:
-            import pybind11
-            pybind11_path = str(os.path.abspath(os.path.dirname(pybind11.__file__)))
+            import nanobind
+            nanobind_path = str(os.path.abspath(os.path.dirname(nanobind.__file__)))
 
         # Configure CMake
         cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir,
                       '-DPYTHON_EXECUTABLE=' + sys.executable,
                       '-DCMAKE_INSTALL_PREFIX=' + extdir,
                       '-DCompadre_USE_PYTHON:BOOL=ON',
-                      '-Dpybind11_DIR=' + pybind11_path + '/share/cmake/pybind11/',
+                      '-Dnanobind_DIR=' + nanobind_path + '/share/cmake/nanobind/',
                       '-DPYTHON_CALLING_BUILD:BOOL=ON',]
 
         cmake_file_list = list()
