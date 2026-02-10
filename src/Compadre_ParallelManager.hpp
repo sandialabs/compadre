@@ -84,16 +84,16 @@ public:
         _scratch_team_level_b = 1;
         _scratch_thread_level_b = 1;
 
-        _default_threads = 16;
-        _default_vector_lanes = 8;
+        _default_threads = -1;
+        _default_vector_lanes = -1;
 #else
         _scratch_team_level_a = 0;
         _scratch_thread_level_a = 0;
         _scratch_team_level_b = 0;
         _scratch_thread_level_b = 0;
 
-        _default_threads = 1;
-        _default_vector_lanes = 1;
+        _default_threads = -1;
+        _default_vector_lanes = -1;
 #endif
         if (const char* env_threads = std::getenv("THREADS")) {
             _default_threads = std::atoi(env_threads);
@@ -557,7 +557,7 @@ public:
     template<typename Tag, class C>
     void CallFunctorWithTeamThreads(C functor, const global_index_type batch_size) const {
         // calls breakout over vector lanes with vector lane size of 1
-        CallFunctorWithTeamThreadsAndVectors<Tag,C>(functor, batch_size, _default_threads, 1);
+        CallFunctorWithTeamThreadsAndVectors<Tag,C>(functor, batch_size, _default_threads, _default_vector_lanes);
     }
 
     //! Calls a parallel_for
@@ -565,7 +565,7 @@ public:
     template<class C>
     void CallFunctorWithTeamThreads(C functor, const global_index_type batch_size, std::string functor_name = typeid(C).name()) const {
         // calls breakout over vector lanes with vector lane size of 1
-        CallFunctorWithTeamThreadsAndVectors<C>(functor, batch_size, _default_threads, 1, functor_name);
+        CallFunctorWithTeamThreadsAndVectors<C>(functor, batch_size, _default_threads, _default_vector_lanes, functor_name);
     }
 
     KOKKOS_INLINE_FUNCTION
