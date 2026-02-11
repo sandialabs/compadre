@@ -186,7 +186,7 @@ class TestPycompadreTangentsOnManifold(KokkosTestCase):
             if TEST_H_CLOSE_SITES:
                 gmls_helper_vec.setAdditionalEvaluationSitesData(extra_sites_idx, h_close_target_coords)
             gmls_obj_vec.generateAlphas(1, False)
-            tbb = np.reshape(gmls_helper_vec.getTangentBundle(), newshape=(-1,3,3))
+            tbb = np.reshape(gmls_helper_vec.getTangentBundle(), shape=(-1,3,3))
             # note that normal direction of data is projected off
             v_pred = gmls_helper_vec.applyStencil(data, pycompadre.TargetOperation.VectorPointEvaluation, pycompadre.SamplingFunctionals["ManifoldVectorPointSample"])
             if TEST_H_CLOSE_SITES:
@@ -211,7 +211,7 @@ class TestPycompadreTangentsOnManifold(KokkosTestCase):
 
 
             # TEST: get tangent bundle back for comparison (ensure no changes)
-            tbc = np.reshape(gmls_helper.getTangentBundle(), newshape=(-1,3,3))
+            tbc = np.reshape(gmls_helper.getTangentBundle(), shape=(-1,3,3))
             assert np.linalg.norm(tbc-tbb)==0.0, "Error in setting / getting tangent directions"
 
 
