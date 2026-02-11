@@ -140,7 +140,7 @@ def remap(polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5,reco
         additional_site_coordinates = np.zeros(shape=(4*NT,dimension), dtype='f8')
         additional_sites_indices[:,0] = 4
         inds = np.arange(0, 4*NT)
-        inds = np.reshape(inds, newshape=(-1,4))
+        inds = np.reshape(inds, shape=(-1,4))
         additional_sites_indices[:,1::] = inds
         h = np.linalg.norm(source_sites[0,:]-source_sites[1,:])
         for i in range(NT):
@@ -298,7 +298,7 @@ class TestPyCOMPADRE(KokkosTestCase):
     def test_square_qr_bugfix(self):
 
         source_sites = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
-        source_sites = np.reshape(source_sites, newshape=(source_sites.size,1))
+        source_sites = np.reshape(source_sites, shape=(source_sites.size,1))
         data = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
 
         polynomial_order = 1
@@ -312,7 +312,7 @@ class TestPyCOMPADRE(KokkosTestCase):
         gmls_helper.generateKDTree(source_sites)
 
         point = np.array([4.0], dtype='f8')
-        target_site = np.reshape(point, newshape=(1,dim))
+        target_site = np.reshape(point, shape=(1,dim))
 
         gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
         gmls_obj.generateAlphas(1, True)
@@ -339,14 +339,14 @@ class TestPyCOMPADRE(KokkosTestCase):
     def test_pickle_gmls(self):
 
         source_sites = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
-        source_sites = np.reshape(source_sites, newshape=(source_sites.size,1))
+        source_sites = np.reshape(source_sites, shape=(source_sites.size,1))
         data = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
 
         polynomial_order = 1
         dim = 1
 
         point = np.array([4.0], dtype='f8')
-        target_site = np.reshape(point, newshape=(1,dim))
+        target_site = np.reshape(point, shape=(1,dim))
     
         # rvalue or std::unique_ptr passed to ParticleHelper (not obvious lifecycle of GMLS object)
         # in Clang, rvalue type argument works because it keeps track of which was created first
@@ -418,7 +418,7 @@ class TestPyCOMPADRE(KokkosTestCase):
         gmls_helper.generateKDTree(source_sites)
 
         point = np.array([4.0], dtype='f8')
-        target_site = np.reshape(point, newshape=(1,dim))
+        target_site = np.reshape(point, shape=(1,dim))
 
         gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
         gmls_obj.generateAlphas(1, True)
@@ -467,14 +467,14 @@ class TestPyCOMPADRE(KokkosTestCase):
     def test_pickling_additional_evaluation_sites(self):
 
         source_sites = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
-        source_sites = np.reshape(source_sites, newshape=(source_sites.size,1))
+        source_sites = np.reshape(source_sites, shape=(source_sites.size,1))
         data = np.array([4.0,9.0,25.0,36.0,49.0], dtype='f8')
 
         polynomial_order = 2
         dim = 1
 
         point = np.array([4.0, 3.0], dtype='f8')
-        target_site = np.reshape(point, newshape=(2,dim))
+        target_site = np.reshape(point, shape=(2,dim))
 
         extra_sites_coords = np.atleast_2d(np.linspace(0,4,5)).T
         extra_sites_idx    = np.zeros(shape=(len(point),len(extra_sites_coords)+1), dtype='i4')

@@ -102,7 +102,7 @@ def approximate(porder, wpower, wtype, epsilon_multiplier, attempt_center_about_
     del gmls_helper_2
     toc = time.perf_counter()
     PRINT_SOLVE_TIME and print("Solve GMLS in %0.6f seconds"%(toc-tic,))
-    return (np.reshape(Z_pred, newshape=(len(x_pred), len(y_pred))), np.reshape(computed_answer, newshape=(len(x_pred), len(y_pred))), center_about_extra_idx, center_about_extra_coord, colors)
+    return (np.reshape(Z_pred, shape=(len(x_pred), len(y_pred))), np.reshape(computed_answer, shape=(len(x_pred), len(y_pred))), center_about_extra_idx, center_about_extra_coord, colors)
     
 # get initial data for plotting
 Z_pred, computed_answer, center_about_extra_idx, center_about_extra_coord, colors = approximate(polynomial_order, 3, 'power', epsilon_multiplier, np.atleast_2d([1.0,1.0]))
