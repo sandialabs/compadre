@@ -205,6 +205,7 @@ def create_snapshot_dir_args(orig_dir, dest_dir, dry_run=False):
             f"--dest-dir {dest_dir}/ "
             "--exclude kokkos kokkos-kernels pycompadre scripts "
             "setup.py "
+            "pyproject.toml "
             "MANIFEST.in "
             "cmake/detect_kokkos_opts.cmake "
             "examples/Python_3D_Convergence.py.in "
