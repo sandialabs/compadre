@@ -39,30 +39,20 @@ namespace nb = nanobind;
 
 template<typename T>
 nb::ndarray<nb::numpy, T> create_new_array(const std::vector<size_t> dim_out) {
-    // 1. Allocate memory and manage ownership using a smart pointer or std::vector
     size_t total_entries = 1;
     for (size_t i=0; i<dim_out.size(); ++i) {
         total_entries *= dim_out[i];
     }
     auto data_vec = new std::vector<T>(total_entries);
-
-    // Optional: Fill the data with some values
     std::fill(data_vec->begin(), data_vec->end(), 0.0);
-
-    // 2. Create a capsule to tell Python how to deallocate the memory when done
     nb::capsule owner(data_vec, [](void *v) noexcept {
-        // This lambda function is called when the NumPy array is garbage collected
         delete static_cast<std::vector<T> *>(v);
     });
-
-    // 3. Construct the nb::ndarray view over the C++ data
-    // Arguments: data pointer, shape initializer list, owner (the capsule)
-    // shape_vec.size(),         // Number of dimensions (ndim)
     return nb::ndarray<nb::numpy, T>(
-        data_vec->data(),                 // Pointer to the data
-        dim_out.size(),           // Shape
+        data_vec->data(),
+        dim_out.size(),
         dim_out.data(),
-        std::move(owner)                  // Transfer capsule ownership to the ndarray
+        std::move(owner)
     );
 }
 
@@ -686,7 +676,7 @@ public:
         //}
 
         // cast numpy data as Kokkos View
-        host_scratch_matrix_left_type source_data((double *) input.data(), input.shape(0), (input.ndim()>1) ? input.shape(1) : 1);
+        host_scratch_matrix_right_type source_data((double *) input.data(), input.shape(0), (input.ndim()>1) ? input.shape(1) : 1);
 
         compadre_assert_release(gmls_object!=nullptr &&
                 "ParticleHelper used without an internal GMLS object set");

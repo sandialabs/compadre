@@ -530,6 +530,11 @@ else() # Raw CMake Project
         OUTPUT_STRIP_TRAILING_WHITESPACE
         OUTPUT_VARIABLE nanobind_DIR
     )
+    if (${Python_VERSION} VERSION_LESS "3.10")
+        MESSAGE(FATAL_ERROR "
+        Compadre_USE_PYTHON:BOOL=ON but Python version <3.10 is not supported.
+        ")
+    endif()
     find_package(nanobind CONFIG REQUIRED)
     nanobind_add_module(_pycompadre NB_DOMAIN "pycompadre_domain" pycompadre/pycompadre.cpp)
     set_property(TARGET _pycompadre PROPERTY CXX_STANDARD 20)
