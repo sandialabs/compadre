@@ -18,10 +18,10 @@ def approximate(input_dimensions, porder, wpower, wtype, epsilon_multiplier, att
     gmls_obj.generateAlphas(1, False)
     
     # helper function for applying of alphas
-    z_pred = gmls_helper.applyStencil(z, pycompadre.TargetOperation.ScalarPointEvaluation)
+    z_pred = gmls_helper.applyStencil(z.reshape(-1,1), pycompadre.TargetOperation.ScalarPointEvaluation)
 
     # tests that setting and getting tangent bundle works
-    gmls_helper.setTangentBundle(np.ones(shape=(xy_pred.shape[0], input_dimensions, input_dimensions), dtype='f8'))
+    gmls_helper.setTangentBundle(np.ones(shape=(xy_pred.shape[0], input_dimensions, input_dimensions), dtype='f8').copy())
     tb = gmls_helper.getTangentBundle()
     
     del gmls_obj
@@ -46,7 +46,7 @@ class TestPycompadreManifold(KokkosTestCase):
         global xy_pred
         x_pred = np.linspace(0,4,200)
         y_pred = y_function(x_pred)
-        xy_pred = np.vstack((x_pred,y_pred)).T
+        xy_pred = np.vstack((x_pred,y_pred)).T.copy()
 
         last_norm_diff = 0
         for i in range(5):
@@ -55,7 +55,7 @@ class TestPycompadreManifold(KokkosTestCase):
             x = np.linspace(0,4,num_data_points)
             y = y_function(x)
             global xy, z
-            xy = np.vstack((x,y)).T
+            xy = np.vstack((x,y)).T.copy()
             z = function(x,y)
             z_pred = approximate(input_dimensions, polynomial_order, weighting_power, weighting_type, epsilon_multiplier, epsilon_multiplier)
             diff = z_pred-function(x_pred,y_pred)
