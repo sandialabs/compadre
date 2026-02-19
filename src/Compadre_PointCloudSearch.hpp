@@ -285,9 +285,9 @@ class PointCloudSearch {
             size_t max_num_neighbors = 0;
             // part 2. do radius search using window size from knn search
             // each row of neighbor lists is a neighbor list for the target site corresponding to that row
-            Kokkos::parallel_reduce("radius search", host_team_policy(num_target_sites, Kokkos::AUTO)
+            Kokkos::parallel_reduce("radius search 2D", host_team_policy(num_target_sites, Kokkos::AUTO)
                     .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)), 
-                    KOKKOS_LAMBDA(const host_member_type& teamMember, size_t& t_max_num_neighbors) {
+                    KOKKOS_CLASS_LAMBDA(const host_member_type& teamMember, size_t& t_max_num_neighbors) {
 
                 // make unmanaged scratch views
                 scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.extent(1));
@@ -349,7 +349,6 @@ class PointCloudSearch {
                 }
 
             }, Kokkos::Max<size_t>(max_num_neighbors) );
-            Kokkos::fence();
 
             // check if max_num_neighbors will fit onto pre-allocated space
             compadre_assert_release((neighbor_lists.extent(1) >= (max_num_neighbors+1) || is_dry_run) 
@@ -430,9 +429,9 @@ class PointCloudSearch {
 
             // part 2. do radius search using window size from knn search
             // each row of neighbor lists is a neighbor list for the target site corresponding to that row
-            Kokkos::parallel_for("radius search", host_team_policy(num_target_sites, Kokkos::AUTO)
+            Kokkos::parallel_for("radius search CR", host_team_policy(num_target_sites, Kokkos::AUTO)
                     .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)), 
-                    KOKKOS_LAMBDA(const host_member_type& teamMember) {
+                    KOKKOS_CLASS_LAMBDA(const host_member_type& teamMember) {
 
                 // make unmanaged scratch views
                 scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), max_neighbor_list_row_storage_size);
@@ -539,7 +538,6 @@ class PointCloudSearch {
             if ((!_tree_1d && _dim==1) || (!_tree_2d && _dim==2) || (!_tree_3d && _dim==3)) {
                 this->generateKDTree();
             }
-            Kokkos::fence();
 
             compadre_assert_release((num_target_sites==0 || // sizes don't matter when there are no targets
                     (neighbor_lists.extent(0)==(size_t)num_target_sites 
@@ -573,7 +571,7 @@ class PointCloudSearch {
             //
             Kokkos::parallel_reduce("knn search", host_team_policy(num_target_sites, Kokkos::AUTO)
                     .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)), 
-                    KOKKOS_LAMBDA(const host_member_type& teamMember, size_t& t_min_num_neighbors) {
+                    KOKKOS_CLASS_LAMBDA(const host_member_type& teamMember, size_t& t_min_num_neighbors) {
 
                 // make unmanaged scratch views
                 scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.extent(1));
@@ -584,7 +582,7 @@ class PointCloudSearch {
 
                 const int i = teamMember.league_rank();
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbor_lists.extent(1)), [=](const int j) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, neighbor_lists.extent(1)), [&](const int j) {
                     neighbor_indices(j) = 0;
                     neighbor_distances(j) = -1.0;
                 });
@@ -629,7 +627,6 @@ class PointCloudSearch {
                     // neighbor_distances stores squared distances from neighbor to target, as returned by nanoflann
                 });
             }, Kokkos::Min<size_t>(min_num_neighbors) );
-            Kokkos::fence();
             
             // if no target sites, then min_num_neighbors is set to neighbors_needed
             // which also avoids min_num_neighbors being improperly set by min reduction
@@ -684,7 +681,6 @@ class PointCloudSearch {
             if ((!_tree_1d && _dim==1) || (!_tree_2d && _dim==2) || (!_tree_3d && _dim==3)) {
                 this->generateKDTree();
             }
-            Kokkos::fence();
 
             compadre_assert_release((number_of_neighbors_list.extent(0)==(size_t)num_target_sites ) 
                         && "number_of_neighbors_list or neighbor lists View does not have large enough dimensions");
@@ -723,7 +719,7 @@ class PointCloudSearch {
             //
             Kokkos::parallel_reduce("knn search", host_team_policy(num_target_sites, Kokkos::AUTO)
                     .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)), 
-                    KOKKOS_LAMBDA(const host_member_type& teamMember, size_t& t_min_num_neighbors) {
+                    KOKKOS_CLASS_LAMBDA(const host_member_type& teamMember, size_t& t_min_num_neighbors) {
 
                 // make unmanaged scratch views
                 scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), max_neighbor_list_row_storage_size);
@@ -734,7 +730,7 @@ class PointCloudSearch {
 
                 const int i = teamMember.league_rank();
 
-                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, max_neighbor_list_row_storage_size), [=](const int j) {
+                Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, max_neighbor_list_row_storage_size), [&](const int j) {
                     neighbor_indices(j) = 0;
                     neighbor_distances(j) = -1.0;
                 });
@@ -776,7 +772,6 @@ class PointCloudSearch {
                     // neighbor_distances stores squared distances from neighbor to target, as returned by nanoflann
                 });
             }, Kokkos::Min<size_t>(min_num_neighbors) );
-            Kokkos::fence();
             
             // if no target sites, then min_num_neighbors is set to neighbors_needed
             // which also avoids min_num_neighbors being improperly set by min reduction

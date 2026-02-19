@@ -172,7 +172,6 @@ struct NeighborLists {
                     KOKKOS_LAMBDA(const int i, int& t_max_num_neighbors) {
                 t_max_num_neighbors = (number_of_neighbors_list(i) > t_max_num_neighbors) ? number_of_neighbors_list(i) : t_max_num_neighbors;
             }, Kokkos::Max<int>(_max_neighbor_list_row_storage_size));
-            Kokkos::fence();
         }
     }
 
@@ -187,7 +186,6 @@ struct NeighborLists {
                     KOKKOS_LAMBDA(const int i, int& t_min_num_neighbors) {
                 t_min_num_neighbors = (number_of_neighbors_list(i) < t_min_num_neighbors) ? number_of_neighbors_list(i) : t_min_num_neighbors;
             }, Kokkos::Min<int>(_min_neighbor_list_row_storage_size));
-            Kokkos::fence();
         }
     }
 
@@ -338,7 +336,6 @@ NeighborLists<view_type_1d> Convert2DToCompressedRowNeighborLists(view_type_2d n
             KOKKOS_LAMBDA(const int i, global_index_type& t_total_num_neighbors) {
         t_total_num_neighbors += neighbor_lists(i,0);
     }, Kokkos::Sum<global_index_type>(total_storage_size));
-    Kokkos::fence();
 
     // view_type_1d may be on host or device, and view_type_2d may be either as well (could even be opposite)
     view_type_1d new_cr_neighbor_lists("compressed row neighbor lists", total_storage_size);
