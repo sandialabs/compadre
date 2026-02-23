@@ -16,7 +16,7 @@ jobs:
     - name: Install Python dependencies
       run: |
         python3 -m pip install --upgrade pip
-        pip install setuptools numpy
+        pip install setuptools numpy nanobind
         pip install sphinx
         pip install sphinx_rtd_theme
         echo $'Compadre_USE_MPI:BOOL=OFF\nCompadre_EXAMPLES:BOOL=OFF\nCompadre_TESTS:BOOL=OFF' > cmake_opts.txt
