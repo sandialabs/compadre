@@ -43,7 +43,7 @@ jobs:
     - name: Install dependencies
       run: |
         python3 -m pip install --upgrade pip
-        pip install twine wheel setuptools numpy
+        pip install twine wheel setuptools numpy nanobind
     - name: Set up pycompadre options (parallel)
       if: ${{ matrix.pycompadre-type == 'pycompadre' }}
       run: |
@@ -71,6 +71,7 @@ jobs:
       run: |
         sudo rm -rfv dist/*-linux_x86_64.whl
         rm -rf ${{github.workspace}}/dist/numpy*
+        rm -rf ${{github.workspace}}/dist/nanobind*
     - name: Rename for build_num
       if: ${{ github.event.inputs.build_num != ''}}
       run: |
@@ -133,7 +134,7 @@ jobs:
     - name: Install dependencies
       run: |
         python3 -m pip install --upgrade pip
-        pip install twine wheel setuptools cython numpy
+        pip install twine wheel setuptools cython numpy nanobind
     - name: Set up pycompadre options (parallel)
       if: ${{ matrix.pycompadre-type == 'pycompadre' }}
       run: |
