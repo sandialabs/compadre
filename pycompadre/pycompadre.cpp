@@ -125,7 +125,6 @@ Kokkos::View<T***, layout, space> convert_np_to_kokkos_3d(nb::ndarray<nb::numpy,
     size_t stride_0 = array.stride(0);
     size_t stride_1 = array.stride(1);
     size_t stride_2 = array.stride(2);
-    //std::cout << "stride_0: " << stride_0 << " rows*cols: " << rows*cols << " stride_1: " << stride_1 << " cols: " << cols << " stride_0: " << stride_2 << std::endl;
     if (stride_0!=cols*nextdim || stride_1!=nextdim || stride_2!=1) {
         throw std::runtime_error("convert_np_to_kokkos_3d was passed an array with noncontiguous data. Please reformat array.");
     }
@@ -277,15 +276,6 @@ nb::ndarray<nb::numpy, typename T::value_type> convert_kokkos_to_np(T kokkos_arr
         std::vector<size_t> dim_out = {0};
         result = create_new_array<typename T::value_type>(dim_out);
     }
-
-    size_t rows = result.shape(0);
-    int cols = (result.ndim() > 1) ? result.shape(1) : -1;
-    int nextdim = (result.ndim() > 2) ? result.shape(2) : -1;
-    int stride_0 = result.stride(0);
-    int stride_1 = (result.ndim() > 1) ? result.stride(1) : -1;
-    int stride_2 = (result.ndim() > 2) ? result.stride(2) : -1;
-    std::cout << "aa:stride_0: " << stride_0 << " stride_1: " << stride_1 << " stride_2: " << stride_2 << std::endl;
-    std::cout << "rows: " << rows << " cols: " << cols << " nextdim: " << nextdim << std::endl;
 
     return result;
 
@@ -665,8 +655,6 @@ public:
         size_t cols = (input.ndim() > 1) ? input.shape(1) : 1;
         size_t stride_0 = input.stride(0);
         size_t stride_1 = (input.ndim() > 1) ? input.stride(1) : 1;
-        std::cout << "stride_0: " << stride_0 << " stride_1: " << stride_1 << std::endl;
-        std::cout << "rows: " << rows << " cols: " << cols << std::endl;
         if ((input.ndim() == 1 && stride_0!=1) || (input.ndim() == 2 && (stride_0!=cols || stride_1!=1))) {
             throw std::runtime_error("applyStencil was passed an input array with noncontiguous data. Please reformat input before passing to applyStencil.");
         }
