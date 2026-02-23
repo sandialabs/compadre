@@ -294,7 +294,7 @@ class TestPyCOMPADRE(KokkosTestCase):
 
     def test_noncontiguous_ndarray(self):
         source_sites = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
-        source_sites = np.reshape(source_sites, newshape=(source_sites.size,1))
+        source_sites = np.reshape(source_sites, shape=(source_sites.size,1))
         data = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
 
         polynomial_order = 1
@@ -308,7 +308,7 @@ class TestPyCOMPADRE(KokkosTestCase):
         gmls_helper.generateKDTree(source_sites)
 
         point = np.array([4.0], dtype='f8')
-        target_site = np.reshape(point, newshape=(1,dim))
+        target_site = np.reshape(point, shape=(1,dim))
 
         gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
         gmls_obj.generateAlphas(1, True)
@@ -323,6 +323,33 @@ class TestPyCOMPADRE(KokkosTestCase):
         new_data_vector[::3] = data[:]
         with self.assertRaises(RuntimeError):
             output = gmls_helper.applyStencilSingleTarget(new_data_vector[::3], pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+        del gmls_helper
+        del gmls_obj
+
+    def test_sequential_solution_time(self):
+        source_sites = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
+        source_sites = np.reshape(source_sites, shape=(source_sites.size,1))
+        data = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
+
+        polynomial_order = 1
+        dim = 1
+
+        gmls_obj=pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD")
+        gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
+        gmls_obj.addTargets(pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+        gmls_helper.generateKDTree(source_sites)
+
+        point = np.array([4.0], dtype='f8')
+        target_site = np.reshape(point, shape=(1,dim))
+
+        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
+        gmls_obj.generateAlphas(1, True)
+
+        for i in range(1000):
+            output = gmls_helper.applyStencilSingleTarget(data, pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+
         del gmls_helper
         del gmls_obj
 
