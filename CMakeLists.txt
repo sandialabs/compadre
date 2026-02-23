@@ -108,12 +108,12 @@ else() # Raw CMake Project
       set(Python_EXECUTABLE "${PYTHON_EXECUTABLE}")
     ENDIF()
     find_package(Python REQUIRED COMPONENTS Interpreter Development)
-    if (${Python_VERSION} VERSION_LESS "3.8")
+    if (${Python_VERSION} VERSION_LESS "3.10")
         MESSAGE(FATAL_ERROR "
-        Compadre_USE_PYTHON:BOOL=ON but Python version <3.8 is not supported.
+        Compadre_USE_PYTHON:BOOL=ON but Python version <3.10 is not supported.
         ")
     endif()
-    MESSAGE(STATUS "PYTHON_EXECUTABLE: ${Python_EXECUTABLE}")
+    MESSAGE(STATUS "Python_EXECUTABLE: ${Python_EXECUTABLE}")
     # change RPATH for a flat directory structure
     # when installing pycompadre as Python package
     if (PYTHON_CALLING_BUILD)
@@ -518,27 +518,13 @@ else() # Raw CMake Project
   endif()
 
   if(Compadre_USE_PYTHON)
-    set(CMAKE_POLICY_DEFAULT_CMP0127 OLD)
-    if (CMAKE_CXX_COMPILER_ID STREQUAL "XL")
-        MESSAGE(FATAL_ERROR "
-        IBM XL compiler not supported for nanobind.
-        Set Compadre_USE_PYTHON:BOOL=OFF or switch compilers.
-        ")
-    endif()
     execute_process(
         COMMAND "${Python_EXECUTABLE}" -m nanobind --cmake_dir
         OUTPUT_STRIP_TRAILING_WHITESPACE
         OUTPUT_VARIABLE nanobind_DIR
     )
-    if (${Python_VERSION} VERSION_LESS "3.10")
-        MESSAGE(FATAL_ERROR "
-        Compadre_USE_PYTHON:BOOL=ON but Python version <3.10 is not supported.
-        ")
-    endif()
     find_package(nanobind CONFIG REQUIRED)
     nanobind_add_module(_pycompadre NB_DOMAIN "pycompadre_domain" pycompadre/pycompadre.cpp)
-    set_property(TARGET _pycompadre PROPERTY CXX_STANDARD 20)
-    set_property(TARGET _pycompadre PROPERTY CXX_STANDARD_REQUIRED ON)
     target_link_libraries(_pycompadre PRIVATE compadre)
     if (PYTHON_CALLING_BUILD)
       configure_file("${CMAKE_CURRENT_SOURCE_DIR}/pycompadre/__init__.py" "${CMAKE_CURRENT_BINARY_DIR}/__init__.py" COPYONLY)
