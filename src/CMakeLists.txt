@@ -74,15 +74,10 @@ endif()
 
 bob_export_target(compadre)
 
-set(COMPADRE_TPL
-    tpl/nanoflann.hpp
-    tpl/KokkosBatched_SolveUTV_Decl_Compadre.hpp
-    tpl/KokkosBatched_SolveUTV_TeamVector_Impl_Compadre.hpp
-    tpl/KokkosBatched_SolveUTV_TeamVector_Internal_Compadre.hpp
-)
-
-install(FILES ${COMPADRE_TPL} DESTINATION include/tpl)
-
-install(FILES ${COMPADRE_HEADERS} DESTINATION include)
+if (PYTHON_CALLING_BUILD)
+  install(FILES ${COMPADRE_HEADERS} DESTINATION pycompadre) 
+else()
+  install(FILES ${COMPADRE_HEADERS} DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
+endif()
 
 bob_end_subdir()
