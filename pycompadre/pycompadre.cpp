@@ -1,8 +1,6 @@
 #ifndef _GMLS_PYTHON_HPP_
 #define _GMLS_PYTHON_HPP_
 
-//#include "headers.hpp"
-//#<nanobind/nanobind.h>
 #include <nanobind/nanobind.h>
 #include <vector>
 
