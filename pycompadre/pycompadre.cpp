@@ -651,6 +651,7 @@ public:
  
     nb::ndarray<nb::numpy, double> applyStencil(const nb::ndarray<nb::numpy, double> input, const TargetOperation lro, const SamplingFunctional sro, const int evaluation_site_local_index = 0) const {
  
+#ifdef COMPADRE_DEBUG
         size_t rows = input.shape(0);
         size_t cols = (input.ndim() > 1) ? input.shape(1) : 1;
         size_t stride_0 = input.stride(0);
@@ -658,6 +659,7 @@ public:
         if ((input.ndim() == 1 && stride_0!=1) || (input.ndim() == 2 && (stride_0!=cols || stride_1!=1))) {
             throw std::runtime_error("applyStencil was passed an input array with noncontiguous data. Please reformat input before passing to applyStencil.");
         }
+#endif
 
         //if (input.ndim() != 2) {
         //    throw std::runtime_error("Number of dimensions of input indices must be two");
@@ -718,7 +720,7 @@ public:
         }
  
         // cast numpy data as Kokkos View
-        host_scratch_matrix_left_type source_data((double *) input.data(), input.shape(0), (input.ndim()>1) ? input.shape(1) : 1);
+        host_scratch_matrix_right_type source_data((double *) input.data(), input.shape(0), (input.ndim()>1) ? input.shape(1) : 1);
 
         compadre_assert_release(gmls_object!=nullptr &&
                 "ParticleHelper used without an internal GMLS object set");
@@ -792,7 +794,7 @@ public:
         }
  
         // cast numpy data as Kokkos View
-        host_scratch_matrix_left_type source_data((double *) input.data(), input.shape(0), (input.ndim()>1) ? input.shape(1) : 1);
+        host_scratch_matrix_right_type source_data((double *) input.data(), input.shape(0), (input.ndim()>1) ? input.shape(1) : 1);
 
         compadre_assert_release(input.ndim()==1 && "Input given with dimensions > 1");
 
