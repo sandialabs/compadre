@@ -27,7 +27,7 @@ jobs:
     - name: Setup python
       uses: actions/setup-python@v2
       with:
-        python-version: '3.9'
+        python-version: '3.10'
         architecture: x64
         
     - name: Install Python dependencies
@@ -36,17 +36,10 @@ jobs:
         pip install numpy nanobind build
         
     - name: Generate Python package (parallel)
-      if: ${{ matrix.pycompadre-type == 'pycompadre' }}
       run: |
           cd ${{github.workspace}}/pycompadre
           echo "./install.sh -p"
           ./install.sh -p
-    - name: Generate Python package (serial)
-      if: ${{ matrix.pycompadre-type == 'pycompadre-serial' }}
-      run: |
-          cd ${{github.workspace}}/pycompadre
-          echo "./install.sh -p -s"
-          ./install.sh -p -s
           
     - uses: actions/upload-artifact@v4
       with:
