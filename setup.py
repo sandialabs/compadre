@@ -124,7 +124,7 @@ class CustomBuild(build_ext):
         cmake_version = Version(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
         if cmake_version < Version('3.16.0'):
             raise runtimeerror("cmake >= 3.16.0 is required")
-        assert sys.version_info >= (3,6), "\n\n\n\n\npycompadre requires python version 3.6+\n\n\n\n\n"
+        assert sys.version_info >= (3,10), "\n\n\n\n\npycompadre requires python version 3.10+\n\n\n\n\n"
 
         for ext in self.extensions:
             self.configure_pycompadre(ext)
@@ -158,7 +158,7 @@ class CustomBuild(build_ext):
                 cmake_config = ""
                 print("Custom cmake args file not set.")
 
-        if Version(platform.python_version()) >= Version('3.9.0'):
+        if Version(platform.python_version()) >= Version('3.10.0'):
             nanobind_path = str(importlib.resources.files('nanobind'))
         else:
             import nanobind
@@ -220,8 +220,8 @@ class CustomBuild(build_ext):
             cfg = 'Debug'
             cmake_args += ['-DCMAKE_BUILD_TYPE=Debug']
         elif not self.debug and not build_type_in_cmake_args:
-            cfg = 'None'
-            cmake_args += ['-DCMAKE_BUILD_TYPE=None']
+            cfg = 'Release'
+            cmake_args += ['-DCMAKE_BUILD_TYPE=Release']
         elif not self.debug: # was specified in file only
             for arg in cmake_args[:]:
                 if 'CMAKE_BUILD_TYPE' in arg:
@@ -272,6 +272,8 @@ class CustomBuild(build_ext):
         print("Build Args:", build_args)
         subprocess.check_call(['cmake', '--build', '.'] + build_args, cwd=self.build_temp)
 
+        # copy Compadre_Config.h to install directory
+        shutil.copyfile(self.build_temp + "/src/Compadre_Config.h", extdir + "/Compadre_Config.h")
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
