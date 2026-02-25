@@ -574,7 +574,7 @@ public:
         py::buffer_info buf = input.request();
  
         // cast numpy data as Kokkos View
-        host_scratch_matrix_left_type source_data((double *) buf.ptr, input.shape(0), (buf.ndim>1) ? input.shape(1) : 1);
+        host_unmanaged_matrix_left_type source_data((double *) buf.ptr, input.shape(0), (buf.ndim>1) ? input.shape(1) : 1);
 
         compadre_assert_release(gmls_object!=nullptr &&
                 "ParticleHelper used without an internal GMLS object set");
@@ -617,7 +617,7 @@ public:
         py::buffer_info buf = input.request();
  
         // cast numpy data as Kokkos View
-        host_scratch_matrix_left_type source_data((double *) buf.ptr, input.shape(0), (buf.ndim>1) ? input.shape(1) : 1);
+        host_unmanaged_matrix_left_type source_data((double *) buf.ptr, input.shape(0), (buf.ndim>1) ? input.shape(1) : 1);
 
         compadre_assert_release(gmls_object!=nullptr &&
                 "ParticleHelper used without an internal GMLS object set");
@@ -681,7 +681,7 @@ public:
         py::buffer_info buf = input.request();
  
         // cast numpy data as Kokkos View
-        host_scratch_matrix_left_type source_data((double *) buf.ptr, input.shape(0), (buf.ndim>1) ? input.shape(1) : 1);
+        host_unmanaged_matrix_left_type source_data((double *) buf.ptr, input.shape(0), (buf.ndim>1) ? input.shape(1) : 1);
 
         compadre_assert_release(buf.ndim==1 && "Input given with dimensions > 1");
 
