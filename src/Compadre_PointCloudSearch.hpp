@@ -14,6 +14,7 @@
 #include "nanoflann.hpp"
 #include <Kokkos_Core.hpp>
 #include <memory>
+#include <iostream>
 
 namespace Compadre {
 
@@ -430,9 +431,7 @@ class PointCloudSearch {
 
             // part 2. do radius search using window size from knn search
             // each row of neighbor lists is a neighbor list for the target site corresponding to that row
-            Kokkos::parallel_for("radius search", host_team_policy(num_target_sites, Kokkos::AUTO)
-                    .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size)), 
-                    KOKKOS_LAMBDA(const host_member_type& teamMember) {
+            auto radius_search = KOKKOS_LAMBDA(const host_member_type& teamMember) {
 
                 // make unmanaged scratch views
                 scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), max_neighbor_list_row_storage_size);
@@ -497,7 +496,15 @@ class PointCloudSearch {
                     teamMember.team_barrier();
                 }
 
-            });
+            };
+            auto policy = host_team_policy(num_target_sites, Kokkos::AUTO)
+                .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size));
+            int max_team_size = policy.team_size_max(radius_search, Kokkos::ParallelForTag());
+            if (max_team_size <= 0) {
+                policy = host_team_policy(num_target_sites, Kokkos::AUTO)
+                    .set_scratch_size(1 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size));
+            }
+            Kokkos::parallel_for("radius search CR", policy, radius_search);
             Kokkos::fence();
             auto nla = CreateNeighborLists(number_of_neighbors_list);
             return nla.getTotalNeighborsOverAllListsHost();
