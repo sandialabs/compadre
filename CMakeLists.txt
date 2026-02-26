@@ -70,7 +70,7 @@ else() # Raw CMake Project
   endif()
   set(CMAKE_DISABLE_SOURCE_CHANGES ON)
   set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
-  set(CMAKE_POLICY_DEFAULT_CMP0128 OLD)
+  set(CMAKE_POLICY_DEFAULT_CMP0128 NEW)
   set(CMAKE_CXX_EXTENSIONS OFF)
 
   get_directory_property(Compadre_HAS_PARENT PARENT_DIRECTORY)
@@ -143,6 +143,7 @@ else() # Raw CMake Project
   bob_option(Compadre_USE_PYTHON "Use PYTHON" OFF)
   bob_option(Compadre_USE_MATLAB "Use MATLAB interface for PYTHON" OFF)
   bob_option(Compadre_USE_MPI "Use MPI (not needed for Compadre toolkit)" OFF)
+  bob_option(Compadre_USE_CUDA "Require CUDA" OFF)
   set(PYTHON_LIBRARY_PREFIX "..") # relative to examples folder
   bob_input(PYTHON_EXECUTABLE "" PATH "Python executable location")
   if (Compadre_USE_PYTHON)
@@ -331,7 +332,6 @@ else() # Raw CMake Project
       endif()
     endif()
   endif()
-  message(STATUS "Compadre_USE_CUDA: ${Compadre_USE_CUDA}")
 
   if (NOT(KOKKOS_IN_TRILINOS) AND NOT(Kokkos_ROOT))
       add_subdirectory(kokkos)
@@ -341,20 +341,24 @@ else() # Raw CMake Project
   set(KOKKOS_THREADS_ARG "--kokkos-num-threads")
 
   if (KOKKOSKERNELS_IN_TRILINOS)
-    if (Compadre_USE_CUDA)
-      list(FIND Trilinos_TPL_LIST "CUDA" CUDAID)
-      if (NOT(CUDAID GREATER -1))
-          MESSAGE(FATAL_ERROR "Compadre_USE_CUDA set to ON, but CUDA not defined in Trilinos")
-      endif()
-    endif()
     # register Trilinos so that it shows up in CompadreConfig.cmake
     set(Compadre_EXT_DEPS Trilinos)
   else()
     if (NOT KokkosKernels_ROOT)
+      if (Kokkos_ROOT)
+          MESSAGE(FATAL_ERROR "Kokkos_ROOT specified but KokkosKernels_ROOT not specified. \
+          Either provide KokkosKernels_ROOT as well, or remove Kokkos_ROOT specification.")
+      endif()
       SET(KOKKOSKERNELS_BUILT_FOR_USER ON)
-      # both are required to be sure it finds it
-      SET(KokkosKernels_ENABLE_EXAMPLES OFF)
-      SET(KokkosKernels_ENABLE_TESTS OFF)
+      OPTION(KokkosKernels_ENABLE_EXAMPLES "" OFF)
+      OPTION(KokkosKernels_ENABLE_TESTS "" OFF)
+      OPTION(KokkosKernels_ENABLE_COMPONENT_BATCHED "" ON)
+      OPTION(KokkosKernels_ENABLE_COMPONENT_BLAS "" ON)
+      OPTION(KokkosKernels_ENABLE_COMPONENT_LAPACK "" OFF)
+      OPTION(KokkosKernels_ENABLE_COMPONENT_GRAPH "" OFF)
+      OPTION(KokkosKernels_ENABLE_COMPONENT_Sparse "" OFF)
+      OPTION(KokkosKernels_ENABLE_COMPONENT_NODE "" OFF)
+      OPTION(KokkosKernels_ENABLE_ALL_COMPONENTS "" OFF)
       OPTION(KokkosKernels_ETI_ONLY "" OFF)
       SET(KokkosKernels_ETI_ONLY OFF)
       OPTION(KokkosKernels_INST_OFFSET_SIZE_T "" OFF)
@@ -382,10 +386,6 @@ else() # Raw CMake Project
       OPTION(KokkosKernels_INST_EXECSPACE_OPENMP "" ${Kokkos_ENABLE_OPENMP})
       SET(KokkosKernels_INST_EXECSPACE_OPENMP ${Kokkos_ENABLE_OPENMP})
       add_subdirectory(kokkos-kernels)
-      if (Kokkos_ROOT)
-          MESSAGE(FATAL_ERROR "Kokkos_ROOT specified but KokkosKernels_ROOT not specified. \
-          Either provide KokkosKernels_ROOT as well, or remove Kokkos_ROOT specification.")
-      endif()
     else()
       # Existing KokkosKernels indicated by user by setting KokkosKernels_ROOT, so we look for it
       # where specified (only)
