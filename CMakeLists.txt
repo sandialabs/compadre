@@ -236,13 +236,13 @@ else() # Raw CMake Project
     MESSAGE("   Trilinos_TPL_LIBRARY_DIRS = ${Trilinos_TPL_LIBRARY_DIRS}")
     MESSAGE("   Trilinos_BUILD_SHARED_LIBS = ${Trilinos_BUILD_SHARED_LIBS}")
     MESSAGE("   Trilinos_CXX_COMPILER_FLAGS = ${Trilinos_CXX_COMPILER_FLAGS}")
-    MESSAGE("End of Trilinos details\n")
     
     LIST(REVERSE Trilinos_INCLUDE_DIRS)
     LIST(REMOVE_DUPLICATES Trilinos_INCLUDE_DIRS)
     LIST(REVERSE Trilinos_INCLUDE_DIRS)
     MESSAGE("   Trilinos_INCLUDE_DIRS = ${Trilinos_INCLUDE_DIRS}")
     MESSAGE("   Trilinos_CXX_FLAGS = ${Trilinos_CXX_COMPILER_FLAGS}")
+    MESSAGE("End of Trilinos details\n")
 
     IF (Trilinos_VERSION VERSION_GREATER_EQUAL "16.1")
         set(CompadreKokkosPackageName "Kokkos")
@@ -285,7 +285,7 @@ else() # Raw CMake Project
       endif()
     endif()
 
-    FIND_PACKAGE(Kokkos)
+    find_package(Kokkos PATHS "${Trilinos_ROOT}/lib/cmake/Kokkos" NO_DEFAULT_PATH REQUIRED)
     message(STATUS "Kokkos Version: ${Kokkos_VERSION}")
     if (Kokkos_VERSION VERSION_LESS "${KOKKOS_MIN}")
         message(FATAL_ERROR "${Kokkos_VERSION}: Requires Trilinos with Kokkos version ${KOKKOS_MIN} or greater")
@@ -510,21 +510,19 @@ else() # Raw CMake Project
   add_subdirectory(src)
 
   if (Compadre_EXAMPLES AND Compadre_TESTS)
-    if (NOT Trilinos_ROOT)
-      # gtest from kokkos
-      # based on kokkos-kernels/CMakeLists.txt
-      SET(GTEST_SOURCE_DIR ${PROJECT_SOURCE_DIR}/kokkos/tpls/gtest)
-      message(STATUS "GTEST:: ${GTEST_SOURCE_DIR}")
-      add_library(compadre_gtest
-          ${GTEST_SOURCE_DIR}/gtest/gtest-all.cc
-      )
-      target_include_directories(compadre_gtest PUBLIC ${GTEST_SOURCE_DIR}/gtest)
-      # Disables pthreads, this is a problem for serial builds in Trilinos & Sierra if it's enabled.
-      TARGET_COMPILE_DEFINITIONS(compadre_gtest PUBLIC "-DGTEST_HAS_PTHREAD=0")
-      TARGET_INCLUDE_DIRECTORIES(compadre_gtest PUBLIC $<BUILD_INTERFACE:${GTEST_SOURCE_DIR}>)
-      #Gtest minimally requires C++11
-      TARGET_COMPILE_FEATURES(compadre_gtest PUBLIC cxx_std_11)
-    endif()
+    # gtest from kokkos
+    # based on kokkos-kernels/CMakeLists.txt
+    SET(GTEST_SOURCE_DIR ${PROJECT_SOURCE_DIR}/kokkos/tpls/gtest)
+    message(STATUS "GTEST:: ${GTEST_SOURCE_DIR}")
+    add_library(compadre_gtest
+        ${GTEST_SOURCE_DIR}/gtest/gtest-all.cc
+    )
+    target_include_directories(compadre_gtest PUBLIC ${GTEST_SOURCE_DIR}/gtest)
+    # Disables pthreads, this is a problem for serial builds in Trilinos & Sierra if it's enabled.
+    TARGET_COMPILE_DEFINITIONS(compadre_gtest PUBLIC "-DGTEST_HAS_PTHREAD=0")
+    TARGET_INCLUDE_DIRECTORIES(compadre_gtest PUBLIC $<BUILD_INTERFACE:${GTEST_SOURCE_DIR}>)
+    #Gtest minimally requires C++11
+    TARGET_COMPILE_FEATURES(compadre_gtest PUBLIC cxx_std_11)
   endif()
 
   if(Compadre_EXAMPLES)
