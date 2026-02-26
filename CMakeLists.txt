@@ -83,11 +83,34 @@ else() # Raw CMake Project
 
   # Set to OFF for significantly faster performance and ON for error tracking
   bob_option(Compadre_EXTREME_DEBUG "Run Compadre Toolkit in EXTREME DEBUG mode" OFF)
-  bob_option(Compadre_DEBUG "Run Compadre Toolkit in DEBUG mode" ON)
+  # do not print variable now
+  bob_option(Compadre_DEBUG "Run Compadre Toolkit in DEBUG mode" OFF "OFF")
   if (Compadre_EXTREME_DEBUG)
     set(Compadre_DEBUG ON)
     message(STATUS "Compadre_DEBUG: ON (because Compadre_EXTREME_DEBUG is ON)")
   endif()
+  # defaults for build type
+  if(NOT CMAKE_BUILD_TYPE)
+    if(Compadre_DEBUG)
+      set(DEFAULT_BUILD_TYPE "Debug")
+    else()
+      set(DEFAULT_BUILD_TYPE "RelWithDebInfo")
+    endif()
+    message(STATUS "No build type specified. Defaulting to: ${DEFAULT_BUILD_TYPE}")
+    set(CMAKE_BUILD_TYPE "${DEFAULT_BUILD_TYPE}" CACHE STRING
+        "Choose the type of build: {Debug,Release,RelWithDebInfo,MinSizeRel,None}." FORCE)
+  endif()
+  # ensure conflicting BUILD_TYPE not specified w.r.t. Compadre_DEBUG
+  if(Compadre_DEBUG AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+    message(STATUS "Compadre_DEBUG is ON so CMAKE_BUILD_TYPE set to Debug")
+    set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type {Release, RelWithDebInfo, Debug, None}" FORCE)
+  elseif(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT Compadre_DEBUG)
+    message(STATUS "CMAKE_BUILD_TYPE is 'Debug' so Compadre_DEBUG is set to ON")
+    set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type {Release, RelWithDebInfo, Debug, None}" FORCE)
+    set(Compadre_DEBUG ON CACHE STRING "" FORCE)
+  endif()
+  message(STATUS "Compadre_DEBUG: ${Compadre_DEBUG}")
+  message(STATUS "CMAKE_BUILD_TYPE: ${CMAKE_BUILD_TYPE}")
 
   # RPATH related settings
   # https://gitlab.kitware.com/cmake/community/wikis/doc/cmake/RPATH-handling
