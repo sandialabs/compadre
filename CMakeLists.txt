@@ -66,7 +66,7 @@ else() # Raw CMake Project
 
   PROJECT(Compadre VERSION ${Compadre_VERSION} LANGUAGES CXX)
   if (NOT CMAKE_CXX_STANDARD)
-      set(CMAKE_CXX_STANDARD 17)
+      set(CMAKE_CXX_STANDARD 20)
   endif()
   set(CMAKE_DISABLE_SOURCE_CHANGES ON)
   set(CMAKE_DISABLE_IN_SOURCE_BUILD ON)
@@ -304,6 +304,9 @@ else() # Raw CMake Project
         bob_option(Kokkos_ENABLE_CUDA "Whether to use CUDA" OFF)
         bob_option(Kokkos_ENABLE_OPENMP "Whether to use OPENMP" ON)
         bob_option(Kokkos_ENABLE_THREADS "Whether to use THREADS" OFF)
+      endif()
+      if (Kokkos_ENABLE_CUDA)
+        set(Compadre_USE_CUDA ON CACHE BOOL "" FORCE)
       endif()
       option(Kokkos_ENABLE_DEBUG "" "${Compadre_DEBUG}")
       option(Kokkos_ENABLE_CUDA_UVM "" OFF)
