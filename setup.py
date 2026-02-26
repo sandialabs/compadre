@@ -215,36 +215,19 @@ class CustomBuild(build_ext):
                 build_type_in_cmake_args = True
                 break
 
-        # allow 'python setup.py build_ext --debug install' to have precedence over CMAKE_BUILD_TYPE
-        if self.debug and not build_type_in_cmake_args:
-            cfg = 'Debug'
-            cmake_args += ['-DCMAKE_BUILD_TYPE=Debug']
-        elif not self.debug and not build_type_in_cmake_args:
-            cfg = 'Release'
-            cmake_args += ['-DCMAKE_BUILD_TYPE=Release']
-        elif not self.debug: # was specified in file only
-            for arg in cmake_args[:]:
-                if 'CMAKE_BUILD_TYPE' in arg:
-                    # break down and copy to cfg
-                    cfg = arg.split('=')[1]
-                    break
-        else: # was specified in file and --debug in command
-            # delete specified from cmake_args 
-            for arg in cmake_args[:]:
-                if 'CMAKE_BUILD_TYPE' in arg:
-                    cmake_args.remove(arg)
-            cmake_args += ['-DCMAKE_BUILD_TYPE=Debug']
-            cfg = 'Debug'
-
-        build_args = ['--config', cfg]
-
-        if platform.system() == "Windows":
-            cmake_args += ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(cfg.upper(), extdir)]
-            if sys.maxsize > 2**32:
-                cmake_args += ['-A', 'x64']
-            build_args += ['--', '/m']
+        # default CMAKE_BUILD_TYPE can be overridden by (ranked by highest priority)
+        # 1. environment CMAKE_BUILD_TYPE
+        # 2. if not defined in 1, then file indicated by environment CMAKE_CONFIG_FILE
+        # 3. default to RelWithDebInfo
+        build_type_env = os.getenv("CMAKE_BUILD_TYPE")
+        if build_type_env:
+            cmake_args += [f'-DCMAKE_BUILD_TYPE={build_type_env}']
         else:
-            build_args += ['--', '-j2']
+            if not build_type_in_cmake_args:
+                print('CMAKE_BUILD_TYPE not provided in CMAKE_CONFIG_FILE or as environment variable, defaulting to RelWithDebInfo')
+                cmake_args += ['-DCMAKE_BUILD_TYPE=RelWithDebInfo']
+
+        build_args = ['--', '-j']
 
         env = os.environ.copy()
         env['CXXFLAGS'] = '{} -DVERSION_INFO=\\"{}\\"'.format(env.get('CXXFLAGS', ''),
@@ -274,6 +257,13 @@ class CustomBuild(build_ext):
 
         # copy Compadre_Config.h to install directory
         shutil.copyfile(self.build_temp + "/src/Compadre_Config.h", extdir + "/Compadre_Config.h")
+
+        super().run()
+
+        with open(extdir + "/Compadre_Config.h", 'r') as f:
+            contents = f.readlines()
+            print("reading file:" + extdir + "/Compadre_Config.h")
+            print(contents)
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
