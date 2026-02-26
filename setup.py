@@ -199,22 +199,6 @@ class CustomBuild(build_ext):
         if not examples_in_cmake_args:
             cmake_args += ['-DCompadre_EXAMPLES:BOOL=OFF']
 
-        # add level 3 optimization if not specified in a file
-        flag_in_cmake_args = False
-        for arg in cmake_args:
-            if 'CMAKE_CXX_FLAGS' in arg:
-                flag_in_cmake_args = True
-                break
-        if not flag_in_cmake_args:
-            cmake_args += ['-DCMAKE_CXX_FLAGS= -O3 -g ']
-
-        # add level 3 optimization if not specified in a file
-        build_type_in_cmake_args = False
-        for arg in cmake_args:
-            if 'CMAKE_BUILD_TYPE' in arg:
-                build_type_in_cmake_args = True
-                break
-
         # default CMAKE_BUILD_TYPE can be overridden by (ranked by highest priority)
         # 1. environment CMAKE_BUILD_TYPE
         # 2. if not defined in 1, then file indicated by environment CMAKE_CONFIG_FILE
@@ -223,6 +207,11 @@ class CustomBuild(build_ext):
         if build_type_env:
             cmake_args += [f'-DCMAKE_BUILD_TYPE={build_type_env}']
         else:
+            build_type_in_cmake_args = False
+            for arg in cmake_args:
+                if 'CMAKE_BUILD_TYPE' in arg:
+                    build_type_in_cmake_args = True
+                    break
             if not build_type_in_cmake_args:
                 print('CMAKE_BUILD_TYPE not provided in CMAKE_CONFIG_FILE or as environment variable, defaulting to RelWithDebInfo')
                 cmake_args += ['-DCMAKE_BUILD_TYPE=RelWithDebInfo']
@@ -230,11 +219,12 @@ class CustomBuild(build_ext):
         build_args = ['--', '-j']
 
         env = os.environ.copy()
-        env['CXXFLAGS'] = '{} -DVERSION_INFO=\\"{}\\"'.format(env.get('CXXFLAGS', ''),
-                                                              self.distribution.get_version())
+
         if not os.path.exists(self.build_temp):
             os.makedirs(self.build_temp)
-        print("CMake Args:", cmake_args)
+        print("CMake Args:")
+        for cmake_arg in cmake_args:
+            print("  " + cmake_arg)
         subprocess.check_call(['cmake', ext.sourcedir] + cmake_args, cwd=self.build_temp, env=env)
 
         # copy __init__.py to install directory
@@ -262,8 +252,12 @@ class CustomBuild(build_ext):
 
         with open(extdir + "/Compadre_Config.h", 'r') as f:
             contents = f.readlines()
-            print("reading file:" + extdir + "/Compadre_Config.h")
-            print(contents)
+            contains_DEBUG = False
+            for line in contents:
+                if "COMPADRE_DEBUG" in line:
+                    contains_DEBUG = True
+        with open(os.path.join(extdir, "_build_info.py"), "w") as f:
+            f.write(f'Compadre_DEBUG={contains_DEBUG}\n')
 
 with open("README.md", "r") as fh:
     long_description = fh.read()

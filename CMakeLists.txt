@@ -437,6 +437,13 @@ endif()
 ##########
 
 
+# if you want to change optimization options, i.e.
+# setting CMAKE_CXX_FLAGS=-O3 with CMAKE_BUILD_TYPE=RelWithDebInfo
+# will result in flags: '-O3 -O2 -g' which will disregard -O3
+# to address this, set: CMAKE_CXX_FLAGS_RELWITHDEBINFO = '-O3 -g' 
+# if you want to have the final effect of '-O3 -g'
+
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(Compadre_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 set(Compadre_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
 
