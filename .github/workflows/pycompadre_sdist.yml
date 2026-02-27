@@ -49,7 +49,7 @@ jobs:
     - name: Install pycompadre from test repo
       run: |
         cd ${{github.workspace}}/dist/
-        python3 -m pip -v -v -v install --no-cache `ls pycompadre*.gz`
+        CMAKE_BUILD_TYPE=Debug python3 -m pip -v -v -v install --no-cache `ls pycompadre*.gz`
         cd ${{github.workspace}}
 
     - name: Test pycompadre using unittests
