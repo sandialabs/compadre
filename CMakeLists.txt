@@ -449,6 +449,7 @@ endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(Compadre_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 set(Compadre_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
+set(Compadre_BUILD_TYPE "${CMAKE_BUILD_TYPE}")
 
 set(Compadre_KEY_BOOLS
     Compadre_DEBUG
@@ -469,6 +470,7 @@ set(Compadre_KEY_STRINGS
     Compadre_SEMVER
     Compadre_COMMIT
     Compadre_CXX_FLAGS
+    Compadre_BUILD_TYPE
     Compadre_CMAKE_ARGS
     Compadre_INSTALL_PREFIX
 )
