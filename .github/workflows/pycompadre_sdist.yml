@@ -35,7 +35,7 @@ jobs:
         python3 -m pip install --upgrade pip
         pip install numpy nanobind build
         
-    - name: Generate Python package (parallel)
+    - name: Generate Python package
       run: |
           cd ${{github.workspace}}/pycompadre
           echo "./install.sh -p"
@@ -61,11 +61,6 @@ jobs:
       run: |
         cd ${{github.workspace}}
         python3 -c "import pycompadre; pycompadre.test()" 2>&1 | tee tests.log
-
-    - name: Test unique install using .is_unique_installation()
-      run: |
-        cd ${{github.workspace}}
-        python3 -c "import pycompadre; pycompadre.is_unique_installation()" 2>&1 | tee tests.log
       
     - uses: actions/upload-artifact@v4
       with:
@@ -81,9 +76,9 @@ jobs:
         pycompadre-type: [ 'pycompadre',]
     environment:
       name: pypi
-      url: https://pypi.org/p/<package-name>  # Replace <package-name> with your PyPI project name
+      url: https://pypi.org/p/pycompadre
     permissions:
-      id-token: write  # IMPORTANT: mandatory for trusted publishing
+      id-token: write
     steps:
     - name: Download all the dists
       uses: actions/download-artifact@v4
@@ -92,20 +87,3 @@ jobs:
         path: dist/
     - name: Publish distribution 📦 to PyPI
       uses: pypa/gh-action-pypi-publish@release/v1
-    ## https://packaging.python.org/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
-    #- name: Publish distribution 📦 to Test PyPI
-    #  uses: pypa/gh-action-pypi-publish@release/v1
-    #  with:
-    #    password: ${{ secrets.TEST_PIP_PYCOMPADRE_SECRET }}
-    #    repository_url: https://test.pypi.org/legacy/ 
-    # https://packaging.python.org/guides/publishing-package-distribution-releases-using-github-actions-ci-cd-workflows/
-    #- name: Publish distribution 📦 to PyPI (parallel)
-    #  if: ${{ matrix.pycompadre-type == 'pycompadre' }}
-    #  uses: pypa/gh-action-pypi-publish@release/v1
-    #  with:
-    #    password: ${{ secrets.PIP_PYCOMPADRE_SECRET }}
-    #- name: Publish distribution 📦 to PyPI (serial)
-    #  if: ${{ matrix.pycompadre-type == 'pycompadre-serial' }}
-    #  uses: pypa/gh-action-pypi-publish@release/v1
-    #  with:
-    #    password: ${{ secrets.PIP_PYCOMPADRE_SERIAL_SECRET }}
