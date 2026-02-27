@@ -2,8 +2,10 @@ from ._pycompadre import *
 __doc__ = _pycompadre.__doc__
 try:
     from ._build_info import Compadre_DEBUG
+    DEBUG = Compadre_DEBUG
 except ImportError:
     Compadre_DEBUG = "Debug status unknown"
+    DEBUG = False
 __doc__ += '\nCompadre_DEBUG: ' + str(Compadre_DEBUG)
 try:
     from ._build_info import Compadre_BUILD_TYPE
