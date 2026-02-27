@@ -664,7 +664,7 @@ public:
         //}
 
         // cast numpy data as Kokkos View
-        host_scratch_matrix_right_type source_data((double *) input.data(), input.shape(0), (input.ndim()>1) ? input.shape(1) : 1);
+        host_unmanaged_matrix_right_type source_data((double *) input.data(), input.shape(0), (input.ndim()>1) ? input.shape(1) : 1);
 
         compadre_assert_release(gmls_object!=nullptr &&
                 "ParticleHelper used without an internal GMLS object set");
@@ -718,7 +718,7 @@ public:
         }
  
         // cast numpy data as Kokkos View
-        host_scratch_matrix_right_type source_data((double *) input.data(), input.shape(0), (input.ndim()>1) ? input.shape(1) : 1);
+        host_unmanaged_matrix_right_type source_data((double *) input.data(), input.shape(0), (input.ndim()>1) ? input.shape(1) : 1);
 
         compadre_assert_release(gmls_object!=nullptr &&
                 "ParticleHelper used without an internal GMLS object set");
@@ -792,7 +792,7 @@ public:
         }
  
         // cast numpy data as Kokkos View
-        host_scratch_matrix_right_type source_data((double *) input.data(), input.shape(0), (input.ndim()>1) ? input.shape(1) : 1);
+        host_unmanaged_matrix_right_type source_data((double *) input.data(), input.shape(0), (input.ndim()>1) ? input.shape(1) : 1);
 
         compadre_assert_release(input.ndim()==1 && "Input given with dimensions > 1");
 
