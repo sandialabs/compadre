@@ -75,7 +75,6 @@ if [ "$PACKAGE" == "YES" ]; then
     rm -rf ../build.sh
     rm -rf ../pycompadre.egg-info
     rm -rf ../pycompadre-serial.egg-info
-    cp cmake_opts_perf.txt ../cmake_opts.txt
     cp MANIFEST.in ../MANIFEST.in
 
     cd ..
