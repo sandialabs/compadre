@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=61.0","packaging","cmake>=3.16","numpy>=2.1","nanobind"]
+requires = ["setuptools>=61.0","packaging","cmake>=3.24","numpy>=2.1","nanobind"]
 build-backend = "setuptools.build_meta"
 
 [tool.setuptools]

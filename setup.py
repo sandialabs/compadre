@@ -122,8 +122,8 @@ class CustomBuild(build_ext):
                                "\ninstall cmake with `pip install cmake` or install from: https://cmake.org/download/.")
 
         cmake_version = Version(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
-        if cmake_version < Version('3.16.0'):
-            raise runtimeerror("cmake >= 3.16.0 is required")
+        if cmake_version < Version('3.24.0'):
+            raise runtimeerror("cmake >= 3.24.0 is required")
         assert sys.version_info >= (3,10), "\n\n\n\n\npycompadre requires python version 3.10+\n\n\n\n\n"
 
         for ext in self.extensions:
@@ -225,7 +225,7 @@ class CustomBuild(build_ext):
         print("CMake Args:")
         for cmake_arg in cmake_args:
             print("  " + cmake_arg)
-        subprocess.check_call(['cmake', ext.sourcedir] + cmake_args, cwd=self.build_temp, env=env)
+        subprocess.check_call(['cmake', '--fresh', ext.sourcedir] + cmake_args, cwd=self.build_temp, env=env)
 
         # copy __init__.py to install directory
         shutil.copyfile(self.build_temp + "/__init__.py", extdir + "/__init__.py")
