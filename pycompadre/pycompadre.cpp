@@ -70,11 +70,7 @@ Kokkos::View<T*, space> convert_np_to_kokkos_1d(nb::ndarray<nb::numpy, T> array,
     Kokkos::View<T*, space> kokkos_array_device(new_label, array.shape(0));
     auto kokkos_array_host = Kokkos::create_mirror_view(kokkos_array_device);
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
-        //kokkos_array_host(i) = array(i);
-        //kokkos_array_host(i) = *(array.data() + array(i));
         kokkos_array_host(i) = *(T*)((T*)array.data() + i);
-        //kokkos_array_host(i) = *(array.data(i));
-
     });
     Kokkos::fence();
     Kokkos::deep_copy(kokkos_array_device, kokkos_array_host);
@@ -99,10 +95,7 @@ Kokkos::View<T**, layout, space> convert_np_to_kokkos_2d(nb::ndarray<nb::numpy, 
     auto kokkos_array_host = Kokkos::create_mirror_view(kokkos_array_device);
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
         for (int j=0; j<array.shape(1); ++j) {
-            //kokkos_array_host(i,j) = array(i*array.shape(1)+j);
-            //kokkos_array_host(i,j) = *(array.data() + array(i*array.shape(1)+j));
             kokkos_array_host(i,j) = *(T*)((T*)array.data() + i*array.shape(1)+j);
-            //kokkos_array_host(i,j) = *(array.data(i,j));
         }
     });
     Kokkos::fence();
@@ -133,10 +126,7 @@ Kokkos::View<T***, layout, space> convert_np_to_kokkos_3d(nb::ndarray<nb::numpy,
     Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
         for (int j=0; j<array.shape(1); ++j) {
             for (int k=0; k<array.shape(2); ++k) {
-                //kokkos_array_host(i,j,k) = array(i,j,k);
-                //kokkos_array_host(i,j,k) = *(array.data() + array(i*array.shape(1)*array.shape(2)+j*array.shape(2)*j+k));
                 kokkos_array_host(i,j,k) = *(T*)((T*)array.data() + i*array.shape(1)*array.shape(2)+j*array.shape(2)+k);
-                //kokkos_array_host(i,j,k) = *(array.data(i,j,k));
             }
         }
     });
@@ -160,7 +150,6 @@ struct cknp1d {
         result = create_new_array<typename T::value_type>(dim_out);
         typename T::value_type* data_ptr = (typename T::value_type*)result.data();
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
-            //result(i) = kokkos_array_host(i);
             data_ptr[i] = kokkos_array_host(i);
         });
         Kokkos::fence();
@@ -192,10 +181,7 @@ struct cknp2d {
         typename T::value_type* data_ptr = (typename T::value_type*)result.data();
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](size_t i) {
             for (size_t j=0; j<dim_out_1; ++j) {
-                //result(i,j) = kokkos_array_host(i,j);
-                //*(typename T*)((typename T*)result.data() + i*dim_out_1 + j) = kokkos_array_host(i,j);
                 data_ptr[i*dim_out_1 + j] = kokkos_array_host(i,j);
-                //*(result.data(i,j)) = kokkos_array_host(i,j);
             }
         });
         Kokkos::fence();
@@ -208,8 +194,7 @@ template<typename T>
 struct cknp2d<T, Compadre::enable_if_t<(T::rank!=2)> > {
     nb::ndarray<nb::numpy, typename T::value_type> result;
     cknp2d (T kokkos_array_host) {
-        //result = create_new_1d_array<typename T::value_type>(0);
-        std::vector<size_t> dim_out = {0, 0};//dim_out_0, dim_out_1};
+        std::vector<size_t> dim_out = {0, 0};
         result = create_new_array<typename T::value_type>(dim_out);
     }
     nb::ndarray<nb::numpy, typename T::value_type> convert() { return result; }
@@ -230,9 +215,6 @@ struct cknp3d {
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
             for (int j=0; j<dim_out_1; ++j) {
                 for (int k=0; k<dim_out_2; ++k) {
-                    //result(i,j,k) = kokkos_array_host(i,j,k);
-                    //*(result.data(i,j,k)) = kokkos_array_host(i,j,k);
-                    //*(T*)((T*)result.data() + i*result.shape(1)*result.shape(2)+j*result.shape(2)*j+k) = kokkos_array_host(i,j,k);
                     data_ptr[i*result.shape(1)*result.shape(2)+j*result.shape(2)+k] = kokkos_array_host(i,j,k);
                 }
             }
@@ -270,9 +252,7 @@ nb::ndarray<nb::numpy, typename T::value_type> convert_kokkos_to_np(T kokkos_arr
     } else if (T::rank==3) {
         result = cknp3d<decltype(kokkos_array_host)>(kokkos_array_host).convert();
     } else {
-        //compadre_assert_release(false && "Only (1 <= rank <= 3) supported.");
-        std::vector<size_t> dim_out = {0};
-        result = create_new_array<typename T::value_type>(dim_out);
+        compadre_assert_release(false && "Only (1 <= rank <= 3) supported.");
     }
 
     return result;
@@ -469,23 +449,6 @@ public:
     void generateKDTree() {
         compadre_assert_release(gmls_object!=nullptr &&
                 "ParticleHelper used without an internal GMLS object set");
-        //auto d_val = gmls_object->getPointConnections()->_source_coordinates;
-        ////compadre_assert_release((gmls_object->getPointConnections()->_source_coordinates.extent(0)>0) &&
-        ////"getSourceSites() called, but source sites were never set.");
-        //std::cout << "T" << d_val.extent(0) << std::endl;
-        //auto h_val = 
-        //    Kokkos::create_mirror_view(d_val);
-        //Kokkos::deep_copy(h_val, d_val);
-        //if (d_val.extent(0)>0) {
-        //    std::cout << "N" << h_val(0,0) << std::endl;
-        //    point_cloud_search = std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> >(
-        //            new Compadre::PointCloudSearch<double_2d_view_type>(
-        //                h_val,
-        //                gmls_object->getGlobalDimensions()
-        //            )
-        //    );
-        //}
-        //auto h_val = gmls_object->getPointConnections()->_source_coordinates;
         point_cloud_search = std::shared_ptr<Compadre::PointCloudSearch<double_2d_view_type> >(
                 new Compadre::PointCloudSearch<double_2d_view_type>(
                     convert_np_to_kokkos_2d<host_memory_space>(
@@ -592,14 +555,15 @@ public:
 
     nb::ndarray<nb::numpy, double> getPolynomialCoefficients(nb::ndarray<nb::numpy, double> input) {
 
+#ifdef COMPADRE_DEBUG
         size_t rows = input.shape(0);
         size_t cols = (input.ndim() > 1) ? input.shape(1) : 1;
         size_t stride_0 = input.stride(0);
         size_t stride_1 = (input.ndim() > 1) ? input.stride(1) : 1;
         if ((input.ndim() == 1 && stride_0!=1) || (input.ndim() == 2 && (stride_0!=cols || stride_1!=1))) {
-        //if (stride_0!=rows || stride_1!=cols) {
             throw std::runtime_error("getPolynomialCoefficients was passed an input array with noncontiguous data. Please reformat input before passing to getPolynomialCoefficients.");
         }
+#endif
 
         // create Kokkos View on host to copy into
         Kokkos::View<double**, Kokkos::HostSpace> source_data("source data", input.shape(0), (input.ndim()>1) ? input.shape(1) : 1); 
@@ -616,7 +580,6 @@ public:
             Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, input.shape(0)), [=](int i) {
                 for (int j = 0; j < input.shape(1); ++j)
                 {
-                    //source_data(i, j) = input(i, j);
                     source_data(i, j) = data_ptr[i*input.shape(1) + j];
                 }
             });
@@ -638,7 +601,6 @@ public:
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, dim_out_0), [&](int i) {
             for (int j = 0; j < dim_out_1; ++j)
             {
-                //result(i, j) = polynomial_coefficients(i, j);
                 data_ptr[i*dim_out_1 + j] = polynomial_coefficients(i, j);
             }
         });
@@ -658,10 +620,6 @@ public:
             throw std::runtime_error("applyStencil was passed an input array with noncontiguous data. Please reformat input before passing to applyStencil.");
         }
 #endif
-
-        //if (input.ndim() != 2) {
-        //    throw std::runtime_error("Number of dimensions of input indices must be two");
-        //}
 
         // cast numpy data as Kokkos View
         host_unmanaged_matrix_right_type source_data((double *) input.data(), input.shape(0), (input.ndim()>1) ? input.shape(1) : 1);
@@ -687,7 +645,6 @@ public:
             result = create_new_array<double>(dim_out);
             Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
                 for (size_t j=0; j<dim_out_1; ++j) {
-                    //result(i,j) = output_values(i,j);
                     *(double*)((double*)result.data() + i*dim_out_1 + j) = output_values(i,j);
                 }
             });
@@ -697,7 +654,6 @@ public:
             std::vector<size_t> dim_out = {dim_out_0};
             result = create_new_array<double>(dim_out);
             Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_0), [&](int i) {
-                //result(i) = output_values(i,0);
                 *(double*)((double*)result.data() + i) = output_values(i,0);
             });
             Kokkos::fence();
@@ -708,14 +664,15 @@ public:
     
     nb::ndarray<nb::numpy, double> applyStencilAllTargetsAllAdditionalEvaluationSites(const nb::ndarray<nb::numpy, double> input, const TargetOperation lro, const SamplingFunctional sro) const {
 
+#ifdef COMPADRE_DEBUG
         size_t rows = input.shape(0);
         size_t cols = (input.ndim() > 1) ? input.shape(1) : 1;
         size_t stride_0 = input.stride(0);
         size_t stride_1 = (input.ndim() > 1) ? input.stride(1) : 1;
-        //if (stride_0!=rows || stride_1!=cols) {
         if ((input.ndim() == 1 && stride_0!=1) || (input.ndim() == 2 && (stride_0!=cols || stride_1!=1))) {
             throw std::runtime_error("applyStencilAllTargetsAllAdditionalEvaluationSites was passed an input array with noncontiguous data. Please reformat input before passing to applyStencil.");
         }
+#endif
  
         // cast numpy data as Kokkos View
         host_unmanaged_matrix_right_type source_data((double *) input.data(), input.shape(0), (input.ndim()>1) ? input.shape(1) : 1);
@@ -770,7 +727,6 @@ public:
                         (source_data, lro, sro, true /*scalar_as_vector_if_needed*/, k);
                 }
                 Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0,dim_out_1), [&](int i) {
-                    //result(k,i) = output_values(i,0);
                     *(double*)((double*)result.data() + k*dim_out_1 + i) = output_values(i,0);
                 });
                 Kokkos::fence();
@@ -782,14 +738,15 @@ public:
 
     double applyStencilSingleTarget(const nb::ndarray<nb::numpy, double> input, const TargetOperation lro, const SamplingFunctional sro, const int evaluation_site_local_index = 0) const {
 
+#ifdef COMPADRE_DEBUG
         size_t rows = input.shape(0);
         size_t cols = (input.ndim() > 1) ? input.shape(1) : 1;
         size_t stride_0 = input.stride(0);
         size_t stride_1 = (input.ndim() > 1) ? input.stride(1) : 1;
         if ((input.ndim() == 1 && stride_0!=1) || (input.ndim() == 2 && (stride_0!=cols || stride_1!=1))) {
-        //if (stride_0!=rows || stride_1!=cols) {
             throw std::runtime_error("applyStencilSingleTarget was passed an input array with noncontiguous data. Please reformat input before passing to applyStencil.");
         }
+#endif
  
         // cast numpy data as Kokkos View
         host_unmanaged_matrix_right_type source_data((double *) input.data(), input.shape(0), (input.ndim()>1) ? input.shape(1) : 1);
@@ -803,23 +760,6 @@ public:
         return gmls_evaluator.applyAlphasToDataSingleComponentSingleTargetSite(source_data, 0, lro, 0, evaluation_site_local_index, 0, 0, 0, 0, false);
     }
 };
-
-//GMLS factory_function(const ReconstructionSpace rs,
-//                      const SamplingFunctional psf,
-//                      const SamplingFunctional dsf,
-//                      const int po,
-//                      const int gdim,
-//                      const DenseSolverType dst,
-//                      const ProblemType pt,
-//                      const ConstraintType ct,
-//                      const int cpo) {
-//
-//    // reinstantiate with details
-//    // no need to keep solutions
-//    GMLS gmls(rs, psf, dsf, po, gdim, dst, pt, ct, cpo);
-//
-//    return gmls;
-//}
 
 void set_gmls_state(GMLS& gmls, nb::tuple t) {
 
@@ -862,155 +802,6 @@ void set_gmls_state(GMLS& gmls, nb::tuple t) {
     gmls.setProblemData(k_cr, k_nnl, k_ss, k_ts, k_ws);
     
 }
-
-//nb::tuple get_gmls_state(GMLS& gmls) {
-//    // values needed for base constructor
-//    auto rs   = gmls.getReconstructionSpace();
-//    auto psf  = gmls.getPolynomialSamplingFunctional();
-//    auto dsf  = gmls.getDataSamplingFunctional();
-//    auto po   = gmls.getPolynomialOrder();
-//    auto gdim = gmls.getGlobalDimensions();
-//    auto dst  = gmls.getDenseSolverType();
-//    auto pt   = gmls.getProblemType();
-//    auto ct   = gmls.getConstraintType();
-//    auto cpo  = gmls.getCurvaturePolynomialOrder();
-//
-//    // values needed to get weighting types the same
-//    auto wt   = gmls.getWeightingType();
-//    auto wp0  = gmls.getWeightingParameter(0);
-//    auto wp1  = gmls.getWeightingParameter(1);
-//
-//    auto mwt  = gmls.getManifoldWeightingType();
-//    auto mwp0 = gmls.getManifoldWeightingParameter(0);
-//    auto mwp1 = gmls.getManifoldWeightingParameter(1);
-//
-//    // get all previously added targets
-//    auto d_lro  = const_cast<GMLS&>(gmls).getSolutionSetDevice(false)->_lro;
-//    auto lro    = Kokkos::create_mirror_view(d_lro);
-//    Kokkos::deep_copy(lro, d_lro);
-//    auto lro_list = nb::list();
-//    for (int i=0; i<lro.extent_int(0); ++i) {
-//        lro_list.append(lro[i]);
-//    }
-//
-//    auto nonconst_gmls = *const_cast<Compadre::GMLS*>(&gmls);
-//
-//    // get all source sites
-//    auto ss     = nonconst_gmls.getPointConnections()->_source_coordinates;
-//    auto np_ss  = convert_kokkos_to_np(ss);
-//
-//    // get all target sites
-//    auto ts     = nonconst_gmls.getPointConnections()->_target_coordinates;
-//    auto np_ts  = convert_kokkos_to_np(ts);
-//
-//    // get all window sizes
-//    auto ws     = nonconst_gmls.getWindowSizes();
-//    auto np_ws  = convert_kokkos_to_np(*ws);
-//
-//    // get all neighbors
-//    auto nl     = nonconst_gmls.getNeighborLists();
-//    auto cr     = nl->getNeighborLists();
-//    auto np_cr  = convert_kokkos_to_np(cr);
-//    auto nnl    = nl->getNumberOfNeighborsList();
-//    auto np_nnl = convert_kokkos_to_np(nnl);
-//
-//    // get all additional evaluation indices
-//    auto a_nl     = nonconst_gmls.getAdditionalEvaluationIndices();
-//    auto a_cr     = a_nl->getNeighborLists();
-//    auto np_a_cr  = convert_kokkos_to_np(a_cr);
-//    auto a_nnl    = a_nl->getNumberOfNeighborsList();
-//    auto np_a_nnl = convert_kokkos_to_np(a_nnl);
-//
-//    // get all additional evaluation coordinates
-//    auto a_es = nonconst_gmls.getAdditionalPointConnections()->_source_coordinates;
-//    auto np_a_es  = convert_kokkos_to_np(a_es);
-// 
-//    return std::make_tuple(rs, psf, dsf, po, gdim, dst, pt, ct, cpo, 
-//                           wt, wp0, wp1, mwt, mwp0, mwp1, lro_list,
-//                           np_ss, np_ts, np_ws, np_cr, np_nnl,
-//                           np_a_cr, np_a_nnl, np_a_es);
-//}
-
-//std::tuple<nb::object, nb::tuple, nb::tuple> gmls_reduce(const GMLS& gmls) {
-//
-//    nb::object factory = nb::cpp_function(&factory_function);
-//
-//    // values needed for base constructor
-//    auto rs   = gmls.getReconstructionSpace();
-//    auto psf  = gmls.getPolynomialSamplingFunctional();
-//    auto dsf  = gmls.getDataSamplingFunctional();
-//    auto po   = gmls.getPolynomialOrder();
-//    auto gdim = gmls.getGlobalDimensions();
-//    auto dst  = gmls.getDenseSolverType();
-//    auto pt   = gmls.getProblemType();
-//    auto ct   = gmls.getConstraintType();
-//    auto cpo  = gmls.getCurvaturePolynomialOrder();
-//
-//    nb::tuple base_args = nb::make_tuple(rs, psf, dsf, po, gdim, dst, pt, ct, cpo);
-//
-//    // values needed to get weighting types the same
-//    auto wt   = gmls.getWeightingType();
-//    auto wp0  = gmls.getWeightingParameter(0);
-//    auto wp1  = gmls.getWeightingParameter(1);
-//
-//    auto mwt  = gmls.getManifoldWeightingType();
-//    auto mwp0 = gmls.getManifoldWeightingParameter(0);
-//    auto mwp1 = gmls.getManifoldWeightingParameter(1);
-//
-//    // get all previously added targets
-//    auto d_lro  = const_cast<GMLS&>(gmls).getSolutionSetDevice(false)->_lro;
-//    auto lro    = Kokkos::create_mirror_view(d_lro);
-//    Kokkos::deep_copy(lro, d_lro);
-//    auto lro_list = nb::list();
-//    for (int i=0; i<lro.extent_int(0); ++i) {
-//        lro_list.append(lro[i]);
-//    }
-//
-//    auto nonconst_gmls = *const_cast<Compadre::GMLS*>(&gmls);
-//
-//    // get all source sites
-//    auto ss     = nonconst_gmls.getPointConnections()->_source_coordinates;
-//    auto np_ss  = convert_kokkos_to_np(ss);
-//
-//    // get all target sites
-//    auto ts     = nonconst_gmls.getPointConnections()->_target_coordinates;
-//    auto np_ts  = convert_kokkos_to_np(ts);
-//
-//    // get all window sizes
-//    auto ws     = nonconst_gmls.getWindowSizes();
-//    auto np_ws  = convert_kokkos_to_np(*ws);
-//
-//    // get all neighbors
-//    auto nl     = nonconst_gmls.getNeighborLists();
-//    auto cr     = nl->getNeighborLists();
-//    auto np_cr  = convert_kokkos_to_np(cr);
-//    auto nnl    = nl->getNumberOfNeighborsList();
-//    auto np_nnl = convert_kokkos_to_np(nnl);
-//
-//    // get all additional evaluation indices
-//    auto a_nl     = nonconst_gmls.getAdditionalEvaluationIndices();
-//    auto a_cr     = a_nl->getNeighborLists();
-//    auto np_a_cr  = convert_kokkos_to_np(a_cr);
-//    auto a_nnl    = a_nl->getNumberOfNeighborsList();
-//    auto np_a_nnl = convert_kokkos_to_np(a_nnl);
-//
-//    // get all additional evaluation coordinates
-//    auto a_es = nonconst_gmls.getAdditionalPointConnections()->_source_coordinates;
-//    auto np_a_es  = convert_kokkos_to_np(a_es);
-// 
-//    // get all relevant details from GMLS class
-//    auto extra_args = nb::make_tuple(wt, wp0, wp1, mwt, mwp0, mwp1, lro_list,
-//                                     np_ss, np_ts, np_ws, np_cr, np_nnl,
-//                                     np_a_cr, np_a_nnl, np_a_es);
-//    //return std::make_tuple(rs, psf, dsf, po, gdim, dst, pt, ct, cpo, 
-//    //                       wt, wp0, wp1, mwt, mwp0, mwp1, lro_list,
-//    //                       np_ss, np_ts, np_ws, np_cr, np_nnl,
-//    //                       np_a_cr, np_a_nnl, np_a_es);
-//
-//    return std::make_tuple(factory, base_args, extra_args);
-//
-//}
-
 
 NB_MODULE(_pycompadre, m) {
     m.doc() = R"pbdoc(
@@ -1356,10 +1147,6 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
                                    np_ss, np_ts, np_ws, np_cr, np_nnl,
                                    np_a_cr, np_a_nnl, np_a_es);
         });
-    //.def("__setstate__", &set_gmls_state)
-    ////.def("__getstate__", &get_gmls_state)
-    //.def("__reduce__", &gmls_reduce);
-    
 
     nb::class_<NeighborLists<ParticleHelper::int_1d_view_type_in_gmls> >(m, "NeighborLists")
     .def("computeMaxNumNeighbors", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::computeMaxNumNeighbors, "Compute maximum number of neighbors over all neighborhoods.")
@@ -1422,46 +1209,6 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     )pbdoc");
 
     m.def("Wab", &GMLS::Wab, nb::arg("r"), nb::arg("h"), nb::arg("weighting type"), nb::arg("p"), nb::arg("n"), "Evaluate weighting kernel.");
-
-    m.def("is_unique_installation", [] {
-        nb::exec(R"(
-import sys
-import os
-
-pycompadre_count = 0
-instances = list()
-for path in sys.path:
-    if os.getcwd()==path:
-        print("directory same as working directory, so disregarded:\n  - " + os.getcwd())
-    elif 'pycompadre' in path:
-        if (os.path.basename(path)) not in instances:
-            # a `python setup.py install` will end up here
-            print("found pycompadre in directory containing pycompadre name:\n  - ", path)
-            instances.append(os.path.basename(path))
-            pycompadre_count += 1
-    else:
-        if os.path.isdir(path):
-            for fname in os.listdir(path):
-                fname_splitext = os.path.splitext(fname)
-                if 'pycompadre' in fname and len(fname_splitext)==2 and fname_splitext[1] in ['.so', '.egg', '.dist-info', '.egg-info']:
-                    # a `pip install pycompadre*` or `python setup.py install` will end up here
-                    if (os.path.basename(fname)) not in instances:
-                        print("found pycompadre*.{so,egg,dist-info,egg-info} at:\n  - " + path + os.sep + fname)
-                        instances.append(os.path.basename(fname))
-                        pycompadre_count += 1
-
-if pycompadre_count == 1:
-    print("SUCCESS. " + str(pycompadre_count) + " instances of pycompadre found.")
-elif pycompadre_count == 0:
-    assert False, "FAILURE. pycompadre not found, but being called from pycompadre. Please report this to the developers."
-elif pycompadre_count == 2:
-    assert pycompadre_count==1, "FAILURE. Both pycompadre and pycompadre-serial are installed. Unexpected behavior when calling `import pycompadre`."
-else:
-    assert False, "FAILURE. More than two instances of pycompadre found, which should not be possible. Please report this to the developers."
-        )");
-        // can only make it this far if successful
-        return true;
-    });
 
     m.def("test", [] {
         auto unittest = nb::module_::import_("unittest");
