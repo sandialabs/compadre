@@ -247,6 +247,9 @@ class CustomBuild(build_ext):
 
         # copy Compadre_Config.h to install directory
         shutil.copyfile(self.build_temp + "/src/Compadre_Config.h", extdir + "/Compadre_Config.h")
+        shutil.copyfile(self.build_temp + "/compile_commands.json", extdir + "/compile_commands.json")
+        shutil.copyfile(self.build_temp + "/CMakeFiles/_pycompadre.dir/flags.make", extdir + "/compile_flags.txt")
+        shutil.copyfile(self.build_temp + "/CMakeFiles/_pycompadre.dir/link.txt", extdir + "/link_flags.txt")
 
         super().run()
 
@@ -254,10 +257,17 @@ class CustomBuild(build_ext):
             contents = f.readlines()
             contains_DEBUG = False
             for line in contents:
-                if "COMPADRE_DEBUG" in line:
+                if line.startswith("#define COMPADRE_DEBUG"):
                     contains_DEBUG = True
+            contains_BUILD_TYPE = False
+            build_type = "Unknown"
+            for line in contents:
+                if line.startswith("#define COMPADRE_BUILD_TYPE"):
+                    contains_BUILD_TYPE = True
+                    build_type = line[(len("#define COMPADRE_BUILD_TYPE")+1):-1]
         with open(os.path.join(extdir, "_build_info.py"), "w") as f:
             f.write(f'Compadre_DEBUG={contains_DEBUG}\n')
+            f.write(f'Compadre_BUILD_TYPE={build_type}\n')
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
