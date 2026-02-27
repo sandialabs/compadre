@@ -286,12 +286,17 @@ class PointCloudSearch {
             size_t max_num_neighbors = 0;
             // part 2. do radius search using window size from knn search
             // each row of neighbor lists is a neighbor list for the target site corresponding to that row
-            auto radius_search = KOKKOS_LAMBDA(const host_member_type& teamMember, size_t& t_max_num_neighbors) {
+            auto scratch_level = (team_scratch_size > 32000) ? 1 : 0;
+            // respects serial scratch size limit of 32k
+            // from kokkos/core/src/Serial/Kokkos_Serial_Parallel_Team.hpp
+            auto policy = host_team_policy(num_target_sites, Kokkos::AUTO)
+                .set_scratch_size(scratch_level /*shared memory level*/, Kokkos::PerTeam(team_scratch_size));
+            auto radius_search = [=,*this](const host_member_type& teamMember, size_t& t_max_num_neighbors) {
 
                 // make unmanaged scratch views
-                scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.extent(1));
-                scratch_int_view neighbor_indices(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.extent(1));
-                scratch_double_view this_target_coord(teamMember.team_scratch(0 /*shared memory*/), dim);
+                scratch_double_view neighbor_distances(teamMember.team_scratch(scratch_level /*shared memory*/), neighbor_lists.extent(1));
+                scratch_int_view neighbor_indices(teamMember.team_scratch(scratch_level /*shared memory*/), neighbor_lists.extent(1));
+                scratch_double_view this_target_coord(teamMember.team_scratch(scratch_level /*shared memory*/), dim);
 
                 size_t neighbors_found = 0;
 
@@ -348,14 +353,6 @@ class PointCloudSearch {
                 }
 
             };
-            auto policy = host_team_policy(num_target_sites, Kokkos::AUTO)
-                .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size));
-            // respects serial scratch size limit of 32k
-            // from kokkos/core/src/Serial/Kokkos_Serial_Parallel_Team.hpp
-            if (team_scratch_size > 32000) {
-                policy = host_team_policy(num_target_sites, Kokkos::AUTO)
-                    .set_scratch_size(1 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size));
-            }
             Kokkos::parallel_reduce("radius search 2D", policy, radius_search, Kokkos::Max<size_t>(max_num_neighbors));
             Kokkos::fence();
 
@@ -439,12 +436,17 @@ class PointCloudSearch {
             auto dim = _dim;
             // part 2. do radius search using window size from knn search
             // each row of neighbor lists is a neighbor list for the target site corresponding to that row
-            auto radius_search = KOKKOS_LAMBDA(const host_member_type& teamMember) {
+            auto scratch_level = (team_scratch_size > 32000) ? 1 : 0;
+            // respects serial scratch size limit of 32k
+            // from kokkos/core/src/Serial/Kokkos_Serial_Parallel_Team.hpp
+            auto policy = host_team_policy(num_target_sites, Kokkos::AUTO)
+                .set_scratch_size(scratch_level /*shared memory level*/, Kokkos::PerTeam(team_scratch_size));
+            auto radius_search = [=,*this](const host_member_type& teamMember) {
 
                 // make unmanaged scratch views
-                scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), max_neighbor_list_row_storage_size);
-                scratch_int_view neighbor_indices(teamMember.team_scratch(0 /*shared memory*/), max_neighbor_list_row_storage_size);
-                scratch_double_view this_target_coord(teamMember.team_scratch(0 /*shared memory*/), dim);
+                scratch_double_view neighbor_distances(teamMember.team_scratch(scratch_level /*shared memory*/), max_neighbor_list_row_storage_size);
+                scratch_int_view neighbor_indices(teamMember.team_scratch(scratch_level /*shared memory*/), max_neighbor_list_row_storage_size);
+                scratch_double_view this_target_coord(teamMember.team_scratch(scratch_level /*shared memory*/), dim);
 
                 size_t neighbors_found = 0;
 
@@ -505,14 +507,6 @@ class PointCloudSearch {
                 }
 
             };
-            auto policy = host_team_policy(num_target_sites, Kokkos::AUTO)
-                .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size));
-            // respects serial scratch size limit of 32k
-            // from kokkos/core/src/Serial/Kokkos_Serial_Parallel_Team.hpp
-            if (team_scratch_size > 32000) {
-                policy = host_team_policy(num_target_sites, Kokkos::AUTO)
-                    .set_scratch_size(1 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size));
-            }
             Kokkos::parallel_for("radius search CR", policy, radius_search);
             Kokkos::fence();
             auto nla = CreateNeighborLists(number_of_neighbors_list);
@@ -588,12 +582,17 @@ class PointCloudSearch {
             // as long as neighbor_lists can hold the number of neighbors_needed, we don't need to check
             // that the maximum number of neighbors will fit into neighbor_lists
             //
-            auto knn_search = KOKKOS_LAMBDA(const host_member_type& teamMember, size_t& t_min_num_neighbors) {
+            auto scratch_level = (team_scratch_size > 32000) ? 1 : 0;
+            // respects serial scratch size limit of 32k
+            // from kokkos/core/src/Serial/Kokkos_Serial_Parallel_Team.hpp
+            auto policy = host_team_policy(num_target_sites, Kokkos::AUTO)
+                .set_scratch_size(scratch_level /*shared memory level*/, Kokkos::PerTeam(team_scratch_size));
+            auto knn_search = [=,*this](const host_member_type& teamMember, size_t& t_min_num_neighbors) {
 
                 // make unmanaged scratch views
-                scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.extent(1));
-                scratch_int_view neighbor_indices(teamMember.team_scratch(0 /*shared memory*/), neighbor_lists.extent(1));
-                scratch_double_view this_target_coord(teamMember.team_scratch(0 /*shared memory*/), dim);
+                scratch_double_view neighbor_distances(teamMember.team_scratch(scratch_level /*shared memory*/), neighbor_lists.extent(1));
+                scratch_int_view neighbor_indices(teamMember.team_scratch(scratch_level /*shared memory*/), neighbor_lists.extent(1));
+                scratch_double_view this_target_coord(teamMember.team_scratch(scratch_level /*shared memory*/), dim);
 
                 size_t neighbors_found = 0;
 
@@ -644,16 +643,7 @@ class PointCloudSearch {
                     // neighbor_distances stores squared distances from neighbor to target, as returned by nanoflann
                 });
             };
-            auto policy = host_team_policy(num_target_sites, Kokkos::AUTO)
-                .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size));
-            // respects serial scratch size limit of 32k
-            // from kokkos/core/src/Serial/Kokkos_Serial_Parallel_Team.hpp
-            if (team_scratch_size > 32000) {
-                policy = host_team_policy(num_target_sites, Kokkos::AUTO)
-                    .set_scratch_size(1 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size));
-            }
             Kokkos::parallel_reduce("knn search 2D", policy, knn_search, Kokkos::Min<size_t>(min_num_neighbors));
-            Kokkos::fence();
             
             // if no target sites, then min_num_neighbors is set to neighbors_needed
             // which also avoids min_num_neighbors being improperly set by min reduction
@@ -746,12 +736,17 @@ class PointCloudSearch {
             // as long as neighbor_lists can hold the number of neighbors_needed, we don't need to check
             // that the maximum number of neighbors will fit into neighbor_lists
             //
-            auto knn_search = KOKKOS_LAMBDA(const host_member_type& teamMember, size_t& t_min_num_neighbors) {
+            auto scratch_level = (team_scratch_size > 32000) ? 1 : 0;
+            // respects serial scratch size limit of 32k
+            // from kokkos/core/src/Serial/Kokkos_Serial_Parallel_Team.hpp
+            auto policy = host_team_policy(num_target_sites, Kokkos::AUTO)
+                .set_scratch_size(scratch_level /*shared memory level*/, Kokkos::PerTeam(team_scratch_size));
+            auto knn_search = [=,*this](const host_member_type& teamMember, size_t& t_min_num_neighbors) {
 
                 // make unmanaged scratch views
-                scratch_double_view neighbor_distances(teamMember.team_scratch(0 /*shared memory*/), max_neighbor_list_row_storage_size);
-                scratch_int_view neighbor_indices(teamMember.team_scratch(0 /*shared memory*/), max_neighbor_list_row_storage_size);
-                scratch_double_view this_target_coord(teamMember.team_scratch(0 /*shared memory*/), dim);
+                scratch_double_view neighbor_distances(teamMember.team_scratch(scratch_level /*shared memory*/), max_neighbor_list_row_storage_size);
+                scratch_int_view neighbor_indices(teamMember.team_scratch(scratch_level /*shared memory*/), max_neighbor_list_row_storage_size);
+                scratch_double_view this_target_coord(teamMember.team_scratch(scratch_level /*shared memory*/), dim);
 
                 size_t neighbors_found = 0;
 
@@ -799,16 +794,7 @@ class PointCloudSearch {
                     // neighbor_distances stores squared distances from neighbor to target, as returned by nanoflann
                 });
             };
-            auto policy = host_team_policy(num_target_sites, Kokkos::AUTO)
-                .set_scratch_size(0 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size));
-            // respects serial scratch size limit of 32k
-            // from kokkos/core/src/Serial/Kokkos_Serial_Parallel_Team.hpp
-            if (team_scratch_size > 32000) {
-                policy = host_team_policy(num_target_sites, Kokkos::AUTO)
-                    .set_scratch_size(1 /*shared memory level*/, Kokkos::PerTeam(team_scratch_size));
-            }
             Kokkos::parallel_reduce("knn search CR", policy, knn_search, Kokkos::Min<size_t>(min_num_neighbors));
-            Kokkos::fence();
             
             // if no target sites, then min_num_neighbors is set to neighbors_needed
             // which also avoids min_num_neighbors being improperly set by min reduction

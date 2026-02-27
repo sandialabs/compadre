@@ -30,10 +30,6 @@ case $i in
     PACKAGE=YES
     shift # passed argument with no value
     ;;
-    -s|--serial)
-    SERIAL=YES
-    shift # passed argument with no value
-    ;;
     -h|--help)
     HELP=YES
     shift # passed argument with no value
@@ -79,26 +75,14 @@ if [ "$PACKAGE" == "YES" ]; then
     rm -rf ../build.sh
     rm -rf ../pycompadre.egg-info
     rm -rf ../pycompadre-serial.egg-info
-    if [ "$SERIAL" == "YES" ]; then
-        cp cmake_opts_serial_perf.txt ../cmake_opts.txt
-    else
-        cp cmake_opts_perf.txt ../cmake_opts.txt
-    fi
+    cp MANIFEST.in ../MANIFEST.in
 
     cd ..
 
-    if [ "$SERIAL" == "YES" ]; then
-        perl -pi -e "s/name='pycompadre',/name='pycompadre-serial',/" -- setup.py
-    fi
-
+    # requires pip package 'build'
     CMAKE_CONFIG_FILE=cmake_opts.txt $EXECUTABLE -m build --sdist
 
-    if [ "$SERIAL" == "YES" ]; then
-        perl -pi -e "s/name='pycompadre-serial',/name='pycompadre',/" -- setup.py
-        rm -rf pycompadre-serial.egg-info
-    else
-        rm -rf pycompadre.egg-info
-    fi
+    rm -rf pycompadre.egg-info
     echo "sdist complete."
 
     cd pycompadre

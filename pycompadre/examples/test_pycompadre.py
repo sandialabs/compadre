@@ -157,13 +157,10 @@ def remap(polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5,reco
     data_vector = []
     for i in range(N):
         data_vector.append(exact(source_sites[i], polyOrder, dimension))
-    # use rank 2 array and only insert into one column to test
-    # whether layouts are being properly propagated into pycompadre
-    new_data_vector = np.zeros(shape=(len(data_vector), 3), dtype='f8')
-    new_data_vector[:,1] = np.array(data_vector, dtype=np.dtype('d'))
+    data_vector = np.array(data_vector, dtype='d')
 
     # apply stencil to sample data for all targets
-    computed_answer = gmls_helper.applyStencil(new_data_vector[:,1], pycompadre.TargetOperation.ScalarPointEvaluation)
+    computed_answer = gmls_helper.applyStencil(data_vector.reshape(-1,1), pycompadre.TargetOperation.ScalarPointEvaluation)
 
     l2_error = 0
     for i in range(NT):
@@ -205,15 +202,15 @@ def remap(polyOrder,dimension,additional_sites=False,epsilon_multiplier=1.5,reco
             if (dimension>1): h1_seminorm_error += np.power(abs(1./epsilons[i]*polynomial_coefficients[i,2] - grad_exact(target_sites[i], 1, polyOrder, dimension)),2)
             if (dimension>2): h1_seminorm_error += np.power(abs(1./epsilons[i]*polynomial_coefficients[i,3] - grad_exact(target_sites[i], 2, polyOrder, dimension)),2)
     else:
-        grad_x = gmls_helper.applyStencil(new_data_vector[:,1], pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+        grad_x = gmls_helper.applyStencil(data_vector.reshape(-1,1), pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
         for i in range(NT):
             h1_seminorm_error += np.power(grad_x[i] - grad_exact(target_sites[i], 0, polyOrder, dimension),2)
         if (dimension>1): 
-            grad_y = gmls_helper.applyStencil(new_data_vector[:,1], pycompadre.TargetOperation.PartialYOfScalarPointEvaluation)
+            grad_y = gmls_helper.applyStencil(data_vector.reshape(-1,1), pycompadre.TargetOperation.PartialYOfScalarPointEvaluation)
             for i in range(NT):
                 h1_seminorm_error += np.power(grad_y[i] - grad_exact(target_sites[i], 1, polyOrder, dimension),2)
         if (dimension>2): 
-            grad_z = gmls_helper.applyStencil(new_data_vector[:,1], pycompadre.TargetOperation.PartialZOfScalarPointEvaluation)
+            grad_z = gmls_helper.applyStencil(data_vector.reshape(-1,1), pycompadre.TargetOperation.PartialZOfScalarPointEvaluation)
             for i in range(NT):
                 h1_seminorm_error += np.power(grad_z[i] - grad_exact(target_sites[i], 2, polyOrder, dimension),2)
     h1_seminorm_error = math.sqrt(h1_seminorm_error/float(NT))
@@ -294,6 +291,69 @@ class TestPyCOMPADRE(KokkosTestCase):
             result += f(new_q)*qweights[i]*scaling
 
         self.assertAlmostEqual(result, solution, places=13)
+
+    def test_noncontiguous_ndarray(self):
+        source_sites = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
+        source_sites = np.reshape(source_sites, shape=(source_sites.size,1))
+        data = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
+
+        polynomial_order = 1
+        dim = 1
+
+        gmls_obj=pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD")
+        gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
+        gmls_obj.addTargets(pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+        gmls_helper.generateKDTree(source_sites)
+
+        point = np.array([4.0], dtype='f8')
+        target_site = np.reshape(point, shape=(1,dim))
+
+        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
+        gmls_obj.generateAlphas(1, True)
+
+        # use rank 2 array and only insert into one column to test
+        # whether layouts are being properly propagated into pycompadre
+        new_data_vector = np.zeros(shape=(len(data), 3), dtype='f8')
+        new_data_vector[:,1] = np.array(data, dtype=np.dtype('d'))
+        if pycompadre.DEBUG:
+            with self.assertRaises(RuntimeError):
+                output = gmls_helper.applyStencilSingleTarget(new_data_vector[:,1], pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+        new_data_vector = np.zeros(shape=(len(data)*3), dtype='f8')
+        new_data_vector[::3] = data[:]
+        if pycompadre.DEBUG:
+            with self.assertRaises(RuntimeError):
+                output = gmls_helper.applyStencilSingleTarget(new_data_vector[::3], pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+        del gmls_helper
+        del gmls_obj
+
+    def test_sequential_solution_time(self):
+        source_sites = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
+        source_sites = np.reshape(source_sites, shape=(source_sites.size,1))
+        data = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
+
+        polynomial_order = 1
+        dim = 1
+
+        gmls_obj=pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD")
+        gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
+        gmls_obj.addTargets(pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+        gmls_helper.generateKDTree(source_sites)
+
+        point = np.array([4.0], dtype='f8')
+        target_site = np.reshape(point, shape=(1,dim))
+
+        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
+        gmls_obj.generateAlphas(1, True)
+
+        for i in range(1000):
+            output = gmls_helper.applyStencilSingleTarget(data, pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+
+        del gmls_helper
+        del gmls_obj
 
     def test_square_qr_bugfix(self):
 
@@ -494,7 +554,7 @@ class TestPyCOMPADRE(KokkosTestCase):
         sol1 = [16.0, 0.0, 0.0, 0.0]
         sol2 = [ 9.0, 0.0, 1.0, 4.0]
         def check_answer(helper, i):
-            output = helper.applyStencil(data, 
+            output = helper.applyStencil(data.reshape(-1,1), 
                                               pycompadre.TargetOperation.ScalarPointEvaluation,
                                               pycompadre.SamplingFunctionals['PointSample'],
                                               i)
@@ -542,7 +602,7 @@ space_sample_combos = {
 
 
 #############################
-
+#
 #
 # Begin Most Generic Tests
 #

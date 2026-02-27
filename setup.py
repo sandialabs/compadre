@@ -122,9 +122,9 @@ class CustomBuild(build_ext):
                                "\ninstall cmake with `pip install cmake` or install from: https://cmake.org/download/.")
 
         cmake_version = Version(re.search(r'version\s*([\d.]+)', out.decode()).group(1))
-        if cmake_version < Version('3.16.0'):
-            raise runtimeerror("cmake >= 3.16.0 is required")
-        assert sys.version_info >= (3,6), "\n\n\n\n\npycompadre requires python version 3.6+\n\n\n\n\n"
+        if cmake_version < Version('3.24.0'):
+            raise runtimeerror("cmake >= 3.24.0 is required")
+        assert sys.version_info >= (3,10), "\n\n\n\n\npycompadre requires python version 3.10+\n\n\n\n\n"
 
         for ext in self.extensions:
             self.configure_pycompadre(ext)
@@ -158,18 +158,18 @@ class CustomBuild(build_ext):
                 cmake_config = ""
                 print("Custom cmake args file not set.")
 
-        if Version(platform.python_version()) >= Version('3.9.0'):
-            pybind11_path = str(importlib.resources.files('pybind11'))
+        if Version(platform.python_version()) >= Version('3.10.0'):
+            nanobind_path = str(importlib.resources.files('nanobind'))
         else:
-            import pybind11
-            pybind11_path = str(os.path.abspath(os.path.dirname(pybind11.__file__)))
+            import nanobind
+            nanobind_path = str(os.path.abspath(os.path.dirname(nanobind.__file__)))
 
         # Configure CMake
         cmake_args = ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY=' + extdir,
                       '-DPYTHON_EXECUTABLE=' + sys.executable,
                       '-DCMAKE_INSTALL_PREFIX=' + extdir,
                       '-DCompadre_USE_PYTHON:BOOL=ON',
-                      '-Dpybind11_DIR=' + pybind11_path + '/share/cmake/pybind11/',
+                      '-Dnanobind_DIR=' + nanobind_path + '/share/cmake/nanobind/',
                       '-DPYTHON_CALLING_BUILD:BOOL=ON',]
 
         cmake_file_list = list()
@@ -199,60 +199,33 @@ class CustomBuild(build_ext):
         if not examples_in_cmake_args:
             cmake_args += ['-DCompadre_EXAMPLES:BOOL=OFF']
 
-        # add level 3 optimization if not specified in a file
-        flag_in_cmake_args = False
-        for arg in cmake_args:
-            if 'CMAKE_CXX_FLAGS' in arg:
-                flag_in_cmake_args = True
-                break
-        if not flag_in_cmake_args:
-            cmake_args += ['-DCMAKE_CXX_FLAGS= -O3 -g ']
-
-        # add level 3 optimization if not specified in a file
-        build_type_in_cmake_args = False
-        for arg in cmake_args:
-            if 'CMAKE_BUILD_TYPE' in arg:
-                build_type_in_cmake_args = True
-                break
-
-        # allow 'python setup.py build_ext --debug install' to have precedence over CMAKE_BUILD_TYPE
-        if self.debug and not build_type_in_cmake_args:
-            cfg = 'Debug'
-            cmake_args += ['-DCMAKE_BUILD_TYPE=Debug']
-        elif not self.debug and not build_type_in_cmake_args:
-            cfg = 'None'
-            cmake_args += ['-DCMAKE_BUILD_TYPE=None']
-        elif not self.debug: # was specified in file only
-            for arg in cmake_args[:]:
-                if 'CMAKE_BUILD_TYPE' in arg:
-                    # break down and copy to cfg
-                    cfg = arg.split('=')[1]
-                    break
-        else: # was specified in file and --debug in command
-            # delete specified from cmake_args 
-            for arg in cmake_args[:]:
-                if 'CMAKE_BUILD_TYPE' in arg:
-                    cmake_args.remove(arg)
-            cmake_args += ['-DCMAKE_BUILD_TYPE=Debug']
-            cfg = 'Debug'
-
-        build_args = ['--config', cfg]
-
-        if platform.system() == "Windows":
-            cmake_args += ['-DCMAKE_LIBRARY_OUTPUT_DIRECTORY_{}={}'.format(cfg.upper(), extdir)]
-            if sys.maxsize > 2**32:
-                cmake_args += ['-A', 'x64']
-            build_args += ['--', '/m']
+        # default CMAKE_BUILD_TYPE can be overridden by (ranked by highest priority)
+        # 1. environment CMAKE_BUILD_TYPE
+        # 2. if not defined in 1, then file indicated by environment CMAKE_CONFIG_FILE
+        # 3. default to RelWithDebInfo
+        build_type_env = os.getenv("CMAKE_BUILD_TYPE")
+        if build_type_env:
+            cmake_args += [f'-DCMAKE_BUILD_TYPE={build_type_env}']
         else:
-            build_args += ['--', '-j2']
+            build_type_in_cmake_args = False
+            for arg in cmake_args:
+                if 'CMAKE_BUILD_TYPE' in arg:
+                    build_type_in_cmake_args = True
+                    break
+            if not build_type_in_cmake_args:
+                print('CMAKE_BUILD_TYPE not provided in CMAKE_CONFIG_FILE or as environment variable, defaulting to RelWithDebInfo')
+                cmake_args += ['-DCMAKE_BUILD_TYPE=RelWithDebInfo']
+
+        build_args = ['--', '-j']
 
         env = os.environ.copy()
-        env['CXXFLAGS'] = '{} -DVERSION_INFO=\\"{}\\"'.format(env.get('CXXFLAGS', ''),
-                                                              self.distribution.get_version())
+
         if not os.path.exists(self.build_temp):
             os.makedirs(self.build_temp)
-        print("CMake Args:", cmake_args)
-        subprocess.check_call(['cmake', ext.sourcedir] + cmake_args, cwd=self.build_temp, env=env)
+        print("CMake Args:")
+        for cmake_arg in cmake_args:
+            print("  " + cmake_arg)
+        subprocess.check_call(['cmake', '--fresh', ext.sourcedir] + cmake_args, cwd=self.build_temp, env=env)
 
         # copy __init__.py to install directory
         shutil.copyfile(self.build_temp + "/__init__.py", extdir + "/__init__.py")
@@ -272,6 +245,29 @@ class CustomBuild(build_ext):
         print("Build Args:", build_args)
         subprocess.check_call(['cmake', '--build', '.'] + build_args, cwd=self.build_temp)
 
+        # copy Compadre_Config.h to install directory
+        shutil.copyfile(self.build_temp + "/src/Compadre_Config.h", extdir + "/Compadre_Config.h")
+        shutil.copyfile(self.build_temp + "/compile_commands.json", extdir + "/compile_commands.json")
+        shutil.copyfile(self.build_temp + "/CMakeFiles/_pycompadre.dir/flags.make", extdir + "/compile_flags.txt")
+        shutil.copyfile(self.build_temp + "/CMakeFiles/_pycompadre.dir/link.txt", extdir + "/link_flags.txt")
+
+        super().run()
+
+        with open(extdir + "/Compadre_Config.h", 'r') as f:
+            contents = f.readlines()
+            contains_DEBUG = False
+            for line in contents:
+                if line.startswith("#define COMPADRE_DEBUG"):
+                    contains_DEBUG = True
+            contains_BUILD_TYPE = False
+            build_type = "Unknown"
+            for line in contents:
+                if line.startswith("#define COMPADRE_BUILD_TYPE"):
+                    contains_BUILD_TYPE = True
+                    build_type = line[(len("#define COMPADRE_BUILD_TYPE")+1):-1]
+        with open(os.path.join(extdir, "_build_info.py"), "w") as f:
+            f.write(f'Compadre_DEBUG={contains_DEBUG}\n')
+            f.write(f'Compadre_BUILD_TYPE={build_type}\n')
 
 with open("README.md", "r") as fh:
     long_description = fh.read()
