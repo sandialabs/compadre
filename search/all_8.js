@@ -1,0 +1,21 @@
+var searchData=
+[
+  ['hex_0',['HEX',['../namespace_compadre.html#af9d3c7b8f6a8e7a54b4991de9fa9ec25a6622b31b6ac6514780d1e26892e46f4f',1,'Compadre']]],
+  ['host_5fexecution_5fspace_1',['host_execution_space',['../namespace_compadre.html#ab7354c78442e58c1bba6faac554448c7',1,'Compadre']]],
+  ['host_5fmanaged_5flocal_5findex_5ftype_2',['host_managed_local_index_type',['../namespace_compadre.html#a94964ea86edab8deb58d5570a903a015',1,'Compadre']]],
+  ['host_5fmanaged_5fmatrix_5fleft_5ftype_3',['host_managed_matrix_left_type',['../namespace_compadre.html#ab2497b389493f28d89a3b6fdad547098',1,'Compadre']]],
+  ['host_5fmanaged_5fmatrix_5fright_5ftype_4',['host_managed_matrix_right_type',['../namespace_compadre.html#a1356f0998b378fcdb85fc8f5bc9a0127',1,'Compadre']]],
+  ['host_5fmanaged_5fvector_5ftype_5',['host_managed_vector_type',['../namespace_compadre.html#a1336761f1a8f465c60695ffc6343f797',1,'Compadre']]],
+  ['host_5fmember_5ftype_6',['host_member_type',['../namespace_compadre.html#aad7c51a18112632d883e21b162325dec',1,'Compadre']]],
+  ['host_5fmemory_5fspace_7',['host_memory_space',['../namespace_compadre.html#ac8a67a24bd8efc06743c20a5e568b27c',1,'Compadre']]],
+  ['host_5fscratch_8',['host_scratch',['../namespace_compadre.html#ad985c9a307fe06a79659d2d208034b68',1,'Compadre']]],
+  ['host_5fscratch_5flocal_5findex_5ftype_9',['host_scratch_local_index_type',['../namespace_compadre.html#a0d3a24688333661900b226ad6d1bbb29',1,'Compadre']]],
+  ['host_5fscratch_5fmatrix_5fleft_5ftype_10',['host_scratch_matrix_left_type',['../namespace_compadre.html#aab5656b764b84e5a0e7bb96fadf0f565',1,'Compadre']]],
+  ['host_5fscratch_5fmatrix_5fright_5ftype_11',['host_scratch_matrix_right_type',['../namespace_compadre.html#ad0dd2ed140d1fd3fbf6bde6e3c0838fb',1,'Compadre']]],
+  ['host_5fscratch_5fvector_5ftype_12',['host_scratch_vector_type',['../namespace_compadre.html#af9c1d33bb719ac64adee3920ef1956cc',1,'Compadre']]],
+  ['host_5fteam_5fpolicy_13',['host_team_policy',['../namespace_compadre.html#a678391cde1329dca5f1bcfe70194886a',1,'Compadre']]],
+  ['host_5funmanaged_5flocal_5findex_5ftype_14',['host_unmanaged_local_index_type',['../namespace_compadre.html#a1f0c087aeedf42cd14a849ac4fd4c3ba',1,'Compadre']]],
+  ['host_5funmanaged_5fmatrix_5fleft_5ftype_15',['host_unmanaged_matrix_left_type',['../namespace_compadre.html#a939a6f170bb10f71ee154b34c9287d7b',1,'Compadre']]],
+  ['host_5funmanaged_5fmatrix_5fright_5ftype_16',['host_unmanaged_matrix_right_type',['../namespace_compadre.html#a76a8864ddfc28d88c2f4c28c1c55478a',1,'Compadre']]],
+  ['host_5funmanaged_5fvector_5ftype_17',['host_unmanaged_vector_type',['../namespace_compadre.html#aabacd77546ec368bf6fdfd9abf977886',1,'Compadre']]]
+];
