@@ -61,11 +61,13 @@ template<typename space=Kokkos::HostSpace, typename T>
 Kokkos::View<T*, space> convert_np_to_kokkos_1d(nb::ndarray<nb::numpy, T> array, 
         std::string new_label="convert_np_to_kokkos_1d array") {
 
+#ifdef COMPADRE_DEBUG
     compadre_assert_release(array.ndim()==1 && "array must be of rank 1");
     size_t stride_0 = array.stride(0);
-    if (stride_0!=1) {
+    if (array.shape(0)>0 && stride_0!=1) {
         throw std::runtime_error("convert_np_to_kokkos_1d was passed an array with noncontiguous data. Please reformat array.");
     }
+#endif
 
     Kokkos::View<T*, space> kokkos_array_device(new_label, array.shape(0));
     auto kokkos_array_host = Kokkos::create_mirror_view(kokkos_array_device);
@@ -83,13 +85,15 @@ template<typename space=Kokkos::HostSpace, typename layout=Kokkos::LayoutRight, 
 Kokkos::View<T**, layout, space> convert_np_to_kokkos_2d(nb::ndarray<nb::numpy, T> array,
         std::string new_label="convert_np_to_kokkos_2d array") {
 
+#ifdef COMPADRE_DEBUG
     compadre_assert_release(array.ndim()==2 && "array must be of rank 2");
     size_t cols = array.shape(1);
     size_t stride_0 = array.stride(0);
     size_t stride_1 = array.stride(1);
-    if (stride_0!=cols || stride_1!=1) {
+    if (array.shape(0)>0 && cols>0 && (stride_0!=cols || stride_1!=1)) {
         throw std::runtime_error("convert_np_to_kokkos_2d was passed an array with noncontiguous data. Please reformat array.");
     }
+#endif
 
     Kokkos::View<T**, layout, space> kokkos_array_device(new_label, array.shape(0), array.shape(1));
     auto kokkos_array_host = Kokkos::create_mirror_view(kokkos_array_device);
@@ -109,6 +113,7 @@ template<typename space=Kokkos::HostSpace, typename layout=Kokkos::LayoutRight, 
 Kokkos::View<T***, layout, space> convert_np_to_kokkos_3d(nb::ndarray<nb::numpy, T> array,
         std::string new_label="convert_np_to_kokkos_3d array") {
 
+#ifdef COMPADRE_DEBUG
     compadre_assert_release(array.ndim()==3 && "array must be of rank 3");
     size_t rows = array.shape(0);
     size_t cols = array.shape(1);
@@ -116,9 +121,10 @@ Kokkos::View<T***, layout, space> convert_np_to_kokkos_3d(nb::ndarray<nb::numpy,
     size_t stride_0 = array.stride(0);
     size_t stride_1 = array.stride(1);
     size_t stride_2 = array.stride(2);
-    if (stride_0!=cols*nextdim || stride_1!=nextdim || stride_2!=1) {
+    if (rows>0 && cols>0 && nextdim>0 && (stride_0!=cols*nextdim || stride_1!=nextdim || stride_2!=1)) {
         throw std::runtime_error("convert_np_to_kokkos_3d was passed an array with noncontiguous data. Please reformat array.");
     }
+#endif
 
 
     Kokkos::View<T***, layout, space> kokkos_array_device(new_label, array.shape(0), array.shape(1), array.shape(2));
@@ -305,9 +311,11 @@ public:
 
     void setNeighbors(nb::ndarray<nb::numpy, local_index_type> input) {
 
+#ifdef COMPADRE_DEBUG
         if (input.ndim() != 2) {
             throw std::runtime_error("Number of dimensions must be two");
         }
+#endif
 
         auto neighbor_lists = convert_np_to_kokkos_2d(input);
         
@@ -479,10 +487,14 @@ public:
 
     void generateNeighborListsFromKNNSearchAndSet(nb::ndarray<nb::numpy, double> input, int poly_order, int dimension = 3, double epsilon_multiplier = 1.6, double max_search_radius = 0.0, bool scale_k_neighbor_radius = true, bool scale_num_neighbors = false) {
 
+#ifdef COMPADRE_DEBUG
         compadre_assert_release(gmls_object!=nullptr &&
                 "ParticleHelper used without an internal GMLS object set");
+#endif
+
         int neighbors_needed = Compadre::GMLS::getNP(poly_order, dimension, gmls_object->getReconstructionSpace());
 
+#ifdef COMPADRE_DEBUG
         if (input.ndim() != 2) {
             throw std::runtime_error("Number of dimensions must be two");
         }
@@ -490,6 +502,7 @@ public:
         if (gmls_object->getGlobalDimensions()!=input.shape(1)) {
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
+#endif
         
         auto target_coords = convert_np_to_kokkos_2d<host_memory_space>(input);
         gmls_object->setTargetSites(target_coords);
@@ -532,6 +545,7 @@ public:
     
     void setAdditionalEvaluationSitesData(nb::ndarray<nb::numpy, local_index_type> input_indices, nb::ndarray<nb::numpy, double> input_coordinates) {
 
+#ifdef COMPADRE_DEBUG
         if (input_indices.ndim() != 2) {
             throw std::runtime_error("Number of dimensions of input indices must be two");
         }
@@ -543,6 +557,7 @@ public:
         if (gmls_object->getGlobalDimensions()!=input_coordinates.shape(1)) {
             throw std::runtime_error("Second dimension of input coordinates must be the same as GMLS spatial dimension");
         }
+#endif
         
         // overwrite existing data assuming a 2D layout
         auto neighbor_lists = convert_np_to_kokkos_2d(input_indices);
@@ -760,48 +775,6 @@ public:
         return gmls_evaluator.applyAlphasToDataSingleComponentSingleTargetSite(source_data, 0, lro, 0, evaluation_site_local_index, 0, 0, 0, 0, false);
     }
 };
-
-void set_gmls_state(GMLS& gmls, nb::tuple t) {
-
-    if (t.size() != 15)
-        throw std::runtime_error("Invalid state!");
-    
-    
-    gmls.setWeightingType(nb::cast<WeightingFunctionType>(t[0]));
-    gmls.setWeightingParameter(nb::cast<int>(t[1]), 0);
-    gmls.setWeightingParameter(nb::cast<int>(t[2]), 1);
-    
-    gmls.setCurvatureWeightingType(nb::cast<WeightingFunctionType>(t[3]));
-    gmls.setCurvatureWeightingParameter(nb::cast<int>(t[4]), 0);
-    gmls.setCurvatureWeightingParameter(nb::cast<int>(t[5]), 1);
-    
-    auto lro_list = nb::cast<nb::list>(t[6]);
-    for (nb::handle obj_i : lro_list) {
-        gmls.addTargets(nb::cast<TargetOperation>(obj_i));
-    }
-    
-    // need to convert from numpy back to kokkos before setting problem data
-    auto ss      = nb::cast<nb::ndarray<nb::numpy, double> >(t[7]);
-    auto k_ss    = convert_np_to_kokkos_2d(ss);
-    auto ts      = nb::cast<nb::ndarray<nb::numpy, double> >(t[8]);
-    auto k_ts    = convert_np_to_kokkos_2d(ts);
-    auto ws      = nb::cast<nb::ndarray<nb::numpy, double> >(t[9]);
-    auto k_ws    = convert_np_to_kokkos_1d(ws);
-    auto cr      = nb::cast<nb::ndarray<nb::numpy, int> >(t[10]);
-    auto k_cr    = convert_np_to_kokkos_1d(cr);
-    auto nnl     = nb::cast<nb::ndarray<nb::numpy, int> >(t[11]);
-    auto k_nnl   = convert_np_to_kokkos_1d(nnl);
-    auto a_cr    = nb::cast<nb::ndarray<nb::numpy, int> >(t[12]);
-    auto k_a_cr  = convert_np_to_kokkos_1d(a_cr);
-    auto a_nnl   = nb::cast<nb::ndarray<nb::numpy, int> >(t[13]);
-    auto k_a_nnl = convert_np_to_kokkos_1d(a_nnl);
-    auto a_es    = nb::cast<nb::ndarray<nb::numpy, double> >(t[14]);
-    auto k_a_es  = convert_np_to_kokkos_2d(a_es);
-    
-    gmls.setAdditionalEvaluationSitesData(k_a_cr, k_a_nnl, k_a_es);
-    gmls.setProblemData(k_cr, k_nnl, k_ss, k_ts, k_ws);
-    
-}
 
 NB_MODULE(_pycompadre, m) {
     m.doc() = R"pbdoc(
@@ -1140,7 +1113,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             // get all additional evaluation coordinates
             auto a_es = nonconst_gmls.getAdditionalPointConnections()->_source_coordinates;
             auto np_a_es  = convert_kokkos_to_np(a_es);
- 
+            
             // get all relevant details from GMLS class
             return std::make_tuple(rs, psf, dsf, po, gdim, dst, pt, ct, cpo, 
                                    wt, wp0, wp1, mwt, mwp0, mwp1, lro_list,
