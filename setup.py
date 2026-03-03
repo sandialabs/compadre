@@ -269,8 +269,11 @@ class CustomBuild(build_ext):
             f.write(f'Compadre_DEBUG={contains_DEBUG}\n')
             f.write(f'Compadre_BUILD_TYPE={build_type}\n')
 
-with open("README.md", "r") as fh:
+with open("pycompadre/README.md", "r") as fh:
     long_description = fh.read()
+
+with open("README.md", "r") as fh:
+    long_description += fh.read()
 
 with open("cmake/Compadre_Version.txt", "r") as fh:
     version_string = str(Version(fh.read()))
