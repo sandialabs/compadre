@@ -521,8 +521,9 @@ class TestPyCOMPADRE(KokkosTestCase):
             new_gmls_helper = pickle.load(fn)
 
         # should not contain a GMLS instance
-        with self.assertRaises(RuntimeError):
-            gmls_obj = new_gmls_helper.getGMLSObject()
+        if pycompadre.RUNTIME_CHECKS:
+            with self.assertRaises(RuntimeError):
+                gmls_obj = new_gmls_helper.getGMLSObject()
 
     def test_pickling_additional_evaluation_sites(self):
 
@@ -536,7 +537,7 @@ class TestPyCOMPADRE(KokkosTestCase):
         point = np.array([4.0, 3.0], dtype='f8')
         target_site = np.reshape(point, shape=(2,dim))
 
-        extra_sites_coords = np.atleast_2d(np.linspace(0,4,5)).T
+        extra_sites_coords = np.atleast_2d(np.linspace(0,4,5)).T.copy()
         extra_sites_idx    = np.zeros(shape=(len(point),len(extra_sites_coords)+1), dtype='i4')
         extra_sites_idx[0,0] = 0
         extra_sites_idx[0,1:] = np.arange(len(extra_sites_coords))
@@ -562,8 +563,9 @@ class TestPyCOMPADRE(KokkosTestCase):
             self.assertAlmostEqual(output[1], sol2[i], places=13)
 
         # throws error because alphas are not generated
-        with self.assertRaises(RuntimeError):
-            [check_answer(gmls_helper, i) for i in range(4)]
+        if pycompadre.RUNTIME_CHECKS:
+            with self.assertRaises(RuntimeError):
+                [check_answer(gmls_helper, i) for i in range(4)]
 
         self.assertEqual(gmls_obj.containsValidAlphas(), False)
         # generate alphas and run again
@@ -581,8 +583,9 @@ class TestPyCOMPADRE(KokkosTestCase):
         with open('test.p', 'rb') as fn:
             new_gmls_helper = pickle.load(fn)
         # should throw an error because GMLS object is not set
-        with self.assertRaises(RuntimeError):
-            new_gmls_helper.getGMLSObject()
+        if pycompadre.RUNTIME_CHECKS:
+            with self.assertRaises(RuntimeError):
+                new_gmls_helper.getGMLSObject()
 
         # reuse solution computed from gmls_obj with gmls_helper 
         # loaded from pickle
