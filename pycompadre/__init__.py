@@ -16,7 +16,7 @@ try:
     from ._build_info import Compadre_BUILD_ABBR
 except ImportError:
     Compadre_BUILD_ABBR = 0
-RUNTIME_CHECKS = Compadre_BUILD_ABBR!=0
+RUNTIME_CHECKS = (Compadre_BUILD_ABBR != 0)
 __doc__ += '\nRuntime checks enabled: ' + str(RUNTIME_CHECKS)
 __version__ = _pycompadre.__version__
 __all__ = _pycompadre.__dict__
