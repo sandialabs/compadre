@@ -130,7 +130,7 @@ class CustomBuild(build_ext):
             self.configure_pycompadre(ext)
 
     def configure_pycompadre(self, ext):
-        extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name))+"/pycompadre")
+        extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
         # required for auto-detection of auxiliary "native" libs
         if not extdir.endswith(os.path.sep):
             extdir += os.path.sep
@@ -259,15 +259,19 @@ class CustomBuild(build_ext):
             for line in contents:
                 if line.startswith("#define COMPADRE_DEBUG"):
                     contains_DEBUG = True
-            contains_BUILD_TYPE = False
             build_type = "Unknown"
             for line in contents:
                 if line.startswith("#define COMPADRE_BUILD_TYPE"):
-                    contains_BUILD_TYPE = True
                     build_type = line[(len("#define COMPADRE_BUILD_TYPE")+1):-1]
+            build_abbr = None
+            for line in contents:
+                if line.startswith("#define COMPADRE_BUILD_ABBR"):
+                    build_abbr = line[(len("#define COMPADRE_BUILD_ABBR")+1):]
+            assert build_abbr is not None, "#define COMPADRE_BUILD_ABBR not found in Compadre_Config.h"
         with open(os.path.join(extdir, "_build_info.py"), "w") as f:
             f.write(f'Compadre_DEBUG={contains_DEBUG}\n')
             f.write(f'Compadre_BUILD_TYPE={build_type}\n')
+            f.write(f'Compadre_BUILD_ABBR={build_abbr}\n')
 
 with open("pycompadre/README.md", "r") as fh:
     long_description = fh.read()
@@ -287,5 +291,5 @@ setup(
     description = "Compatible Particle Discretization and Remap",
     long_description_content_type = "text/markdown",
     long_description=long_description,
-    ext_modules=[CMakeExtension('_pycompadre'),],
+    ext_modules=[CMakeExtension('pycompadre._pycompadre'),],
 )

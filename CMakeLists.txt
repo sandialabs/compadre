@@ -50,6 +50,7 @@ if (${PROJECT_NAME}_TRIBITS_DIR) # TriBITS CMake Project
   list(GET VLIST 0 Compadre_VERSION_MAJOR)
   list(GET VLIST 1 Compadre_VERSION_MINOR)
   list(GET VLIST 2 Compadre_VERSION_PATCH)
+  string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
 
 else() # Raw CMake Project
 
@@ -93,6 +94,7 @@ else() # Raw CMake Project
   bob_option(Compadre_EXTREME_DEBUG "Run Compadre Toolkit in EXTREME DEBUG mode" OFF)
   # do not print variable now
   bob_option(Compadre_DEBUG "Run Compadre Toolkit in DEBUG mode" OFF OFF)
+  string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
   if (Compadre_EXTREME_DEBUG)
     set(Compadre_DEBUG ON CACHE BOOL "" FORCE)
     message(STATUS "Compadre_DEBUG: ON (because Compadre_EXTREME_DEBUG is ON)")
@@ -101,21 +103,23 @@ else() # Raw CMake Project
   # set defaults for build type
   if(NOT CMAKE_BUILD_TYPE)
     if(Compadre_DEBUG)
-      set(DEFAULT_BUILD_TYPE "Debug")
+      set(DEFAULT_BUILD_TYPE "DEBUG")
     else()
-      set(DEFAULT_BUILD_TYPE "RelWithDebInfo")
+      set(DEFAULT_BUILD_TYPE "RELWITHDEBINFO")
     endif()
     message(STATUS "No build type specified. Defaulting to: ${DEFAULT_BUILD_TYPE}")
     set(CMAKE_BUILD_TYPE "${DEFAULT_BUILD_TYPE}" CACHE STRING
         "Choose the type of build: {Debug,Release,RelWithDebInfo,MinSizeRel,None}." FORCE)
+    string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
   endif()
 
   # ensure conflicting BUILD_TYPE not specified w.r.t. Compadre_DEBUG
   # Compadre_DEBUG takes precedence
-  if(Compadre_DEBUG AND NOT CMAKE_BUILD_TYPE STREQUAL "Debug")
+  if(Compadre_DEBUG AND NOT uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
     message(STATUS "Compadre_DEBUG is ON so CMAKE_BUILD_TYPE set to Debug")
     set(CMAKE_BUILD_TYPE "Debug" CACHE STRING "Build type {Release, RelWithDebInfo, Debug, None}" FORCE)
-  elseif(CMAKE_BUILD_TYPE STREQUAL "Debug" AND NOT Compadre_DEBUG)
+    string(TOUPPER "${CMAKE_BUILD_TYPE}" uppercase_CMAKE_BUILD_TYPE)
+  elseif(uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG" AND NOT Compadre_DEBUG)
     message(STATUS "CMAKE_BUILD_TYPE is 'Debug' so Compadre_DEBUG is set to ON")
     set(Compadre_DEBUG ON CACHE STRING "" FORCE)
   endif()
@@ -449,7 +453,13 @@ endif()
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(Compadre_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 set(Compadre_INSTALL_PREFIX "${CMAKE_INSTALL_PREFIX}")
-set(Compadre_BUILD_TYPE "${CMAKE_BUILD_TYPE}")
+set(Compadre_BUILD_ABBR 1)
+if (uppercase_CMAKE_BUILD_TYPE STREQUAL "RELEASE")
+  set(Compadre_BUILD_ABBR 0)
+elseif(uppercase_CMAKE_BUILD_TYPE STREQUAL "DEBUG")
+  set(Compadre_BUILD_ABBR 2)
+endif()
+set(Compadre_BUILD_TYPE "${uppercase_CMAKE_BUILD_TYPE}")
 
 set(Compadre_KEY_BOOLS
     Compadre_DEBUG
@@ -464,6 +474,7 @@ set(Compadre_KEY_INTS
     Compadre_VERSION_MAJOR
     Compadre_VERSION_MINOR
     Compadre_VERSION_PATCH
+    Compadre_BUILD_ABBR
    )
 
 set(Compadre_KEY_STRINGS
