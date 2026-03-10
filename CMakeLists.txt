@@ -359,7 +359,7 @@ else() # Raw CMake Project
       OPTION(KokkosKernels_ENABLE_COMPONENT_BLAS "" ON)
       OPTION(KokkosKernels_ENABLE_COMPONENT_LAPACK "" OFF)
       OPTION(KokkosKernels_ENABLE_COMPONENT_GRAPH "" OFF)
-      OPTION(KokkosKernels_ENABLE_COMPONENT_Sparse "" OFF)
+      OPTION(KokkosKernels_ENABLE_COMPONENT_SPARSE "" OFF)
       OPTION(KokkosKernels_ENABLE_COMPONENT_NODE "" OFF)
       OPTION(KokkosKernels_ENABLE_ALL_COMPONENTS "" OFF)
       OPTION(KokkosKernels_ETI_ONLY "" OFF)
