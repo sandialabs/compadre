@@ -27,6 +27,7 @@ struct GMLSBasisData {
     Kokkos::View<double**, layout_right> _source_extra_data;
     Kokkos::View<double**, layout_right> _target_extra_data;
     Kokkos::View<double*> _epsilons; 
+    Kokkos::View<double*> _epsilons_from_sources; 
     Kokkos::View<double*****, layout_right> _prestencil_weights; 
     Kokkos::View<TargetOperation*> _curvature_support_operations;
     Kokkos::View<TargetOperation*> _operations;
@@ -48,7 +49,6 @@ struct GMLSBasisData {
     int _initial_index_for_batch;
     int _order_of_quadrature_points;
     int _dimension_of_quadrature_points;
-    bool _epsilons_from_targets;
 
     GMLS::point_connections_type _pc;
     GMLS::point_connections_type _additional_pc;
@@ -388,10 +388,7 @@ struct AssembleStandardPsqrtW {
 
     GMLSBasisData _data;
 
-    AssembleStandardPsqrtW(GMLSBasisData data) : _data(data) {
-        compadre_assert_release(((_data._constraint_type != ConstraintType::NEUMANN_GRAD_SCALAR) || _data._epsilons_from_targets) 
-                && "ConstraintType::NEUMANN_GRAD_SCALAR incompatible with window sizes determined by source sites");
-    }
+    AssembleStandardPsqrtW(GMLSBasisData data) : _data(data) {}
 
     KOKKOS_INLINE_FUNCTION
     void operator()(const member_type& teamMember) const {

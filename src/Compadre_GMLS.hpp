@@ -104,6 +104,10 @@ private:
 
     //! h supports determined through neighbor search (device)
     Kokkos::View<double*> _epsilons; 
+
+    //! optional, h supports determined through neighbor search (device)
+    //! which is only used in the kernel
+    Kokkos::View<double*> _epsilons_from_sources; 
     
     //! generated weights for nontraditional samples required to transform data into expected sampling 
     //! functional form (device). 
@@ -179,9 +183,6 @@ private:
 
     //! weighting kernel type for curvature problem
     WeightingFunctionType _curvature_weighting_type;
-
-    //! whether kernel support sizes are from targets (true) or source (false)
-    bool _epsilons_from_targets;
 
     //! first parameter to be used for weighting kernel
     int _weighting_p;
@@ -431,7 +432,6 @@ public:
 
         _weighting_type = WeightingFunctionType::Power;
         _curvature_weighting_type = WeightingFunctionType::Power;
-        _epsilons_from_targets = true;
         _weighting_p = 2;
         _weighting_n = 1;
         _curvature_weighting_p = 2;
@@ -690,11 +690,6 @@ public:
     //! Type for weighting kernel for curvature 
     WeightingFunctionType getManifoldWeightingType() const { return _curvature_weighting_type; }
 
-    //! Get whether windows sizes is determined by target sites (or false for source sites)
-    bool setWindowSizesFromTargetSites() const {
-        return _epsilons_from_targets;
-    }
-
     //! Get parameter for weighting kernel for GMLS problem
     int getWeightingParameter(const int index = 0) const { 
         if (index==1) {
@@ -743,6 +738,12 @@ public:
 
     //! Get a view (device) of all window sizes
     decltype(_epsilons)* getWindowSizes() { return &_epsilons; }
+
+    //! Get a view (device) of all window sizes
+    decltype(_epsilons)* getWindowSizesFromSourceSites() { 
+        compadre_assert_release(this->_epsilons_from_sources.extent(0)>0);
+        return &_epsilons_from_sources; 
+    }
 
     //! Get a view (device) of all tangent direction bundles.
     decltype(_T)* getTangentDirections() { return &_T; }
@@ -881,12 +882,11 @@ public:
             view_type_1 neighbor_lists,
             view_type_2 source_coordinates,
             view_type_3 target_coordinates,
-            view_type_4 epsilons,
-            bool use_epsilons_from_targets = true) {
+            view_type_4 epsilons) {
         this->setNeighborLists<view_type_1>(neighbor_lists);
         this->setSourceSites<view_type_2>(source_coordinates);
         this->setTargetSites<view_type_3>(target_coordinates);
-        this->setWindowSizes<view_type_4>(epsilons, use_epsilons_from_targets);
+        this->setWindowSizes<view_type_4>(epsilons);
     }
 
     //! Sets basic problem data (neighbor lists data, number of neighbors list, source coordinates, and target coordinates)
@@ -896,12 +896,11 @@ public:
             view_type_1 number_of_neighbors_list,
             view_type_2 source_coordinates,
             view_type_3 target_coordinates,
-            view_type_4 epsilons,
-            bool use_epsilons_from_targets = true) {
+            view_type_4 epsilons) {
         this->setNeighborLists<view_type_1>(cr_neighbor_lists, number_of_neighbors_list);
         this->setSourceSites<view_type_2>(source_coordinates);
         this->setTargetSites<view_type_3>(target_coordinates);
-        this->setWindowSizes<view_type_4>(epsilons, use_epsilons_from_targets);
+        this->setWindowSizes<view_type_4>(epsilons);
     }
 
     //! (OPTIONAL) Sets additional evaluation sites for each target site
@@ -1054,8 +1053,7 @@ public:
 
     //! Sets window sizes, also called the support of the kernel
     template<typename view_type>
-    void setWindowSizes(view_type epsilons, bool use_epsilons_from_targets = true) {
-        _epsilons_from_targets = use_epsilons_from_targets;
+    void setWindowSizes(view_type epsilons) {
         // allocate memory on device
         _epsilons = decltype(_epsilons)("device epsilons", epsilons.extent(0));
         // copy data from host to device
@@ -1065,10 +1063,31 @@ public:
 
     //! Sets window sizes, also called the support of the kernel (device)
     template<typename view_type>
-    void setWindowSizes(decltype(_epsilons) epsilons, bool use_epsilons_from_targets = true) {
-        _epsilons_from_targets = use_epsilons_from_targets;
+    void setWindowSizes(decltype(_epsilons) epsilons) {
         // allocate memory on device
         _epsilons = epsilons;
+        this->resetCoefficientData();
+    }
+
+    //! (OPTIONAL)
+    //! Sets window sizes, also called the support of the kernel
+    template<typename view_type>
+    void setWindowSizesFromSourceSites(view_type epsilons) {
+        compadre_assert_release(epsilons.extent(0)==this->_pc._source_coordinates.extent(0));
+        // allocate memory on device
+        _epsilons_from_sources = decltype(_epsilons_from_sources)("device epsilons from source sites", epsilons.extent(0));
+        // copy data from host to device
+        Kokkos::deep_copy(_epsilons, epsilons);
+        this->resetCoefficientData();
+    }
+
+    //! (OPTIONAL)
+    //! Sets window sizes, also called the support of the kernel (device)
+    template<typename view_type>
+    void setWindowSizesFromSourceSites(decltype(_epsilons_from_sources) epsilons) {
+        compadre_assert_release(epsilons.extent(0)==this->_pc._source_coordinates.extent(0));
+        // allocate memory on device
+        _epsilons_from_sources = epsilons;
         this->resetCoefficientData();
     }
 
@@ -1236,12 +1255,6 @@ public:
     void setCurvaturePolynomialOrder(const int curvature_poly_order) {
         compadre_assert_release(curvature_poly_order<11 && "Unsupported curvature polynomial order (>=11).");
         _curvature_poly_order = curvature_poly_order;
-        this->resetCoefficientData();
-    }
-
-    //! Set whether windows sizes is determined by target sites (or false for source sites)
-    void setWindowSizesFromTargetSites(bool from_targets) {
-        _epsilons_from_targets = from_targets;
         this->resetCoefficientData();
     }
 
