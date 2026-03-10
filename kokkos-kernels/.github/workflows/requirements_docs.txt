@@ -17,7 +17,7 @@ sphinxcontrib_qthelp==2.0.0
 charset_normalizer==3.3.2
 idna==3.10
 MarkupSafe==2.1.5
-urllib3==2.2.3
+urllib3==2.6.3
 breathe==4.35.0
 sphinx_rtd_theme==3.0.0
 sphinxcontrib_jquery==4.1
