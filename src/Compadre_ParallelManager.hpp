@@ -89,10 +89,10 @@ public:
         _environment_threads = -1;
         _environment_vector_lanes = -1;
 #else
-        _scratch_team_level_a = 0;
-        _scratch_thread_level_a = 0;
-        _scratch_team_level_b = 0;
-        _scratch_thread_level_b = 0;
+        _scratch_team_level_a = 1;
+        _scratch_thread_level_a = 1;
+        _scratch_team_level_b = 1;
+        _scratch_thread_level_b = 1;
 
         _environment_threads = -1;
         _environment_vector_lanes = -1;
