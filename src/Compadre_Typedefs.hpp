@@ -149,7 +149,7 @@ typename std::enable_if<2==T::rank,T>::type createView(std::string str, int dim_
 
 //! compadre_assert_release is used for assertions that should always be checked, but generally 
 //! are not expensive to verify or are not called frequently. 
-#if COMPADRE_BUILD_ABBR == 1 ||COMPADRE_BUILD_ABBR == 2
+#if COMPADRE_BUILD_ABBR == 1 || COMPADRE_BUILD_ABBR == 2
 # define compadre_assert_release(condition) do {                                \
     if ( ! (condition)) {                                               \
       std::stringstream _ss_;                                           \
@@ -164,7 +164,7 @@ typename std::enable_if<2==T::rank,T>::type createView(std::string str, int dim_
 
 //! compadre_kernel_assert_release is similar to compadre_assert_release, but is a call on the device, 
 //! namely inside of a function marked KOKKOS_INLINE_FUNCTION
-#if COMPADRE_BUILD_ABBR == 1 ||COMPADRE_BUILD_ABBR == 2
+#if COMPADRE_BUILD_ABBR == 1 || COMPADRE_BUILD_ABBR == 2
 # define compadre_kernel_assert_release(condition) do { \
     if ( ! (condition))                         \
       Kokkos::abort(#condition);                \
