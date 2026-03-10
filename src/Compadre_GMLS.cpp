@@ -26,6 +26,10 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     _h_ss._neighbor_lists = _pc._nla;
     _h_ss._max_evaluation_sites_per_target = _additional_pc._nla.getMaxNumNeighbors() + 1;
 
+    // check that window sizes match number of either target or source sites
+    compadre_assert_release((this->_epsilons_from_targets && this->_epsilons.extent(0)==this->_pc._target_coordinates.extent(0))
+            || (!this->_epsilons_from_targets && this->_epsilons.extent(0)==this->_pc._source_coordinates.extent(0)));
+
     /*
      *    Generate Quadrature
      */
@@ -526,10 +530,11 @@ const GMLSBasisData GMLS::extractBasisData() const {
     data._source_extra_data = gmls._source_extra_data;
     data._target_extra_data = gmls._target_extra_data;
     data._pc = gmls._pc;
-    data._epsilons  = gmls._epsilons ;
-    data._prestencil_weights  = gmls._prestencil_weights ;
+    data._epsilons  = gmls._epsilons;
+    data._epsilons_from_targets  = gmls._epsilons_from_targets;
+    data._prestencil_weights  = gmls._prestencil_weights;
     data._additional_pc = gmls._additional_pc;
-    data._poly_order  = gmls._poly_order ;
+    data._poly_order  = gmls._poly_order;
     data._curvature_poly_order = gmls._curvature_poly_order;
     data._NP = gmls._NP;
     data._global_dimensions = gmls._global_dimensions;
