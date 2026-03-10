@@ -130,7 +130,7 @@ class CustomBuild(build_ext):
             self.configure_pycompadre(ext)
 
     def configure_pycompadre(self, ext):
-        extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name))+"/pycompadre")
+        extdir = os.path.abspath(os.path.dirname(self.get_ext_fullpath(ext.name)))
         # required for auto-detection of auxiliary "native" libs
         if not extdir.endswith(os.path.sep):
             extdir += os.path.sep
@@ -294,5 +294,5 @@ setup(
     description = "Compatible Particle Discretization and Remap",
     long_description_content_type = "text/markdown",
     long_description=long_description,
-    ext_modules=[CMakeExtension('_pycompadre'),],
+    ext_modules=[CMakeExtension('pycompadre._pycompadre'),],
 )
