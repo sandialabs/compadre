@@ -266,11 +266,12 @@ class CustomBuild(build_ext):
                     contains_BUILD_TYPE = True
                     build_type = line[(len("#define COMPADRE_BUILD_TYPE")+1):-1]
             contains_BUILD_ABBR = False
-            build_abbr = "Unknown"
+            build_abbr = None
             for line in contents:
                 if line.startswith("#define COMPADRE_BUILD_ABBR"):
                     contains_BUILD_ABBR = True
                     build_abbr = line[(len("#define COMPADRE_BUILD_ABBR")+1):]
+            assert build_abbr is not None, "#define COMPADRE_BUILD_ABBR not found in Compadre_Config.h"
         with open(os.path.join(extdir, "_build_info.py"), "w") as f:
             f.write(f'Compadre_DEBUG={contains_DEBUG}\n')
             f.write(f'Compadre_BUILD_TYPE={build_type}\n')
