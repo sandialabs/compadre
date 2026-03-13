@@ -36,9 +36,14 @@ if (${PROJECT_NAME}_TRIBITS_DIR) # TriBITS CMake Project
       OFF )
 
   if ("${TPL_ENABLE_CUDA}" STREQUAL "ON")
-      set(Compadre_USE_CUDA   ON  CACHE BOOL "Whether to use CUDA")
+    set(Compadre_USE_CUDA ON  CACHE BOOL "Whether to use CUDA")
+    set(Compadre_USE_HIP  OFF CACHE BOOL "Whether to use ROCM/HIP")
+  elseif ("${TPL_ENABLE_HIP}" STREQUAL "ON")
+    set(Compadre_USE_HIP  ON  CACHE BOOL "Whether to use ROCM/HIP")
+    set(Compadre_USE_CUDA OFF CACHE BOOL "Whether to use CUDA")
   else ()
-      set(Compadre_USE_CUDA   OFF CACHE BOOL "Whether to use CUDA")
+    set(Compadre_USE_CUDA OFF CACHE BOOL "Whether to use CUDA")
+    set(Compadre_USE_HIP  OFF CACHE BOOL "Whether to use ROCM/HIP")
   endif()
 
   set(Compadre_USE_MATLAB OFF CACHE BOOL "Don't use Matlab when building in Trilinos")
@@ -147,7 +152,9 @@ else() # Raw CMake Project
   bob_option(Compadre_USE_PYTHON "Use PYTHON" OFF)
   bob_option(Compadre_USE_MATLAB "Use MATLAB interface for PYTHON" OFF)
   bob_option(Compadre_USE_MPI "Use MPI (not needed for Compadre toolkit)" OFF)
-  bob_option(Compadre_USE_CUDA "Require CUDA" OFF)
+  # do not print variable now
+  bob_option(Compadre_USE_CUDA "Require CUDA" OFF OFF)
+  bob_option(Compadre_USE_HIP  "Require HIP" OFF OFF)
   set(PYTHON_LIBRARY_PREFIX "..") # relative to examples folder
   bob_input(PYTHON_EXECUTABLE "" PATH "Python executable location")
   if (Compadre_USE_PYTHON)
@@ -283,9 +290,23 @@ else() # Raw CMake Project
       if (cuda_lambda_index EQUAL -1)
         message(FATAL_ERROR "Please reconfigure Trilinos with -DKokkos_ENABLE_CUDA_LAMBDA:BOOL=ON")
       endif()
+      if (NOT Compadre_USE_CUDA)
+        set(Compadre_USE_CUDA ON CACHE BOOL "" FORCE)
+      endif()
     else()
       if (Compadre_USE_CUDA)
         message(FATAL_ERROR "Compadre_USE_CUDA is ON, but CUDA not found in Trilinos")
+      endif()
+    endif()
+
+    list(FIND Kokkos_DEVICES HIP hip_index)
+    if (NOT hip_index EQUAL -1)
+      if (NOT Compadre_USE_HIP)
+        set(Compadre_USE_HIP ON CACHE BOOL "" FORCE)
+      endif()
+    else()
+      if (Compadre_USE_HIP)
+        message(FATAL_ERROR "Compadre_USE_HIP is ON, but HIP not found in Trilinos")
       endif()
     endif()
 
@@ -311,11 +332,14 @@ else() # Raw CMake Project
       endif()
       if (Kokkos_ENABLE_CUDA)
         set(Compadre_USE_CUDA ON CACHE BOOL "" FORCE)
+        option(Kokkos_ENABLE_CUDA_UVM "" OFF)
+        option(Kokkos_ENABLE_CUDA_LAMBDA "" "${Kokkos_ENABLE_CUDA}")
+      endif()
+      if (Kokkos_ENABLE_HIP)
+        set(Compadre_USE_HIP ON CACHE BOOL "" FORCE)
       endif()
       option(Kokkos_ENABLE_DEBUG "" "${Compadre_DEBUG}")
-      option(Kokkos_ENABLE_CUDA_UVM "" OFF)
       option(Kokkos_ENABLE_DEBUG_BOUNDS_CHECK "" "${Compadre_EXTREME_DEBUG}")
-      option(Kokkos_ENABLE_CUDA_LAMBDA "" "${Kokkos_ENABLE_CUDA}")
       option(Kokkos_ENABLE_TESTS "" OFF)
       option(Kokkos_ENABLE_EXAMPLES "" OFF)
       if (KokkosKernels_ROOT)
@@ -324,6 +348,7 @@ else() # Raw CMake Project
       endif()
       # set Compadre_USE_ to use whatever Kokkos_ENABLE_ specified, since user is building Kokkos
       set(Kokkos_ENABLE_CUDA ${Compadre_USE_CUDA})
+      set(Kokkos_ENABLE_HIP ${Compadre_USE_HIP})
     else()
       # Existing Kokkos indicated by user by setting Kokkos_ROOT, so we look for it
       # where specified (only)
@@ -337,6 +362,15 @@ else() # Raw CMake Project
       if(Compadre_USE_CUDA AND NOT(TARGET Kokkos::CUDA))
         MESSAGE(FATAL_ERROR "Compadre_USE_CUDA set to ON, but Kokkos::CUDA not defined")
       endif()
+      if(TARGET Kokkos::CUDA)
+        set(Compadre_USE_CUDA ON CACHE BOOL "" FORCE)
+      endif()
+      if(Compadre_USE_HIP AND NOT(TARGET Kokkos::HIP))
+        MESSAGE(FATAL_ERROR "Compadre_USE_HIP set to ON, but Kokkos::HIP not defined")
+      endif()
+      if(TARGET Kokkos::HIP)
+        set(Compadre_USE_HIP ON CACHE BOOL "" FORCE)
+      endif()
     endif()
   endif()
 
@@ -346,6 +380,9 @@ else() # Raw CMake Project
       message(STATUS "Kokkos Version: ${Kokkos_VERSION}")
   endif()
   set(KOKKOS_THREADS_ARG "--kokkos-num-threads")
+
+  MESSAGE(STATUS "Compadre_USE_CUDA: ${Compadre_USE_CUDA}")
+  MESSAGE(STATUS "Compadre_USE_HIP: ${Compadre_USE_HIP}")
 
   if (KOKKOSKERNELS_IN_TRILINOS)
     # register Trilinos so that it shows up in CompadreConfig.cmake
@@ -402,7 +439,6 @@ else() # Raw CMake Project
     # register Kokkos and KokkosKernels so that they show up in CompadreConfig.cmake
     set(Compadre_EXT_DEPS Kokkos KokkosKernels)
   endif()
-
 
 
   #MPI (Not really needed, only used so that if a kokkos-tool was built with MPI, it won't segfault)
@@ -465,6 +501,7 @@ set(Compadre_KEY_BOOLS
     Compadre_DEBUG
     Compadre_EXTREME_DEBUG
     Compadre_USE_CUDA
+    Compadre_USE_HIP
     Compadre_USE_MPI
     Compadre_USE_PYTHON
     PYTHON_CALLING_BUILD
