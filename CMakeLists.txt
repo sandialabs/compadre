@@ -348,7 +348,7 @@ else() # Raw CMake Project
       endif()
       # set Compadre_USE_ to use whatever Kokkos_ENABLE_ specified, since user is building Kokkos
       set(Kokkos_ENABLE_CUDA ${Compadre_USE_CUDA})
-      set(Kokkos_ENABLE_CUDA ${Compadre_USE_HIP})
+      set(Kokkos_ENABLE_HIP ${Compadre_USE_HIP})
     else()
       # Existing Kokkos indicated by user by setting Kokkos_ROOT, so we look for it
       # where specified (only)
