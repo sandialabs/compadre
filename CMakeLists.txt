@@ -381,6 +381,9 @@ else() # Raw CMake Project
   endif()
   set(KOKKOS_THREADS_ARG "--kokkos-num-threads")
 
+  MESSAGE(STATUS "Compadre_USE_CUDA: ${Compadre_USE_CUDA}")
+  MESSAGE(STATUS "Compadre_USE_HIP: ${Compadre_USE_HIP}")
+
   if (KOKKOSKERNELS_IN_TRILINOS)
     # register Trilinos so that it shows up in CompadreConfig.cmake
     set(Compadre_EXT_DEPS Trilinos)
@@ -436,7 +439,6 @@ else() # Raw CMake Project
     # register Kokkos and KokkosKernels so that they show up in CompadreConfig.cmake
     set(Compadre_EXT_DEPS Kokkos KokkosKernels)
   endif()
-
 
 
   #MPI (Not really needed, only used so that if a kokkos-tool was built with MPI, it won't segfault)
