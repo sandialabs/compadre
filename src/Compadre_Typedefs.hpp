@@ -48,8 +48,10 @@ typedef device_execution_space::scratch_memory_space device_scratch;
 
 // memory spaces
 typedef typename host_execution_space::memory_space host_memory_space;
-#ifdef COMPADRE_USE_CUDA
+#if defined(COMPADRE_USE_CUDA)
     typedef typename Kokkos::CudaSpace device_memory_space;
+#elif defined(COMPADRE_USE_HIP)
+    typedef typename Kokkos::HIPSpace device_memory_space;
 #else
     typedef typename device_execution_space::memory_space device_memory_space;
 #endif
