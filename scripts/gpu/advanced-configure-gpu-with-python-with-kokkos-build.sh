@@ -28,11 +28,11 @@ NVCC_WRAPPER_DEFAULT_COMPILER=$MY_CXX_COMPILER
 cmake \
     -D CMAKE_CXX_COMPILER="$NVCC_WRAPPER" \
     -D CMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
-    -D Compadre_USE_PYTHON:BOOL=ON \
-    -D Compadre_DEBUG:BOOL=OFF \
-    -D Kokkos_ENABLE_PTHREAD:BOOL=OFF \
-    -D Compadre_USE_CUDA:BOOL=ON \
-    -D Kokkos_ARCH_PASCAL60:BOOL=ON \
-    -D Kokkos_CUDA_DIR:PATH="/home/projects/ppc64le-pwr8-nvidia/cuda/9.2.88" \
+    -D Compadre_USE_PYTHON:BOOL=OFF \
+    -D CMAKE_BUILD_TYPE:STRING="Release" \
+    -D Kokkos_ENABLE_CUDA:BOOL=ON \
+    -D Kokkos_ARCH_AMPERE80:BOOL=ON \
+    -D Kokkos_ENABLE_CUDA_CONSTEXPR:BOOL=ON \
+    -D Kokkos_CUDA_DIR:PATH="/home/projects/cuda/12.9.1" \
     \
     ..

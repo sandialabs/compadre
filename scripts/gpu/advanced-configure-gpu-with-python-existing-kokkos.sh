@@ -13,7 +13,8 @@ find . -mindepth 1 -type d -exec rm -rf {} +
 
 # make sure you installed kokkos somewhere before setting this
 # see doc/Kokkos-Install.md for details on installing Kokkos
-MY_KOKKOSCORE_PREFIX="$HOME/releases/kokkos/install/pascal60"
+MY_KOKKOS_ROOT="$HOME/releases/kokkos/install/ampere80"
+MY_KOKKOSKERNELS_ROOT="$HOME/releases/kokkos/install/ampere80"
 
 # this will install in your build directory in a folder called install by default
 INSTALL_PREFIX="./install"
@@ -23,12 +24,15 @@ INSTALL_PREFIX="./install"
 # python executable, and from that sitepackages and libraries are inferred.
 cmake \
     -D CMAKE_CXX_COMPILER="$MY_KOKKOSCORE_PREFIX/bin/nvcc_wrapper" \
-    -D KokkosCore_PREFIX="$MY_KOKKOSCORE_PREFIX" \
+    -D Kokkos_ROOT="$MY_KOKKOS_ROOT" \
+    -D KokkosKernels_ROOT="$MY_KOKKOSKERNELS_ROOT" \
     -D CMAKE_INSTALL_PREFIX="$INSTALL_PREFIX" \
-    -D Compadre_USE_PYTHON:BOOL=ON \
-    -D Compadre_USE_LAPACK:BOOL=OFF \
-    -D Compadre_USE_CUDA:BOOL=ON \
-    -D CUDA_PREFIX:PATH="/home/projects/ppc64le-pwr8-nvidia/cuda/9.2.88" \
+    -D CMAKE_BUILD_TYPE:STRING="Release" \
+    -D Compadre_USE_PYTHON:BOOL=OFF \
+    -D Kokkos_ENABLE_CUDA:BOOL=ON \
+    -D Kokkos_ARCH_AMPERE80:BOOL=ON \
+    -D Kokkos_ENABLE_CUDA_CONSTEXPR:BOOL=ON \
+    -D CUDA_ROOT:PATH="/home/projects/cuda/12.9.1" \
     \
     ..
 
