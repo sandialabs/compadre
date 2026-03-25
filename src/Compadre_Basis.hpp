@@ -895,7 +895,7 @@ void createWeightsAndP(const BasisData& data, const member_type& teamMember, scr
             }
 
             // generate weight vector from distances and window sizes
-            const double cutoff_p = (data._epsilons_from_sources.extent(0) == 0) ? data._epsilons(target_index) : data._pc.getNeighborIndex(target_index, i);
+            const double cutoff_p = (data._epsilons_from_sources.extent(0) == 0) ? data._epsilons(target_index) : data._epsilons(data._pc.getNeighborIndex(target_index, i));
             w(i+my_num_neighbors*d) = GMLS::Wab(r, cutoff_p, data._weighting_type, data._weighting_p, data._weighting_n);
 
             calcPij<BasisData>(data, teamMember, delta.data(), thread_workspace.data(), target_index, i + d*my_num_neighbors, 0 /*alpha*/, dimension, polynomial_order, false /*bool on only specific order*/, V, reconstruction_space, polynomial_sampling_functional);
@@ -965,7 +965,7 @@ void createWeightsAndPForCurvature(const BasisData& data, const member_type& tea
 
         // ignores V when calculating weights from a point, i.e. uses actual point values
         double r;
-        const double cutoff_p = (data._epsilons_from_sources.extent(0) == 0) ? data._epsilons(target_index) : data._pc.getNeighborIndex(target_index, i);
+        const double cutoff_p = (data._epsilons_from_sources.extent(0) == 0) ? data._epsilons(target_index) : data._epsilons(data._pc.getNeighborIndex(target_index, i));
 
         // get Euclidean distance of scaled relative coordinate from the origin
         if (V==NULL) {
