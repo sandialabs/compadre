@@ -198,6 +198,28 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
                 (_poly_order+1)*_global_dimensions*basis_powers_space_multiplier); // temporary space for powers in basis
 
     }
+
+    if (const char* team_scratch_padding = std::getenv("TEAM_SCRATCH_PADDING_L0")) {
+        team_scratch_size_a += scratch_vector_type::shmem_size(std::atoi(team_scratch_padding));
+    } else {
+        team_scratch_size_a += scratch_vector_type::shmem_size(32);
+    }
+    if (const char* team_scratch_padding = std::getenv("TEAM_SCRATCH_PADDING_L1")) {
+        team_scratch_size_b += scratch_vector_type::shmem_size(std::atoi(team_scratch_padding));
+    } else {
+        team_scratch_size_b += scratch_vector_type::shmem_size(32);
+    }
+    if (const char* thread_scratch_padding = std::getenv("THREAD_SCRATCH_PADDING_L0")) {
+        thread_scratch_size_a += scratch_vector_type::shmem_size(std::atoi(thread_scratch_padding));
+    } else {
+        thread_scratch_size_a += scratch_vector_type::shmem_size(32);
+    }
+    if (const char* thread_scratch_padding = std::getenv("THREAD_SCRATCH_PADDING_L1")) {
+        thread_scratch_size_b += scratch_vector_type::shmem_size(std::atoi(thread_scratch_padding));
+    } else {
+        thread_scratch_size_b += scratch_vector_type::shmem_size(32);
+    }
+
     _pm.setTeamScratchSize(0, team_scratch_size_a);
     _pm.setTeamScratchSize(1, team_scratch_size_b);
     _pm.setThreadScratchSize(0, thread_scratch_size_a);
