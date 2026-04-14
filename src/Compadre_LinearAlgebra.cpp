@@ -398,8 +398,30 @@ namespace GMLS_LinearAlgebra {
     }
   };
 
+/*! \brief Evaluates the polynomial basis under a particular sampling function. Generally used to fill a row of P.
+    \param pm                   [in] - parallel manager
+    \param dst                  [in] - Compadre::DenseSolverType
+    \param A                [in/out] - pointer to beginning of rank 3 A that is num_matrices * lda * nda
+    \param lda                  [in] - number of rows of A
+    \param nda                  [in] - number of columns of A
+    \param transpose_A          [in] - should A be transposed before use?
+    \param B                [in/out] - pointer to beginning of rank 3 B that is num_matrices * ldb * ndb
+    \param ldb                  [in] - number of rows of B
+    \param ndb                  [in] - number of columns of B
+    \param transpose_B          [in] - should B be transposed before use?
+    \param M                    [in] - valid rows of A (after transpose if specified)
+    \param N                    [in] - valid columns of A (after transpose, if specified) and rows of B (after transpose, if specified)
+    \param NRHS                 [in] - valid columns of B (after transpose, if specified)
+    \param num_matrices         [in] - number of matrix systems being solved in parallel
+    \param implicit_RHS         [in] - if true, B matrix is actually just a
+    \param rank_full            [in] - whether this A*X=B has an A of full rank
+
+Note: With QR with pivoting, we can solve AX=B, where A=sqrt(W)*P and B=sqrt(W)*Identity or we can solve AX=B where A=P^T*W*P and B=P^T*W. 
+Cholesky, on the other hand, is only set up to solve AX=B where A=P^T*W*P and B=P^T*W.
+QR can therefore either take a full RHS matrix B or the beginning of B is a vector of sqrt(W), in which case the RHS is implicit (implicit_RHS).
+*/
 template <typename A_layout, typename B_layout, typename X_layout>
-void batchSolve(ParallelManager pm, DenseSolverType dst, double *A, int lda, int nda, double *B, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const bool implicit_RHS, const bool rank_full) {
+void batchSolve(ParallelManager pm, DenseSolverType dst, double *A, int lda, int nda, bool transpose_A, double *B, int ldb, int ndb, bool transpose_B, int M, int N, int NRHS, const int num_matrices, const bool implicit_RHS, const bool rank_full) {
 
     typedef Algo::UTV::Unblocked algo_tag_type;
     typedef Kokkos::View<double***, A_layout, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
@@ -412,8 +434,8 @@ void batchSolve(ParallelManager pm, DenseSolverType dst, double *A, int lda, int
     MatrixViewType_A mat_A(A, num_matrices, lda, nda);
     MatrixViewType_B mat_B(B, num_matrices, ldb, ndb);
 
-    Kokkos::Timer timer; 
     if (dst==DenseSolverType::LU && rank_full) {
+        // B is P, but we need P^T
         if (std::is_same<typename MatrixViewType_B::array_layout, layout_left>::value) {
             Functor_Transpose
               <device_execution_space, MatrixViewType_B>(N,NRHS,mat_B).run(pm);
@@ -425,8 +447,6 @@ void batchSolve(ParallelManager pm, DenseSolverType dst, double *A, int lda, int
           <device_execution_space, algo_tag_type, MatrixViewType_A, MatrixViewType_B, MatrixViewType_X>(M,N,NRHS,mat_A,mat_B,implicit_RHS).run(pm);
     }
     Kokkos::fence();
-double elapsed = timer.seconds(); 
-std::cout << "Kernel time: " << elapsed << " seconds" << std::endl;
 
 }
 
