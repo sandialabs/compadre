@@ -246,15 +246,16 @@ namespace GMLS_LinearAlgebra {
     MatrixViewType_A _a;
     MatrixViewType_B _b;
 
-    int _M, _N;
+    int _M, _N, _NRHS;
 
     KOKKOS_INLINE_FUNCTION
     Functor_TestBatchedTeamVectorSolveCholesky(
                       const int M,
                       const int N,
+                      const int NRHS,
                       const MatrixViewType_A &a,
                       const MatrixViewType_B &b)
-      : _a(a), _b(b), _M(M), _N(N) {}
+      : _a(a), _b(b), _M(M), _N(N), _NRHS(NRHS) {}
 
     template<typename MemberType>
     KOKKOS_INLINE_FUNCTION
@@ -273,6 +274,9 @@ namespace GMLS_LinearAlgebra {
                               std::make_pair<size_t,size_t>(0, _M),
                               std::make_pair<size_t,size_t>(0, _N));
 
+      auto x_small = Kokkos::subview(xx,
+                              std::make_pair<size_t,size_t>(0, _N),
+                              std::make_pair<size_t,size_t>(0, _NRHS));
 
       int info = team_chol_lower_inplace(member, a_small, _N);
       member.team_barrier();
@@ -285,7 +289,7 @@ namespace GMLS_LinearAlgebra {
           KokkosBatched::Diag::NonUnit,
           AlgoTagType>;
       
-      Trsmty::invoke(member, 1.0, a_small, xx);
+      Trsmty::invoke(member, 1.0, a_small, x_small);
       member.team_barrier();
       
       using TrsmT = KokkosBatched::TeamVectorTrsm<
@@ -296,7 +300,7 @@ namespace GMLS_LinearAlgebra {
           KokkosBatched::Diag::NonUnit,
           AlgoTagType>;
       
-      TrsmT::invoke(member, 1.0, a_small, xx);
+      TrsmT::invoke(member, 1.0, a_small, x_small);
       member.team_barrier();
 
     }
@@ -327,6 +331,12 @@ namespace GMLS_LinearAlgebra {
   };
 
 
+
+  /*! \brief Tranpose a matrix of original shape M x N (padded). Result will be N x M.
+      \param M       [in] - Kokkos::TeamPolicy member type (created by parallel_for)
+      \param N       [in] - dimension * dimension Kokkos View
+      \param b   [in/out] - in as rank 3 matrix (num_matrices * M * N), out as rank 3 matrix (num_matrices * N * M)
+  */
   template<typename DeviceType,
            typename MatrixViewType>
   struct Functor_Transpose {
@@ -346,6 +356,7 @@ namespace GMLS_LinearAlgebra {
     void operator()(const MemberType &member) const {
 
       const int k = member.league_rank();
+
       // workspace vector
       scratch_vector_type ww_slow(member.team_scratch(_pm_getTeamScratchLevel_1), _M*_N);
       device_unmanaged_matrix_right_type bb(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
@@ -384,7 +395,7 @@ namespace GMLS_LinearAlgebra {
 
       _pm_getTeamScratchLevel_1 = pm.getTeamScratchLevel(1);
       
-      int scratch_size = scratch_vector_type::shmem_size(_M*_N); 
+      size_t scratch_size = scratch_vector_type::shmem_size(_M*_N); 
 
       pm.clearScratchSizes();
       pm.setTeamScratchSize(1, scratch_size);
@@ -398,28 +409,6 @@ namespace GMLS_LinearAlgebra {
     }
   };
 
-/*! \brief Evaluates the polynomial basis under a particular sampling function. Generally used to fill a row of P.
-    \param pm                   [in] - parallel manager
-    \param dst                  [in] - Compadre::DenseSolverType
-    \param A                [in/out] - pointer to beginning of rank 3 A that is num_matrices * lda * nda
-    \param lda                  [in] - number of rows of A
-    \param nda                  [in] - number of columns of A
-    \param transpose_A          [in] - should A be transposed before use?
-    \param B                [in/out] - pointer to beginning of rank 3 B that is num_matrices * ldb * ndb
-    \param ldb                  [in] - number of rows of B
-    \param ndb                  [in] - number of columns of B
-    \param transpose_B          [in] - should B be transposed before use?
-    \param M                    [in] - valid rows of A (after transpose if specified)
-    \param N                    [in] - valid columns of A (after transpose, if specified) and rows of B (after transpose, if specified)
-    \param NRHS                 [in] - valid columns of B (after transpose, if specified)
-    \param num_matrices         [in] - number of matrix systems being solved in parallel
-    \param implicit_RHS         [in] - if true, B matrix is actually just a
-    \param rank_full            [in] - whether this A*X=B has an A of full rank
-
-Note: With QR with pivoting, we can solve AX=B, where A=sqrt(W)*P and B=sqrt(W)*Identity or we can solve AX=B where A=P^T*W*P and B=P^T*W. 
-Cholesky, on the other hand, is only set up to solve AX=B where A=P^T*W*P and B=P^T*W.
-QR can therefore either take a full RHS matrix B or the beginning of B is a vector of sqrt(W), in which case the RHS is implicit (implicit_RHS).
-*/
 template <typename A_layout, typename B_layout, typename X_layout>
 void batchSolve(ParallelManager pm, DenseSolverType dst, double *A, int lda, int nda, bool transpose_A, double *B, int ldb, int ndb, bool transpose_B, int M, int N, int NRHS, const int num_matrices, const bool implicit_RHS, const bool rank_full) {
 
@@ -431,17 +420,35 @@ void batchSolve(ParallelManager pm, DenseSolverType dst, double *A, int lda, int
     typedef Kokkos::View<double***, X_layout, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
                     MatrixViewType_X;
 
+
     MatrixViewType_A mat_A(A, num_matrices, lda, nda);
     MatrixViewType_B mat_B(B, num_matrices, ldb, ndb);
 
-    if (dst==DenseSolverType::LU && rank_full) {
+    // requires c++17
+    compadre_assert_release((std::is_same_v<A_layout, B_layout>));
+    compadre_assert_release((std::is_same_v<B_layout, X_layout>));
+
+    // important: A and B are rank 3, with potential padding around their 2nd and 3rd rank
+    // so it is not necessarily tru that lda or nda == M, for instance
+    //
+    // sizes given to tranpose are w.r.t. the desired, post tranpose layout
+    if (transpose_A) {
+        // so e.g., N is related to lda and M is related to nda
+        mat_A = MatrixViewType_A(A, num_matrices, nda, lda);
+        Functor_Transpose
+          <device_execution_space, MatrixViewType_A>(M,N,mat_A).run(pm);
+    }
+    if (transpose_B) {
+        // so e.g., N is related to lda and M is related to nda
         // B is P, but we need P^T
-        if (std::is_same<typename MatrixViewType_B::array_layout, layout_left>::value) {
-            Functor_Transpose
-              <device_execution_space, MatrixViewType_B>(N,NRHS,mat_B).run(pm);
-        }
+        mat_B = MatrixViewType_B(B, num_matrices, ndb, ldb);
+        Functor_Transpose
+          <device_execution_space, MatrixViewType_B>(N,NRHS,mat_B).run(pm);
+    }
+
+    if (dst==DenseSolverType::LU && rank_full) {
         Functor_TestBatchedTeamVectorSolveCholesky
-          <device_execution_space, algo_tag_type, MatrixViewType_A, MatrixViewType_B, MatrixViewType_X>(M,N,mat_A,mat_B).run(pm);
+          <device_execution_space, algo_tag_type, MatrixViewType_A, MatrixViewType_B, MatrixViewType_X>(M,N,NRHS,mat_A,mat_B).run(pm);
     } else {
         Functor_TestBatchedTeamVectorSolveUTV
           <device_execution_space, algo_tag_type, MatrixViewType_A, MatrixViewType_B, MatrixViewType_X>(M,N,NRHS,mat_A,mat_B,implicit_RHS).run(pm);
@@ -450,14 +457,7 @@ void batchSolve(ParallelManager pm, DenseSolverType dst, double *A, int lda, int
 
 }
 
-template void batchSolve<layout_right, layout_right, layout_right>(ParallelManager,DenseSolverType,double*,int,int,double*,int,int,int,int,int,const int,const bool, const bool);
-template void batchSolve<layout_right, layout_right, layout_left >(ParallelManager,DenseSolverType,double*,int,int,double*,int,int,int,int,int,const int,const bool, const bool);
-template void batchSolve<layout_right, layout_left , layout_right>(ParallelManager,DenseSolverType,double*,int,int,double*,int,int,int,int,int,const int,const bool, const bool);
-template void batchSolve<layout_right, layout_left , layout_left >(ParallelManager,DenseSolverType,double*,int,int,double*,int,int,int,int,int,const int,const bool, const bool);
-template void batchSolve<layout_left , layout_right, layout_right>(ParallelManager,DenseSolverType,double*,int,int,double*,int,int,int,int,int,const int,const bool, const bool);
-template void batchSolve<layout_left , layout_right, layout_left >(ParallelManager,DenseSolverType,double*,int,int,double*,int,int,int,int,int,const int,const bool, const bool);
-template void batchSolve<layout_left , layout_left , layout_right>(ParallelManager,DenseSolverType,double*,int,int,double*,int,int,int,int,int,const int,const bool, const bool);
-template void batchSolve<layout_left , layout_left , layout_left >(ParallelManager,DenseSolverType,double*,int,int,double*,int,int,int,int,int,const int,const bool, const bool);
+template void batchSolve<layout_right, layout_right, layout_right>(ParallelManager,DenseSolverType,double*,int,int,bool,double*,int,int,bool,int,int,int,const int,const bool, const bool);
 
 } // GMLS_LinearAlgebra
 } // Compadre
