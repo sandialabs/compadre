@@ -111,7 +111,7 @@ class RadiusResultSet {
 
             DistanceType best_distance = std::numeric_limits<DistanceType>::max();
             IndexType best_distance_index = 0;
-            int best_index = -1;
+            IndexType best_index = 0;
             for (IndexType i=0; i<loop_max; ++i) {
                 if (r_dist[i] < best_distance) {
                     best_distance = r_dist[i];
@@ -254,19 +254,19 @@ class PointCloudSearch {
                     "Views passed to generate2DNeighborListsFromRadiusSearch should be accessible from the host.");
 
             // loop size
-            const int num_target_sites = trg_pts_view.extent(0);
+            const size_t num_target_sites = trg_pts_view.extent(0);
 
             if ((!_tree_1d && _dim==1) || (!_tree_2d && _dim==2) || (!_tree_3d && _dim==3)) {
                 this->generateKDTree();
             }
 
             // check neighbor lists and epsilons view sizes
-            compadre_assert_release((neighbor_lists.extent(0)==(size_t)num_target_sites 
+            compadre_assert_release((neighbor_lists.extent(0)==num_target_sites 
                         && neighbor_lists.extent(1)>=1)
                         && "neighbor lists View does not have large enough dimensions");
             compadre_assert_release((neighbor_lists_view_type::rank==2) && "neighbor_lists must be a 2D Kokkos view.");
 
-            compadre_assert_release((epsilons.extent(0)==(size_t)num_target_sites)
+            compadre_assert_release((epsilons.extent(0)==num_target_sites)
                         && "epsilons View does not have the correct dimension");
 
             typedef Kokkos::View<double*, host_scratch, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
@@ -276,7 +276,7 @@ class PointCloudSearch {
                     scratch_int_view;
 
             // determine scratch space size needed
-            int team_scratch_size = 0;
+            size_t team_scratch_size = 0;
             team_scratch_size += scratch_double_view::shmem_size(neighbor_lists.extent(1)); // distances
             team_scratch_size += scratch_int_view::shmem_size(neighbor_lists.extent(1)); // indices
             team_scratch_size += scratch_double_view::shmem_size(_dim); // target coordinate
@@ -393,13 +393,13 @@ class PointCloudSearch {
                     "Views passed to generateCRNeighborListsFromRadiusSearch should be accessible from the host.");
 
             // loop size
-            const int num_target_sites = trg_pts_view.extent(0);
+            const size_t num_target_sites = trg_pts_view.extent(0);
 
             if ((!_tree_1d && _dim==1) || (!_tree_2d && _dim==2) || (!_tree_3d && _dim==3)) {
                 this->generateKDTree();
             }
 
-            compadre_assert_release((number_of_neighbors_list.extent(0)==(size_t)num_target_sites)
+            compadre_assert_release((number_of_neighbors_list.extent(0)==num_target_sites)
                         && "number_of_neighbors_list or neighbor lists View does not have large enough dimensions");
             compadre_assert_release((neighbor_lists_view_type::rank==1) && "neighbor_lists must be a 1D Kokkos view.");
 
@@ -418,7 +418,7 @@ class PointCloudSearch {
                 Kokkos::fence();
             }
 
-            compadre_assert_release((epsilons.extent(0)==(size_t)num_target_sites)
+            compadre_assert_release((epsilons.extent(0)==num_target_sites)
                         && "epsilons View does not have the correct dimension");
 
             typedef Kokkos::View<double*, host_scratch, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
@@ -428,7 +428,7 @@ class PointCloudSearch {
                     scratch_int_view;
 
             // determine scratch space size needed
-            int team_scratch_size = 0;
+            size_t team_scratch_size = 0;
             team_scratch_size += scratch_double_view::shmem_size(max_neighbor_list_row_storage_size); // distances
             team_scratch_size += scratch_int_view::shmem_size(max_neighbor_list_row_storage_size); // indices
             team_scratch_size += scratch_double_view::shmem_size(_dim); // target coordinate
@@ -544,7 +544,7 @@ class PointCloudSearch {
                     "Views passed to generate2DNeighborListsFromKNNSearch should be accessible from the host.");
 
             // loop size
-            const int num_target_sites = trg_pts_view.extent(0);
+            const size_t num_target_sites = trg_pts_view.extent(0);
 
             if ((!_tree_1d && _dim==1) || (!_tree_2d && _dim==2) || (!_tree_3d && _dim==3)) {
                 this->generateKDTree();
@@ -552,12 +552,12 @@ class PointCloudSearch {
             Kokkos::fence();
 
             compadre_assert_release((num_target_sites==0 || // sizes don't matter when there are no targets
-                    (neighbor_lists.extent(0)==(size_t)num_target_sites 
+                    (neighbor_lists.extent(0)==num_target_sites 
                         && neighbor_lists.extent(1)>=(size_t)(neighbors_needed+1)))
                         && "neighbor lists View does not have large enough dimensions");
             compadre_assert_release((neighbor_lists_view_type::rank==2) && "neighbor_lists must be a 2D Kokkos view.");
 
-            compadre_assert_release((epsilons.extent(0)==(size_t)num_target_sites)
+            compadre_assert_release((epsilons.extent(0)==num_target_sites)
                         && "epsilons View does not have the correct dimension");
 
             typedef Kokkos::View<double*, host_scratch, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
@@ -567,7 +567,7 @@ class PointCloudSearch {
                     scratch_int_view;
 
             // determine scratch space size needed
-            int team_scratch_size = 0;
+            size_t team_scratch_size = 0;
             team_scratch_size += scratch_double_view::shmem_size(neighbor_lists.extent(1)); // distances
             team_scratch_size += scratch_int_view::shmem_size(neighbor_lists.extent(1)); // indices
             team_scratch_size += scratch_double_view::shmem_size(_dim); // target coordinate
@@ -693,14 +693,14 @@ class PointCloudSearch {
                     "Views passed to generateCRNeighborListsFromKNNSearch should be accessible from the host.");
 
             // loop size
-            const int num_target_sites = trg_pts_view.extent(0);
+            const size_t num_target_sites = trg_pts_view.extent(0);
 
             if ((!_tree_1d && _dim==1) || (!_tree_2d && _dim==2) || (!_tree_3d && _dim==3)) {
                 this->generateKDTree();
             }
             Kokkos::fence();
 
-            compadre_assert_release((number_of_neighbors_list.extent(0)==(size_t)num_target_sites ) 
+            compadre_assert_release((number_of_neighbors_list.extent(0)==num_target_sites ) 
                         && "number_of_neighbors_list or neighbor lists View does not have large enough dimensions");
             compadre_assert_release((neighbor_lists_view_type::rank==1) && "neighbor_lists must be a 1D Kokkos view.");
 
@@ -711,7 +711,7 @@ class PointCloudSearch {
                 max_neighbor_list_row_storage_size = nla.getMaxNumNeighbors();
             }
 
-            compadre_assert_release((epsilons.extent(0)==(size_t)num_target_sites)
+            compadre_assert_release((epsilons.extent(0)==num_target_sites)
                         && "epsilons View does not have the correct dimension");
 
             typedef Kokkos::View<double*, host_scratch, Kokkos::MemoryTraits<Kokkos::Unmanaged> > 
@@ -721,7 +721,7 @@ class PointCloudSearch {
                     scratch_int_view;
 
             // determine scratch space size needed
-            int team_scratch_size = 0;
+            size_t team_scratch_size = 0;
             team_scratch_size += scratch_double_view::shmem_size(max_neighbor_list_row_storage_size); // distances
             team_scratch_size += scratch_int_view::shmem_size(max_neighbor_list_row_storage_size); // indices
             team_scratch_size += scratch_double_view::shmem_size(_dim); // target coordinate
