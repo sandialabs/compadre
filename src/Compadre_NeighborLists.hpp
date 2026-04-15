@@ -170,7 +170,7 @@ struct NeighborLists {
             Kokkos::parallel_reduce("max number of neighbors", 
                     Kokkos::RangePolicy<typename view_type::execution_space>(0, _number_of_neighbors_list.extent(0)), 
                     KOKKOS_LAMBDA(const int i, int& t_max_num_neighbors) {
-                t_max_num_neighbors = (number_of_neighbors_list(i) > t_max_num_neighbors) ? number_of_neighbors_list(i) : t_max_num_neighbors;
+                t_max_num_neighbors = ((int)number_of_neighbors_list(i) > t_max_num_neighbors) ? (int)number_of_neighbors_list(i) : t_max_num_neighbors;
             }, Kokkos::Max<int>(_max_neighbor_list_row_storage_size));
             Kokkos::fence();
         }
