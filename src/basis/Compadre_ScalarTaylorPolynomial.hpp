@@ -48,25 +48,31 @@ namespace ScalarTaylorPolynomialBasis {
     */
     KOKKOS_INLINE_FUNCTION
     void evaluate(const member_type& teamMember, double* delta, double* workspace, const int dimension, const int max_degree, const double h, const double x, const double y, const double z, const int starting_order = 0, const double weight_of_original_value = 0.0, const double weight_of_new_value = 1.0) {
-        Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-            const double factorial[] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
+        //Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+            // max degree is 15
+            static constexpr double factorial[15] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
+            double x_over_h_to_i[16];// = {};
+            double y_over_h_to_i[16];// = {};
+            double z_over_h_to_i[16];// = {};
             if (dimension==3) {
-                scratch_vector_type x_over_h_to_i(workspace, max_degree+1);
-                scratch_vector_type y_over_h_to_i(workspace+1*(max_degree+1), max_degree+1);
-                scratch_vector_type z_over_h_to_i(workspace+2*(max_degree+1), max_degree+1);
                 x_over_h_to_i[0] = 1;
                 y_over_h_to_i[0] = 1;
                 z_over_h_to_i[0] = 1;
                 for (int i=1; i<=max_degree; ++i) {
+                //Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, 1, max_degree+1),
+                //        [&] (const int i) {
                     x_over_h_to_i[i] = x_over_h_to_i[i-1]*(x/h);
                     y_over_h_to_i[i] = y_over_h_to_i[i-1]*(y/h);
                     z_over_h_to_i[i] = z_over_h_to_i[i-1]*(z/h);
+                //});
                 }
                 // (in 3D) \sum_{p=0}^{p=P} \sum_{k1+k2+k3=n} (x/h)^k1*(y/h)^k2*(z/h)^k3 / (k1!k2!k3!)
                 int alphax, alphay, alphaz;
                 double alphaf;
                 int i=0, s=0;
                 for (int n = starting_order; n <= max_degree; n++){
+                //Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, starting_order, max_degree+1),
+                //        [&] (const int n) {
                     for (alphaz = 0; alphaz <= n; alphaz++){
                         s = n - alphaz;
                         for (alphay = 0; alphay <= s; alphay++){
@@ -76,30 +82,34 @@ namespace ScalarTaylorPolynomialBasis {
                             i++;
                         }
                     }
+                //});
                 }
             } else if (dimension==2) {
-                scratch_vector_type x_over_h_to_i(workspace, max_degree+1);
-                scratch_vector_type y_over_h_to_i(workspace+1*(max_degree+1), max_degree+1);
                 x_over_h_to_i[0] = 1;
                 y_over_h_to_i[0] = 1;
                 for (int i=1; i<=max_degree; ++i) {
+                //Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, 1, max_degree+1),
+                //        [&] (const int i) {
                     x_over_h_to_i[i] = x_over_h_to_i[i-1]*(x/h);
                     y_over_h_to_i[i] = y_over_h_to_i[i-1]*(y/h);
                 }
+                //});
                 // (in 2D) \sum_{n=0}^{n=P} \sum_{k=0}^{k=n} (x/h)^(n-k)*(y/h)^k / ((n-k)!k!)
                 int alphax, alphay;
                 double alphaf;
                 int i = 0;
                 for (int n = starting_order; n <= max_degree; n++){
+                //Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, starting_order, max_degree+1),
+                //        [&] (const int n) {
                     for (alphay = 0; alphay <= n; alphay++){
                         alphax = n - alphay;
                         alphaf = factorial[alphax]*factorial[alphay];
                         *(delta+i) = weight_of_original_value * *(delta+i) + weight_of_new_value * x_over_h_to_i[alphax]*y_over_h_to_i[alphay]/alphaf;
                         i++;
                     }
+                //});
                 }
             } else {
-                scratch_vector_type x_over_h_to_i(workspace, max_degree+1);
                 x_over_h_to_i[0] = 1;
                 for (int i=1; i<=max_degree; ++i) {
                     x_over_h_to_i[i] = x_over_h_to_i[i-1]*(x/h);
@@ -109,7 +119,7 @@ namespace ScalarTaylorPolynomialBasis {
                     *(delta+i) = weight_of_original_value * *(delta+i) + weight_of_new_value * x_over_h_to_i[i]/factorial[i];
                 }
             }
-        });
+        //});
     }
 
     /*! \brief Evaluates the first partial derivatives of scalar Taylor polynomial basis
