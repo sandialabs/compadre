@@ -292,6 +292,39 @@ class TestPyCOMPADRE(KokkosTestCase):
 
         self.assertAlmostEqual(result, solution, places=13)
 
+    def test_verify_unisolvency_for_neighbor_search(self):
+        source_sites = np.array([2.0,3.0,5.0,6.0], dtype='f8')
+        source_sites = np.reshape(source_sites, shape=(source_sites.size,1))
+        data = np.array([2.0,3.0,5.0,6.0], dtype='f8')
+
+        polynomial_order = 6
+        dim = 1
+
+        gmls_obj=pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD")
+        gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
+        gmls_obj.addTargets(pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+        gmls_helper.generateKDTree(source_sites)
+
+        point = np.array([4.0], dtype='f8')
+        target_site = np.reshape(point, shape=(1,dim))
+
+        # not enough neighbors will be found
+        # can only succeed if verify_unisolvency is set to False
+        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5,
+                                                             max_search_radius=0.0,
+                                                             scale_k_neighbor_radius=True,
+                                                             scale_num_neighbors=False,
+                                                             verify_unisolvency=False)
+        nl = gmls_helper.getNeighborLists()
+        nl.computeMinNumNeighbors()
+        nl.computeMaxNumNeighbors()
+        n_min = nl.getMinNumNeighbors()
+        n_max = nl.getMaxNumNeighbors()
+        self.assertEqual(n_min, n_max)
+        self.assertEqual(n_max, 4)
+
     def test_noncontiguous_ndarray(self):
         source_sites = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
         source_sites = np.reshape(source_sites, shape=(source_sites.size,1))
