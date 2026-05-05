@@ -124,6 +124,9 @@ class RadiusResultSet {
                 auto tmp_ind = i_dist[0];
                 i_dist[0] = best_distance_index;
                 i_dist[best_index] = tmp_ind;
+                auto tmp_dist = r_dist[0];
+                r_dist[0] = best_distance;
+                r_dist[best_index] = tmp_dist;
             }
         }
     }
