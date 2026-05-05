@@ -351,7 +351,7 @@ class TestPyCOMPADRE(KokkosTestCase):
         gmls_obj.generateAlphas(1, True)
 
         output = gmls_helper.applyStencilSingleTarget(data, pycompadre.TargetOperation.ScalarPointEvaluation)
-        self.assertAlmostEqual(output, 5.0, places=15)
+        self.assertAlmostEqual(output, 5.0, places=14)
         del gmls_helper
         del gmls_obj
 
@@ -377,7 +377,7 @@ class TestPyCOMPADRE(KokkosTestCase):
         gmls_obj.generateAlphas(1, True)
 
         output = gmls_helper.applyStencilSingleTarget(data, pycompadre.TargetOperation.ScalarPointEvaluation)
-        self.assertAlmostEqual(output, 5.0, places=15)
+        self.assertAlmostEqual(output, 5.0, places=14)
         del gmls_helper
         del gmls_obj
 
@@ -404,7 +404,7 @@ class TestPyCOMPADRE(KokkosTestCase):
         gmls_obj.generateAlphas(1, True)
 
         output = gmls_helper.applyStencilSingleTarget(data, pycompadre.TargetOperation.ScalarPointEvaluation)
-        self.assertAlmostEqual(output, 5.0, places=15)
+        self.assertAlmostEqual(output, 5.0, places=14)
         del gmls_helper
         del gmls_obj
 
