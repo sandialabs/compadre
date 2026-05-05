@@ -292,6 +292,39 @@ class TestPyCOMPADRE(KokkosTestCase):
 
         self.assertAlmostEqual(result, solution, places=13)
 
+    def test_verify_unisolvency_for_neighbor_search(self):
+        source_sites = np.array([2.0,3.0,5.0,6.0], dtype='f8')
+        source_sites = np.reshape(source_sites, shape=(source_sites.size,1))
+        data = np.array([2.0,3.0,5.0,6.0], dtype='f8')
+
+        polynomial_order = 6
+        dim = 1
+
+        gmls_obj=pycompadre.GMLS(polynomial_order, 1, "QR", "STANDARD")
+        gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
+        gmls_obj.addTargets(pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+        gmls_helper.generateKDTree(source_sites)
+
+        point = np.array([4.0], dtype='f8')
+        target_site = np.reshape(point, shape=(1,dim))
+
+        # not enough neighbors will be found
+        # can only succeed if verify_unisolvency is set to False
+        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5,
+                                                             max_search_radius=0.0,
+                                                             scale_k_neighbor_radius=True,
+                                                             scale_num_neighbors=False,
+                                                             verify_unisolvency=False)
+        nl = gmls_helper.getNeighborLists()
+        nl.computeMinNumNeighbors()
+        nl.computeMaxNumNeighbors()
+        n_min = nl.getMinNumNeighbors()
+        n_max = nl.getMaxNumNeighbors()
+        self.assertEqual(n_min, n_max)
+        self.assertEqual(n_max, 4)
+
     def test_noncontiguous_ndarray(self):
         source_sites = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
         source_sites = np.reshape(source_sites, shape=(source_sites.size,1))
@@ -325,6 +358,86 @@ class TestPyCOMPADRE(KokkosTestCase):
         if pycompadre.DEBUG:
             with self.assertRaises(RuntimeError):
                 output = gmls_helper.applyStencilSingleTarget(new_data_vector[::3], pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+        del gmls_helper
+        del gmls_obj
+
+    def test_noncontiguous_ndarray_2d(self):
+        # test layout left
+        source_sites_x = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
+        source_sites_y = np.array([1.0,1.0,1.0,1.0,1.0], dtype='f8')
+        source_sites = np.vstack([source_sites_x, source_sites_y]).T
+        data = np.array([3.0,4.0,6.0,7.0,8.0], dtype='f8')
+
+        polynomial_order = 1
+        dim = 2
+
+        gmls_obj=pycompadre.GMLS(polynomial_order, dim, "QR", "STANDARD")
+        gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
+
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+        gmls_helper.generateKDTree(source_sites)
+
+        point = np.array([[4.0,1.0],[5.0,1.0]], dtype='f8', order='F')
+        target_site = np.reshape(point, shape=(2,dim), order='F')
+
+        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
+        gmls_obj.generateAlphas(1, True)
+
+        output = gmls_helper.applyStencilSingleTarget(data, pycompadre.TargetOperation.ScalarPointEvaluation)
+        self.assertAlmostEqual(output, 5.0, places=14)
+        del gmls_helper
+        del gmls_obj
+
+        # test layout right
+        source_sites = np.zeros(shape=(5,2), dtype='f8')
+        source_sites[:,0] = source_sites_x
+        source_sites[:,1] = source_sites_y
+        data = np.array([3.0,4.0,6.0,7.0,8.0], dtype='f8')
+
+        polynomial_order = 1
+        dim = 2
+
+        gmls_obj=pycompadre.GMLS(polynomial_order, dim, "QR", "STANDARD")
+        gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
+
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+        gmls_helper.generateKDTree(source_sites)
+
+        point = np.array([[4.0,1.0],[5.0,1.0]], dtype='f8', order='C')
+        target_site = np.reshape(point, shape=(2,dim), order='C')
+
+        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
+        gmls_obj.generateAlphas(1, True)
+
+        output = gmls_helper.applyStencilSingleTarget(data, pycompadre.TargetOperation.ScalarPointEvaluation)
+        self.assertAlmostEqual(output, 5.0, places=14)
+        del gmls_helper
+        del gmls_obj
+
+        # test strided layout
+        # fills every other row and every third column
+        source_sites = np.zeros(shape=(10,6), dtype='f8')
+        source_sites[0::2,0] = source_sites_x
+        source_sites[0::2,3] = source_sites_y
+        data = np.array([3.0,4.0,6.0,7.0,8.0], dtype='f8')
+
+        polynomial_order = 1
+        dim = 2
+
+        gmls_obj=pycompadre.GMLS(polynomial_order, dim, "QR", "STANDARD")
+        gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
+
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+        gmls_helper.generateKDTree(source_sites[0::2,0::3])
+
+        point = np.array([[4.0,1.0],[5.0,1.0]], dtype='f8', order='C')
+        target_site = np.reshape(point, shape=(2,dim), order='C')
+
+        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5)
+        gmls_obj.generateAlphas(1, True)
+
+        output = gmls_helper.applyStencilSingleTarget(data, pycompadre.TargetOperation.ScalarPointEvaluation)
+        self.assertAlmostEqual(output, 5.0, places=14)
         del gmls_helper
         del gmls_obj
 

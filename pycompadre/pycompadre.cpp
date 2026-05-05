@@ -35,6 +35,137 @@ NB_MAKE_OPAQUE(std::vector<size_t>);
 using namespace Compadre;
 namespace nb = nanobind;
 
+
+// row-major
+template <size_t Rank, typename T>
+inline bool is_c_contig(const nb::ndarray<nb::numpy, T> &a) {
+    if (a.ndim() != (int) Rank)
+        throw std::runtime_error("is_c_contig: rank mismatch.");
+
+    bool ok = (a.stride((int)Rank - 1) == 1);
+    for (int k = (int)Rank - 2; k >= 0; --k)
+        ok &= (a.stride(k) == a.stride(k + 1) * (ssize_t) a.shape(k + 1));
+    return ok;
+}
+
+// column-major
+template <size_t Rank, typename T>
+inline bool is_f_contig(const nb::ndarray<nb::numpy, T> &a) {
+    if (a.ndim() != (int) Rank)
+        throw std::runtime_error("is_f_contig: rank mismatch.");
+
+    bool ok = (a.stride(0) == 1);
+    for (size_t k = 1; k < Rank; ++k)
+        ok &= (a.stride((int)k) == a.stride((int)k - 1) * (ssize_t) a.shape((int)k - 1));
+    return ok;
+}
+
+// row-major
+template <size_t Rank, typename T, typename... Ix>
+inline const T& access_c_contig(const nb::ndarray<nb::numpy, T> &a, Ix... idx) {
+    static_assert(sizeof...(Ix) == Rank, "access_c_contig: wrong number of indices.");
+    static_assert((std::is_integral_v<Ix> && ...), "access_c_contig: indices must be integral.");
+
+    if (a.ndim() != (int) Rank)
+        throw std::runtime_error("access_c_contig: rank mismatch.");
+
+    const ssize_t I[Rank] = { (ssize_t) idx... };
+
+    ssize_t lin = I[0];
+    for (size_t d = 1; d < Rank; ++d)
+        lin = lin * (ssize_t) a.shape((int)d) + I[d];
+
+    return ((const T*) a.data())[lin];
+}
+
+template <size_t Rank, typename T, typename... Ix>
+inline T& access_c_contig(nb::ndarray<nb::numpy, T> &a, Ix... idx) {
+    static_assert(sizeof...(Ix) == Rank, "access_c_contig: wrong number of indices.");
+    static_assert((std::is_integral_v<Ix> && ...), "access_c_contig: indices must be integral.");
+
+    if (a.ndim() != (int) Rank)
+        throw std::runtime_error("access_c_contig: rank mismatch.");
+
+    const ssize_t I[Rank] = { (ssize_t) idx... };
+
+    ssize_t lin = I[0];
+    for (size_t d = 1; d < Rank; ++d)
+        lin = lin * (ssize_t) a.shape((int)d) + I[d];
+
+    return ((T*) a.data())[lin];
+}
+
+// column-major
+template <size_t Rank, typename T, typename... Ix>
+inline const T& access_f_contig(const nb::ndarray<nb::numpy, T> &a, Ix... idx) {
+    static_assert(sizeof...(Ix) == Rank, "access_f_contig: wrong number of indices.");
+    static_assert((std::is_integral_v<Ix> && ...), "access_f_contig: indices must be integral.");
+
+    if (a.ndim() != (int) Rank)
+        throw std::runtime_error("access_f_contig: rank mismatch.");
+
+    const ssize_t I[Rank] = { (ssize_t) idx... };
+
+    // Column-major linearization: i0 + n0*(i1 + n1*(i2 + ...))
+    ssize_t lin = I[Rank - 1];
+    for (int d = (int)Rank - 2; d >= 0; --d)
+        lin = lin * (ssize_t) a.shape(d) + I[d];
+
+    return ((const T*) a.data())[lin];
+}
+
+template <size_t Rank, typename T, typename... Ix>
+inline T& access_f_contig(nb::ndarray<nb::numpy, T> &a, Ix... idx) {
+    static_assert(sizeof...(Ix) == Rank, "access_f_contig: wrong number of indices.");
+    static_assert((std::is_integral_v<Ix> && ...), "access_f_contig: indices must be integral.");
+
+    if (a.ndim() != (int) Rank)
+        throw std::runtime_error("access_f_contig: rank mismatch.");
+
+    const ssize_t I[Rank] = { (ssize_t) idx... };
+
+    ssize_t lin = I[Rank - 1];
+    for (int d = (int)Rank - 2; d >= 0; --d)
+        lin = lin * (ssize_t) a.shape(d) + I[d];
+
+    return ((T*) a.data())[lin];
+}
+
+// General strided accessor (C/F/sliced)
+template <size_t Rank, typename T, typename... Ix>
+inline const T& access_strided(const nb::ndarray<nb::numpy, T> &a, Ix... idx) {
+    static_assert(sizeof...(Ix) == Rank, "access_strided: wrong number of indices.");
+    static_assert((std::is_integral_v<Ix> && ...), "access_strided: indices must be integral.");
+
+    if (a.ndim() != (int) Rank)
+        throw std::runtime_error("access_strided: rank mismatch.");
+
+    const ssize_t I[Rank] = { (ssize_t) idx... };
+
+    ssize_t off = 0;
+    for (size_t d = 0; d < Rank; ++d)
+        off += I[d] * (ssize_t) a.stride((int)d);
+
+    return ((const T*) a.data())[off];
+}
+
+template <size_t Rank, typename T, typename... Ix>
+inline T& access_strided(nb::ndarray<nb::numpy, T> &a, Ix... idx) {
+    static_assert(sizeof...(Ix) == Rank, "access_strided: wrong number of indices.");
+    static_assert((std::is_integral_v<Ix> && ...), "access_strided: indices must be integral.");
+
+    if (a.ndim() != (int) Rank)
+        throw std::runtime_error("access_strided: rank mismatch.");
+
+    const ssize_t I[Rank] = { (ssize_t) idx... };
+
+    ssize_t off = 0;
+    for (size_t d = 0; d < Rank; ++d)
+        off += I[d] * (ssize_t) a.stride((int)d);
+
+    return ((T*) a.data())[off];
+}
+
 template<typename T>
 nb::ndarray<nb::numpy, T> create_new_array(const std::vector<size_t> dim_out) {
     size_t total_entries = 1;
@@ -71,9 +202,15 @@ Kokkos::View<T*, space> convert_np_to_kokkos_1d(nb::ndarray<nb::numpy, T> array,
 
     Kokkos::View<T*, space> kokkos_array_device(new_label, array.shape(0));
     auto kokkos_array_host = Kokkos::create_mirror_view(kokkos_array_device);
-    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
-        kokkos_array_host(i) = *(T*)((T*)array.data() + i);
-    });
+    if (is_c_contig<1, T>(array) || is_f_contig<1, T>(array)) {
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
+            kokkos_array_host(i) = *(T*)((T*)array.data() + i);
+        });
+    } else {
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
+            kokkos_array_host(i) = access_strided<1, T>(array, i);
+        });
+    }
     Kokkos::fence();
     Kokkos::deep_copy(kokkos_array_device, kokkos_array_host);
 
@@ -97,11 +234,25 @@ Kokkos::View<T**, layout, space> convert_np_to_kokkos_2d(nb::ndarray<nb::numpy, 
 
     Kokkos::View<T**, layout, space> kokkos_array_device(new_label, array.shape(0), array.shape(1));
     auto kokkos_array_host = Kokkos::create_mirror_view(kokkos_array_device);
-    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
-        for (int j=0; j<array.shape(1); ++j) {
-            kokkos_array_host(i,j) = *(T*)((T*)array.data() + i*array.shape(1)+j);
-        }
-    });
+    if (is_c_contig<2, T>(array)) {
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
+            for (int j=0; j<array.shape(1); ++j) {
+                kokkos_array_host(i,j) = access_c_contig<2, T>(array, i, j);
+            }
+        });
+    } else if (is_f_contig<2, T>(array)) {
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
+            for (int j=0; j<array.shape(1); ++j) {
+                kokkos_array_host(i,j) = access_f_contig<2, T>(array, i, j);
+            }
+        });
+    } else {
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
+            for (int j=0; j<array.shape(1); ++j) {
+                kokkos_array_host(i,j) = access_strided<2, T>(array, i, j);
+            }
+        });
+    }
     Kokkos::fence();
     Kokkos::deep_copy(kokkos_array_device, kokkos_array_host);
 
@@ -129,13 +280,31 @@ Kokkos::View<T***, layout, space> convert_np_to_kokkos_3d(nb::ndarray<nb::numpy,
 
     Kokkos::View<T***, layout, space> kokkos_array_device(new_label, array.shape(0), array.shape(1), array.shape(2));
     auto kokkos_array_host = Kokkos::create_mirror_view(kokkos_array_device);
-    Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
-        for (int j=0; j<array.shape(1); ++j) {
-            for (int k=0; k<array.shape(2); ++k) {
-                kokkos_array_host(i,j,k) = *(T*)((T*)array.data() + i*array.shape(1)*array.shape(2)+j*array.shape(2)+k);
+    if (is_c_contig<3, T>(array)) {
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
+            for (int j=0; j<array.shape(1); ++j) {
+                for (int k=0; k<array.shape(2); ++k) {
+                    kokkos_array_host(i,j,k) = access_c_contig<3, T>(array, i, j, k);
+                }
             }
-        }
-    });
+        });
+    } else if (is_f_contig<3, T>(array)) {
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
+            for (int j=0; j<array.shape(1); ++j) {
+                for (int k=0; k<array.shape(2); ++k) {
+                    kokkos_array_host(i,j,k) = access_f_contig<3, T>(array, i, j, k);
+                }
+            }
+        });
+    } else {
+        Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
+            for (int j=0; j<array.shape(1); ++j) {
+                for (int k=0; k<array.shape(2); ++k) {
+                    kokkos_array_host(i,j,k) = access_strided<3, T>(array, i, j, k);
+                }
+            }
+        });
+    }
     Kokkos::fence();
     Kokkos::deep_copy(kokkos_array_device, kokkos_array_host);
 
@@ -485,7 +654,7 @@ public:
         this->generateKDTree();
     }
 
-    void generateNeighborListsFromKNNSearchAndSet(nb::ndarray<nb::numpy, double> input, int poly_order, int dimension = 3, double epsilon_multiplier = 1.6, double max_search_radius = 0.0, bool scale_k_neighbor_radius = true, bool scale_num_neighbors = false) {
+    void generateNeighborListsFromKNNSearchAndSet(nb::ndarray<nb::numpy, double> input, int poly_order, int dimension = 3, double epsilon_multiplier = 1.6, double max_search_radius = 0.0, bool scale_k_neighbor_radius = true, bool scale_num_neighbors = false, bool verify_unisolvency = true) {
 
 #ifdef COMPADRE_DEBUG
         compadre_assert_release(gmls_object!=nullptr &&
@@ -528,13 +697,13 @@ public:
         }
 
         size_t total_storage = point_cloud_search->generateCRNeighborListsFromKNNSearch(true /* is a dry run*/, target_coords, neighbor_lists, 
-                number_of_neighbors_list, epsilon, neighbors_needed, epsilon_multiplier, max_search_radius);
+                number_of_neighbors_list, epsilon, neighbors_needed, epsilon_multiplier, max_search_radius, verify_unisolvency);
 
         Kokkos::resize(neighbor_lists, total_storage);
         Kokkos::fence();
 
         total_storage = point_cloud_search->generateCRNeighborListsFromKNNSearch(false /* not a dry run*/, target_coords, neighbor_lists, 
-                number_of_neighbors_list, epsilon, neighbors_needed, epsilon_multiplier, max_search_radius);
+                number_of_neighbors_list, epsilon, neighbors_needed, epsilon_multiplier, max_search_radius, verify_unisolvency);
         Kokkos::fence();
 
         // set these views in the GMLS object
@@ -921,10 +1090,10 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     )pbdoc")
     .def(nb::init<GMLS*>(), nb::arg("gmls_instance"))
     .def("generateKDTree", static_cast<void (ParticleHelper::*)(nb::ndarray<nb::numpy, double>)>(&ParticleHelper::generateKDTree))
-    .def("generateNeighborListsFromKNNSearchAndSet", &ParticleHelper::generateNeighborListsFromKNNSearchAndSet, 
+    .def("generateNeighborListsFromKNNSearchAndSet", &ParticleHelper::generateNeighborListsFromKNNSearchAndSet,
             nb::arg("target_sites"), nb::arg("poly_order"), nb::arg("dimension") = 3, nb::arg("epsilon_multiplier") = 1.6, 
             nb::arg("max_search_radius") = 0.0, nb::arg("scale_k_neighbor_radius") = true, 
-            nb::arg("scale_num_neighbors") = false)
+            nb::arg("scale_num_neighbors") = false, nb::arg("verify_unisolvency") = true)
     .def("setNeighbors", &ParticleHelper::setNeighbors, nb::arg("neighbor_lists"), 
             "Sets neighbor lists from 2D array where first column is number of neighbors for corresponding row's target site.")
     .def("setGMLSObject", &ParticleHelper::setGMLSObject, nb::arg("gmls_object"))
