@@ -192,13 +192,7 @@ template<typename space=Kokkos::HostSpace, typename T>
 Kokkos::View<T*, space> convert_np_to_kokkos_1d(nb::ndarray<nb::numpy, T> array, 
         std::string new_label="convert_np_to_kokkos_1d array") {
 
-#ifdef COMPADRE_DEBUG
     compadre_assert_release(array.ndim()==1 && "array must be of rank 1");
-    size_t stride_0 = array.stride(0);
-    if (array.shape(0)>0 && stride_0!=1) {
-        throw std::runtime_error("convert_np_to_kokkos_1d was passed an array with noncontiguous data. Please reformat array.");
-    }
-#endif
 
     Kokkos::View<T*, space> kokkos_array_device(new_label, array.shape(0));
     auto kokkos_array_host = Kokkos::create_mirror_view(kokkos_array_device);
@@ -222,15 +216,7 @@ template<typename space=Kokkos::HostSpace, typename layout=Kokkos::LayoutRight, 
 Kokkos::View<T**, layout, space> convert_np_to_kokkos_2d(nb::ndarray<nb::numpy, T> array,
         std::string new_label="convert_np_to_kokkos_2d array") {
 
-#ifdef COMPADRE_DEBUG
     compadre_assert_release(array.ndim()==2 && "array must be of rank 2");
-    size_t cols = array.shape(1);
-    size_t stride_0 = array.stride(0);
-    size_t stride_1 = array.stride(1);
-    if (array.shape(0)>0 && cols>0 && (stride_0!=cols || stride_1!=1)) {
-        throw std::runtime_error("convert_np_to_kokkos_2d was passed an array with noncontiguous data. Please reformat array.");
-    }
-#endif
 
     Kokkos::View<T**, layout, space> kokkos_array_device(new_label, array.shape(0), array.shape(1));
     auto kokkos_array_host = Kokkos::create_mirror_view(kokkos_array_device);
@@ -264,19 +250,7 @@ template<typename space=Kokkos::HostSpace, typename layout=Kokkos::LayoutRight, 
 Kokkos::View<T***, layout, space> convert_np_to_kokkos_3d(nb::ndarray<nb::numpy, T> array,
         std::string new_label="convert_np_to_kokkos_3d array") {
 
-#ifdef COMPADRE_DEBUG
     compadre_assert_release(array.ndim()==3 && "array must be of rank 3");
-    size_t rows = array.shape(0);
-    size_t cols = array.shape(1);
-    size_t nextdim = array.shape(2);
-    size_t stride_0 = array.stride(0);
-    size_t stride_1 = array.stride(1);
-    size_t stride_2 = array.stride(2);
-    if (rows>0 && cols>0 && nextdim>0 && (stride_0!=cols*nextdim || stride_1!=nextdim || stride_2!=1)) {
-        throw std::runtime_error("convert_np_to_kokkos_3d was passed an array with noncontiguous data. Please reformat array.");
-    }
-#endif
-
 
     Kokkos::View<T***, layout, space> kokkos_array_device(new_label, array.shape(0), array.shape(1), array.shape(2));
     auto kokkos_array_host = Kokkos::create_mirror_view(kokkos_array_device);
@@ -739,16 +713,6 @@ public:
 
     nb::ndarray<nb::numpy, double> getPolynomialCoefficients(nb::ndarray<nb::numpy, double> input) {
 
-#ifdef COMPADRE_DEBUG
-        size_t rows = input.shape(0);
-        size_t cols = (input.ndim() > 1) ? input.shape(1) : 1;
-        size_t stride_0 = input.stride(0);
-        size_t stride_1 = (input.ndim() > 1) ? input.stride(1) : 1;
-        if ((input.ndim() == 1 && stride_0!=1) || (input.ndim() == 2 && (stride_0!=cols || stride_1!=1))) {
-            throw std::runtime_error("getPolynomialCoefficients was passed an input array with noncontiguous data. Please reformat input before passing to getPolynomialCoefficients.");
-        }
-#endif
-
         // create Kokkos View on host to copy into
         Kokkos::View<double**, Kokkos::HostSpace> source_data("source data", input.shape(0), (input.ndim()>1) ? input.shape(1) : 1); 
 
@@ -795,16 +759,6 @@ public:
  
     nb::ndarray<nb::numpy, double> applyStencil(const nb::ndarray<nb::numpy, double> input, const TargetOperation lro, const SamplingFunctional sro, const int evaluation_site_local_index = 0) const {
  
-#ifdef COMPADRE_DEBUG
-        size_t rows = input.shape(0);
-        size_t cols = (input.ndim() > 1) ? input.shape(1) : 1;
-        size_t stride_0 = input.stride(0);
-        size_t stride_1 = (input.ndim() > 1) ? input.stride(1) : 1;
-        if ((input.ndim() == 1 && stride_0!=1) || (input.ndim() == 2 && (stride_0!=cols || stride_1!=1))) {
-            throw std::runtime_error("applyStencil was passed an input array with noncontiguous data. Please reformat input before passing to applyStencil.");
-        }
-#endif
-
         // cast numpy data as Kokkos View
         host_unmanaged_matrix_right_type source_data((double *) input.data(), input.shape(0), (input.ndim()>1) ? input.shape(1) : 1);
 
@@ -848,16 +802,6 @@ public:
     
     nb::ndarray<nb::numpy, double> applyStencilAllTargetsAllAdditionalEvaluationSites(const nb::ndarray<nb::numpy, double> input, const TargetOperation lro, const SamplingFunctional sro) const {
 
-#ifdef COMPADRE_DEBUG
-        size_t rows = input.shape(0);
-        size_t cols = (input.ndim() > 1) ? input.shape(1) : 1;
-        size_t stride_0 = input.stride(0);
-        size_t stride_1 = (input.ndim() > 1) ? input.stride(1) : 1;
-        if ((input.ndim() == 1 && stride_0!=1) || (input.ndim() == 2 && (stride_0!=cols || stride_1!=1))) {
-            throw std::runtime_error("applyStencilAllTargetsAllAdditionalEvaluationSites was passed an input array with noncontiguous data. Please reformat input before passing to applyStencil.");
-        }
-#endif
- 
         // cast numpy data as Kokkos View
         host_unmanaged_matrix_right_type source_data((double *) input.data(), input.shape(0), (input.ndim()>1) ? input.shape(1) : 1);
 
@@ -922,16 +866,6 @@ public:
 
     double applyStencilSingleTarget(const nb::ndarray<nb::numpy, double> input, const TargetOperation lro, const SamplingFunctional sro, const int evaluation_site_local_index = 0) const {
 
-#ifdef COMPADRE_DEBUG
-        size_t rows = input.shape(0);
-        size_t cols = (input.ndim() > 1) ? input.shape(1) : 1;
-        size_t stride_0 = input.stride(0);
-        size_t stride_1 = (input.ndim() > 1) ? input.stride(1) : 1;
-        if ((input.ndim() == 1 && stride_0!=1) || (input.ndim() == 2 && (stride_0!=cols || stride_1!=1))) {
-            throw std::runtime_error("applyStencilSingleTarget was passed an input array with noncontiguous data. Please reformat input before passing to applyStencil.");
-        }
-#endif
- 
         // cast numpy data as Kokkos View
         host_unmanaged_matrix_right_type source_data((double *) input.data(), input.shape(0), (input.ndim()>1) ? input.shape(1) : 1);
 
