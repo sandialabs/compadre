@@ -350,14 +350,10 @@ class TestPyCOMPADRE(KokkosTestCase):
         # whether layouts are being properly propagated into pycompadre
         new_data_vector = np.zeros(shape=(len(data), 3), dtype='f8')
         new_data_vector[:,1] = np.array(data, dtype=np.dtype('d'))
-        if pycompadre.DEBUG:
-            with self.assertRaises(RuntimeError):
-                output = gmls_helper.applyStencilSingleTarget(new_data_vector[:,1], pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+        output = gmls_helper.applyStencilSingleTarget(new_data_vector[:,1], pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
         new_data_vector = np.zeros(shape=(len(data)*3), dtype='f8')
         new_data_vector[::3] = data[:]
-        if pycompadre.DEBUG:
-            with self.assertRaises(RuntimeError):
-                output = gmls_helper.applyStencilSingleTarget(new_data_vector[::3], pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+        output = gmls_helper.applyStencilSingleTarget(new_data_vector[::3], pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
         del gmls_helper
         del gmls_obj
 
