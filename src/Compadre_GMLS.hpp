@@ -104,6 +104,10 @@ private:
 
     //! h supports determined through neighbor search (device)
     Kokkos::View<double*> _epsilons; 
+
+    //! optional, h supports determined through neighbor search (device)
+    //! which is only used in the kernel
+    Kokkos::View<double*> _epsilons_from_sources; 
     
     //! generated weights for nontraditional samples required to transform data into expected sampling 
     //! functional form (device). 
@@ -735,6 +739,12 @@ public:
     //! Get a view (device) of all window sizes
     decltype(_epsilons)* getWindowSizes() { return &_epsilons; }
 
+    //! Get a view (device) of all window sizes
+    decltype(_epsilons)* getWindowSizesFromSourceSites() { 
+        compadre_assert_release(this->_epsilons_from_sources.extent(0)>0);
+        return &_epsilons_from_sources; 
+    }
+
     //! Get a view (device) of all tangent direction bundles.
     decltype(_T)* getTangentDirections() { return &_T; }
 
@@ -1044,10 +1054,8 @@ public:
     //! Sets window sizes, also called the support of the kernel
     template<typename view_type>
     void setWindowSizes(view_type epsilons) {
-
         // allocate memory on device
         _epsilons = decltype(_epsilons)("device epsilons", epsilons.extent(0));
-
         // copy data from host to device
         Kokkos::deep_copy(_epsilons, epsilons);
         this->resetCoefficientData();
@@ -1058,6 +1066,28 @@ public:
     void setWindowSizes(decltype(_epsilons) epsilons) {
         // allocate memory on device
         _epsilons = epsilons;
+        this->resetCoefficientData();
+    }
+
+    //! (OPTIONAL)
+    //! Sets window sizes, also called the support of the kernel
+    template<typename view_type>
+    void setWindowSizesFromSourceSites(view_type epsilons) {
+        compadre_assert_release(epsilons.extent(0)==this->_pc._source_coordinates.extent(0));
+        // allocate memory on device
+        _epsilons_from_sources = decltype(_epsilons_from_sources)("device epsilons from source sites", epsilons.extent(0));
+        // copy data from host to device
+        Kokkos::deep_copy(_epsilons, epsilons);
+        this->resetCoefficientData();
+    }
+
+    //! (OPTIONAL)
+    //! Sets window sizes, also called the support of the kernel (device)
+    template<typename view_type>
+    void setWindowSizesFromSourceSites(decltype(_epsilons_from_sources) epsilons) {
+        compadre_assert_release(epsilons.extent(0)==this->_pc._source_coordinates.extent(0));
+        // allocate memory on device
+        _epsilons_from_sources = epsilons;
         this->resetCoefficientData();
     }
 
