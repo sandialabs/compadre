@@ -490,7 +490,7 @@ class PointCloudSearch {
                     if (is_dry_run || uniform_radius!=0.0) {
                         number_of_neighbors_list(i) = neighbors_found;
                     } else {
-                        compadre_kernel_assert_debug((neighbors_found==(size_t)number_of_neighbors_list(i)) 
+                        compadre_kernel_assert_release((neighbors_found==(size_t)number_of_neighbors_list(i))
                                 && "Number of neighbors found changed since dry-run.");
                     }
 
@@ -512,8 +512,12 @@ class PointCloudSearch {
             };
             Kokkos::parallel_for("radius search CR", policy, radius_search);
             Kokkos::fence();
-            auto nla = CreateNeighborLists(number_of_neighbors_list);
-            return nla.getTotalNeighborsOverAllListsHost();
+            size_t total_neighbors = 0;
+            for (size_t i=0; i<num_target_sites; ++i) {
+                total_neighbors += static_cast<size_t>(number_of_neighbors_list(i));
+            }
+
+            return total_neighbors;
         }
 
 
@@ -635,7 +639,7 @@ class PointCloudSearch {
                     // the only time the second case using 1e-14 is used is when either zero neighbors or exactly one 
                     // neighbor (neighbor is target site) is found.  when the follow on radius search is conducted, the one
                     // neighbor (target site) will not be found if left at 0, so any positive amount will do, however 1e-14 
-                    // should is small enough to ensure that other neighbors are not found
+                    // should be small enough to ensure that other neighbors are not found
 
                     // needs furthest neighbor's distance for next portion
                     compadre_kernel_assert_release((neighbors_found<neighbor_lists.extent(1) || is_dry_run) 
@@ -784,12 +788,16 @@ class PointCloudSearch {
                     t_min_num_neighbors = (neighbors_found < t_min_num_neighbors) ? neighbors_found : t_min_num_neighbors;
             
                     // scale by epsilon_multiplier to window from location where the last neighbor was found
-                    epsilons(i) = (neighbor_distances(neighbors_found-1) > 0) ?
-                        std::sqrt(neighbor_distances(neighbors_found-1))*epsilon_multiplier : 1e-14*epsilon_multiplier;
-                    // the only time the second case using 1e-14 is used is when either zero neighbors or exactly one 
-                    // neighbor (neighbor is target site) is found.  when the follow on radius search is conducted, the one
-                    // neighbor (target site) will not be found if left at 0, so any positive amount will do, however 1e-14 
-                    // should is small enough to ensure that other neighbors are not found
+                    // Guard the zero-neighbor case before indexing neighbor_distances(neighbors_found-1).
+                    if (neighbors_found > 0 && neighbor_distances(neighbors_found-1) > 0) {
+                        epsilons(i) = std::sqrt(neighbor_distances(neighbors_found-1))*epsilon_multiplier;
+                    } else {
+                        epsilons(i) = 1e-14*epsilon_multiplier;
+                    }
+                    // The 1e-14 case is used when either zero neighbors or exactly one
+                    // neighbor (the target site) is found.  When the follow-on radius search is conducted, the one
+                    // neighbor (target site) will not be found if left at 0, so any positive amount will do, however 1e-14
+                    // should be small enough to ensure that other neighbors are not found
 
                     compadre_kernel_assert_release((epsilons(i)<=max_search_radius || max_search_radius==0 || is_dry_run) 
                             && "max_search_radius given (generally derived from the size of a halo region), \
@@ -813,8 +821,12 @@ class PointCloudSearch {
             generateCRNeighborListsFromRadiusSearch(is_dry_run, trg_pts_view, neighbor_lists, 
                     number_of_neighbors_list, epsilons, 0.0 /*don't set uniform radius*/, max_search_radius);
 
-            auto nla = CreateNeighborLists(number_of_neighbors_list);
-            return nla.getTotalNeighborsOverAllListsHost();
+            size_t total_neighbors = 0;
+            for (size_t i=0; i<num_target_sites; ++i) {
+                total_neighbors += static_cast<size_t>(number_of_neighbors_list(i));
+            }
+
+            return total_neighbors;
         }
 }; // PointCloudSearch
 

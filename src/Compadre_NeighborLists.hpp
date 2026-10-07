@@ -103,7 +103,6 @@ struct NeighborLists {
 
         Kokkos::deep_copy(_host_cr_neighbor_lists, _cr_neighbor_lists);
         Kokkos::deep_copy(_host_number_of_neighbors_list, _number_of_neighbors_list);
-        Kokkos::deep_copy(_host_row_offsets, _row_offsets);
         Kokkos::fence();
 
         computeRowOffsets();
@@ -133,7 +132,6 @@ struct NeighborLists {
         _host_row_offsets = Kokkos::create_mirror_view(_row_offsets);
 
         Kokkos::deep_copy(_host_number_of_neighbors_list, _number_of_neighbors_list);
-        Kokkos::deep_copy(_host_row_offsets, _row_offsets);
         Kokkos::fence();
 
         computeRowOffsets();
@@ -141,8 +139,6 @@ struct NeighborLists {
 
         _cr_neighbor_lists = view_type("compressed row neighbor lists data", this->getTotalNeighborsOverAllListsHost());
         _host_cr_neighbor_lists = Kokkos::create_mirror_view(_cr_neighbor_lists);
-        Kokkos::deep_copy(_host_cr_neighbor_lists, _cr_neighbor_lists);
-        Kokkos::fence();
 
         _needs_sync_to_host = false;
     }
@@ -303,6 +299,9 @@ struct NeighborLists {
     //! Get the sum of the number of neighbors of all targets' neighborhoods (device)
     KOKKOS_INLINE_FUNCTION
     global_index_type getTotalNeighborsOverAllListsDevice() const {
+        if (this->getNumberOfTargets()==0) {
+            return 0;
+        }
         return TO_GLOBAL(this->getNumberOfNeighborsDevice(this->getNumberOfTargets()-1)) + this->getRowOffsetDevice(this->getNumberOfTargets()-1);
     }
 ///@}
@@ -323,7 +322,8 @@ NeighborLists<view_type> CreateNeighborLists(view_type neighbor_lists, view_type
 
 //! CreateNeighborLists allows for the construction of an object of type NeighborLists with template deduction
 template <typename view_type>
-NeighborLists<view_type> CreateNeighborLists(view_type neighbor_lists, view_type number_of_neighbors_list, view_type neighbor_lists_row_offsets) {
+NeighborLists<view_type> CreateNeighborLists(view_type neighbor_lists, view_type number_of_neighbors_list,
+        typename NeighborLists<view_type>::internal_row_offsets_view_type neighbor_lists_row_offsets) {
     return NeighborLists<view_type>(neighbor_lists, number_of_neighbors_list, neighbor_lists_row_offsets);
 }
 
