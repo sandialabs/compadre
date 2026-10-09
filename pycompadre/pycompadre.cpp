@@ -1255,13 +1255,24 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
 
     m_kokkos
     .def("initialize", [](nb::list args) {
+        std::vector<std::string> string_args;
         std::vector<char*> char_args;
+
+        string_args.reserve(args.size());
+        char_args.reserve(args.size() + 1);
+
         for (nb::handle arg : args) {
-            char_args.push_back((char*)nb::cast<std::string>(arg).data());
+            string_args.push_back(nb::cast<std::string>(arg));
         }
+
+        for (std::string& arg : string_args) {
+            char_args.push_back(const_cast<char*>(arg.c_str()));
+        }
+
         char_args.push_back(nullptr);
+
         int argc = (int)args.size();
-        Kokkos::initialize(argc, char_args.data());     
+        Kokkos::initialize(argc, char_args.data());
     })
     .def("finalize", &Kokkos::finalize)
     .def("is_initialized", &Kokkos::is_initialized)
