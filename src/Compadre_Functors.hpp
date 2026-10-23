@@ -27,6 +27,7 @@ struct GMLSBasisData {
     Kokkos::View<double**, layout_right> _source_extra_data;
     Kokkos::View<double**, layout_right> _target_extra_data;
     Kokkos::View<double*> _epsilons; 
+    Kokkos::View<double*> _epsilons_from_sources; 
     Kokkos::View<double*****, layout_right> _prestencil_weights; 
     Kokkos::View<TargetOperation*> _curvature_support_operations;
     Kokkos::View<TargetOperation*> _operations;
