@@ -50,8 +50,26 @@ namespace KokkosBatched {
            /* */ ValueType * w, ValueType * wq, 
            const bool implicit_RHS) {
     
-        typedef ValueType value_type;
+        using member_type = MemberType;
+        using exec_space  = typename member_type::execution_space;
+        using device_type = Kokkos::Device<exec_space, typename exec_space::memory_space>;
+        
+        using unmanaged   = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
+        using layout_type = Kokkos::LayoutStride;
+        
+        using const_view_type =
+            Kokkos::View<const ValueType**,
+                         layout_type,
+                         device_type,
+                         unmanaged>;
+        
+        using view_type =
+            Kokkos::View<ValueType**,
+                         layout_type,
+                         device_type,
+                         unmanaged>;
     
+        typedef ValueType value_type;
         const value_type one(1), zero(0);
     
         value_type * W = w; /// m x nrhs
@@ -83,64 +101,22 @@ namespace KokkosBatched {
             // W = U^T B
             if (!implicit_RHS) { // LU case
             
-                using member_type = typename std::decay<decltype(member)>::type;
-                using exec_space  = typename member_type::execution_space;
-                using device_type = Kokkos::Device<exec_space, typename exec_space::memory_space>;
-            
-                using unmanaged = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
-                using layout_type = Kokkos::LayoutStride;
-            
-                using U_ptr_type =
-                    typename std::remove_cv<
-                        typename std::remove_reference<decltype(U)>::type
-                    >::type;
-                using B_ptr_type =
-                    typename std::remove_cv<
-                        typename std::remove_reference<decltype(B)>::type
-                    >::type;
-                using W_ptr_type =
-                    typename std::remove_cv<
-                        typename std::remove_reference<decltype(W)>::type
-                    >::type;
-            
-                using U_value_type = typename std::remove_pointer<U_ptr_type>::type;
-                using B_value_type = typename std::remove_pointer<B_ptr_type>::type;
-                using W_value_type = typename std::remove_pointer<W_ptr_type>::type;
-            
-                using U_view_type =
-                    Kokkos::View<U_value_type**,
-                                 layout_type,
-                                 device_type,
-                                 unmanaged>;
-            
-                using B_view_type =
-                    Kokkos::View<B_value_type**,
-                                 layout_type,
-                                 device_type,
-                                 unmanaged>;
-            
-                using W_view_type =
-                    Kokkos::View<W_value_type**,
-                                 layout_type,
-                                 device_type,
-                                 unmanaged>;
-            
                 // A represents U^T without copying.
                 //   A = U with strides us1, us0
                 //   A(i,k) = U[k*us0 + i*us1]
-                U_view_type A_view(
+                const_view_type A_view(
                     U,
                     layout_type(matrix_rank, us1,
                                 m,           us0));
             
                 // B is m x nrhs.
-                B_view_type B_view(
+                view_type B_view(
                     B,
                     layout_type(m,    bs0,
                                 nrhs, bs1));
             
                 // W is matrix_rank x nrhs.
-                W_view_type C_view(
+                view_type C_view(
                     W,
                     layout_type(matrix_rank, ws0,
                                 nrhs,        ws1));
@@ -209,64 +185,23 @@ namespace KokkosBatched {
             
             /// X = V^T W
             {
-                using member_type = typename std::decay<decltype(member)>::type;
-                using exec_space  = typename member_type::execution_space;
-                using device_type = Kokkos::Device<exec_space, typename exec_space::memory_space>;
-            
-                using unmanaged   = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
-                using layout_type = Kokkos::LayoutStride;
-            
-                using V_ptr_type =
-                    typename std::remove_cv<
-                        typename std::remove_reference<decltype(V)>::type
-                    >::type;
-                using W_ptr_type =
-                    typename std::remove_cv<
-                        typename std::remove_reference<decltype(W)>::type
-                    >::type;
-                using X_ptr_type =
-                    typename std::remove_cv<
-                        typename std::remove_reference<decltype(X)>::type
-                    >::type;
-            
-                using V_value_type = typename std::remove_pointer<V_ptr_type>::type;
-                using W_value_type = typename std::remove_pointer<W_ptr_type>::type;
-                using X_value_type = typename std::remove_pointer<X_ptr_type>::type;
-            
-                using V_view_type =
-                    Kokkos::View<V_value_type**,
-                                 layout_type,
-                                 device_type,
-                                 unmanaged>;
-            
-                using W_view_type =
-                    Kokkos::View<W_value_type**,
-                                 layout_type,
-                                 device_type,
-                                 unmanaged>;
-            
-                using X_view_type =
-                    Kokkos::View<X_value_type**,
-                                 layout_type,
-                                 device_type,
-                                 unmanaged>;
             
                 // A represents V^T without copying.
                 //   V[row*vs0 + col*vs1]
                 //   A(i,k) = V[k*vs0 + i*vs1]
-                V_view_type A_view(
+                const_view_type A_view(
                     V,
                     layout_type(n,           vs1,
                                 matrix_rank, vs0));
             
                 // W is matrix_rank x nrhs.
-                W_view_type B_view(
+                view_type B_view(
                     W,
                     layout_type(matrix_rank, ws0,
                                 nrhs,        ws1));
             
                 // X is n x nrhs.
-                X_view_type C_view(
+                view_type C_view(
                     X,
                     layout_type(n,    xs0,
                                 nrhs, xs1));
@@ -295,65 +230,22 @@ namespace KokkosBatched {
             if (!implicit_RHS) { // LU case
                 /// W = U^T B
                 {
-                    using member_type = typename std::decay<decltype(member)>::type;
-                    using exec_space  = typename member_type::execution_space;
-                    using device_type = Kokkos::Device<exec_space, typename exec_space::memory_space>;
-                
-                    using unmanaged   = Kokkos::MemoryTraits<Kokkos::Unmanaged>;
-                    using layout_type = Kokkos::LayoutStride;
-                
-                    using U_ptr_type =
-                        typename std::remove_cv<
-                            typename std::remove_reference<decltype(U)>::type
-                        >::type;
-                
-                    using B_ptr_type =
-                        typename std::remove_cv<
-                            typename std::remove_reference<decltype(B)>::type
-                        >::type;
-                
-                    using W_ptr_type =
-                        typename std::remove_cv<
-                            typename std::remove_reference<decltype(W)>::type
-                        >::type;
-                
-                    using U_value_type = typename std::remove_pointer<U_ptr_type>::type;
-                    using B_value_type = typename std::remove_pointer<B_ptr_type>::type;
-                    using W_value_type = typename std::remove_pointer<W_ptr_type>::type;
-                
-                    using U_view_type =
-                        Kokkos::View<U_value_type**,
-                                     layout_type,
-                                     device_type,
-                                     unmanaged>;
-                
-                    using B_view_type =
-                        Kokkos::View<B_value_type**,
-                                     layout_type,
-                                     device_type,
-                                     unmanaged>;
-                
-                    using W_view_type =
-                        Kokkos::View<W_value_type**,
-                                     layout_type,
-                                     device_type,
-                                     unmanaged>;
                 
                     // A represents U^T without copying.
                     //   A(i,k) = U[k*us0 + i*us1]
-                    U_view_type A_view(
+                    const_view_type A_view(
                         U,
                         layout_type(matrix_rank, us1,
                                     m,           us0));
                 
                     // B is m x nrhs.
-                    B_view_type B_view(
+                    view_type B_view(
                         B,
                         layout_type(m,    bs0,
                                     nrhs, bs1));
                 
                     // W is matrix_rank x nrhs.
-                    W_view_type C_view(
+                    view_type C_view(
                         W,
                         layout_type(matrix_rank, ws0,
                                     nrhs,        ws1));
