@@ -259,7 +259,7 @@ struct NeighborLists {
         compadre_assert_extreme_debug(target_index < this->getNumberOfTargets());
         compadre_assert_debug((!_needs_sync_to_host) 
                 && "Stale information in host_cr_neighbor_lists. Call CopyDeviceDataToHost() to refresh.");
-        compadre_assert_debug((neighbor_num<_host_number_of_neighbors_list(target_index))
+        compadre_assert_debug((neighbor_num<(int)_host_number_of_neighbors_list(target_index))
                 && "neighor_num exceeds number of neighbors for this target_index.");
         return _host_cr_neighbor_lists(_host_row_offsets(target_index)+neighbor_num);
     }

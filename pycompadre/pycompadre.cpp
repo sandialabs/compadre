@@ -222,19 +222,19 @@ Kokkos::View<T**, layout, space> convert_np_to_kokkos_2d(nb::ndarray<nb::numpy, 
     auto kokkos_array_host = Kokkos::create_mirror_view(kokkos_array_device);
     if (is_c_contig<2, T>(array)) {
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
-            for (int j=0; j<array.shape(1); ++j) {
+            for (size_t j=0; j<array.shape(1); ++j) {
                 kokkos_array_host(i,j) = access_c_contig<2, T>(array, i, j);
             }
         });
     } else if (is_f_contig<2, T>(array)) {
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
-            for (int j=0; j<array.shape(1); ++j) {
+            for (size_t j=0; j<array.shape(1); ++j) {
                 kokkos_array_host(i,j) = access_f_contig<2, T>(array, i, j);
             }
         });
     } else {
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
-            for (int j=0; j<array.shape(1); ++j) {
+            for (size_t j=0; j<array.shape(1); ++j) {
                 kokkos_array_host(i,j) = access_strided<2, T>(array, i, j);
             }
         });
@@ -256,24 +256,24 @@ Kokkos::View<T***, layout, space> convert_np_to_kokkos_3d(nb::ndarray<nb::numpy,
     auto kokkos_array_host = Kokkos::create_mirror_view(kokkos_array_device);
     if (is_c_contig<3, T>(array)) {
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
-            for (int j=0; j<array.shape(1); ++j) {
-                for (int k=0; k<array.shape(2); ++k) {
+            for (size_t j=0; j<array.shape(1); ++j) {
+                for (size_t k=0; k<array.shape(2); ++k) {
                     kokkos_array_host(i,j,k) = access_c_contig<3, T>(array, i, j, k);
                 }
             }
         });
     } else if (is_f_contig<3, T>(array)) {
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
-            for (int j=0; j<array.shape(1); ++j) {
-                for (int k=0; k<array.shape(2); ++k) {
+            for (size_t j=0; j<array.shape(1); ++j) {
+                for (size_t k=0; k<array.shape(2); ++k) {
                     kokkos_array_host(i,j,k) = access_f_contig<3, T>(array, i, j, k);
                 }
             }
         });
     } else {
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, array.shape(0)), [&](int i) {
-            for (int j=0; j<array.shape(1); ++j) {
-                for (int k=0; k<array.shape(2); ++k) {
+            for (size_t j=0; j<array.shape(1); ++j) {
+                for (size_t k=0; k<array.shape(2); ++k) {
                     kokkos_array_host(i,j,k) = access_strided<3, T>(array, i, j, k);
                 }
             }
@@ -500,7 +500,7 @@ public:
 
         compadre_assert_release(gmls_object!=nullptr &&
                 "ParticleHelper used without an internal GMLS object set");
-        if (gmls_object->getGlobalDimensions()!=input.shape(1)) {
+        if ((size_t)gmls_object->getGlobalDimensions()!=input.shape(1)) {
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
 
@@ -549,11 +549,11 @@ public:
 
         compadre_assert_release(gmls_object!=nullptr &&
                 "ParticleHelper used without an internal GMLS object set");
-        if (gmls_object->getGlobalDimensions()!=input.shape(1)) {
+        if ((size_t)gmls_object->getGlobalDimensions()!=input.shape(1)) {
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
 
-        if (gmls_object->getGlobalDimensions()!=input.shape(2)) {
+        if ((size_t)gmls_object->getGlobalDimensions()!=input.shape(2)) {
             throw std::runtime_error("Third dimension must be the same as GMLS spatial dimension");
         }
         
@@ -579,7 +579,7 @@ public:
 
         compadre_assert_release(gmls_object!=nullptr &&
                 "ParticleHelper used without an internal GMLS object set");
-        if (gmls_object->getGlobalDimensions()!=input.shape(1)) {
+        if ((size_t)gmls_object->getGlobalDimensions()!=input.shape(1)) {
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
         
@@ -617,7 +617,7 @@ public:
 
         compadre_assert_release(gmls_object!=nullptr &&
                 "ParticleHelper used without an internal GMLS object set");
-        if (gmls_object->getGlobalDimensions()!=input.shape(1)) {
+        if ((size_t)gmls_object->getGlobalDimensions()!=input.shape(1)) {
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
 
@@ -642,7 +642,7 @@ public:
             throw std::runtime_error("Number of dimensions must be two");
         }
 
-        if (gmls_object->getGlobalDimensions()!=input.shape(1)) {
+        if ((size_t)gmls_object->getGlobalDimensions()!=input.shape(1)) {
             throw std::runtime_error("Second dimension must be the same as GMLS spatial dimension");
         }
 #endif
@@ -697,7 +697,7 @@ public:
         }
         compadre_assert_release(gmls_object!=nullptr &&
                 "ParticleHelper used without an internal GMLS object set");
-        if (gmls_object->getGlobalDimensions()!=input_coordinates.shape(1)) {
+        if ((size_t)gmls_object->getGlobalDimensions()!=input_coordinates.shape(1)) {
             throw std::runtime_error("Second dimension of input coordinates must be the same as GMLS spatial dimension");
         }
 #endif
@@ -726,7 +726,7 @@ public:
             double* data_ptr = (double*)input.data();
             // overwrite existing data assuming a 2D layout
             Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, input.shape(0)), [=](int i) {
-                for (int j = 0; j < input.shape(1); ++j)
+                for (size_t j = 0; j < input.shape(1); ++j)
                 {
                     source_data(i, j) = data_ptr[i*input.shape(1) + j];
                 }
@@ -747,7 +747,7 @@ public:
         auto result = create_new_array<double>(dim_out);
         double* data_ptr = (double*)result.data();
         Kokkos::parallel_for(Kokkos::RangePolicy<Kokkos::DefaultHostExecutionSpace>(0, dim_out_0), [&](int i) {
-            for (int j = 0; j < dim_out_1; ++j)
+            for (size_t j = 0; j < dim_out_1; ++j)
             {
                 data_ptr[i*dim_out_1 + j] = polynomial_coefficients(i, j);
             }
