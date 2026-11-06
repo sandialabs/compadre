@@ -987,7 +987,8 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
 
     nb::enum_<DenseSolverType>(m, "DenseSolverType")
     .value("QR", DenseSolverType::QR)
-    .value("LU", DenseSolverType::LU)
+    .value("CHOL", DenseSolverType::CHOL)
+    .value("LU", DenseSolverType::CHOL)   // deprecated alias for CHOL
     .export_values();
 
     nb::enum_<ProblemType>(m, "ProblemType")

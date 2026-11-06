@@ -66,13 +66,13 @@ if (Compadre_EXAMPLES)
     ADD_TEST(NAME GMLS_Device_Dim3_QR_CardinalCubicBSpline COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "--p" "4" "--nt" "200" "--d" "3" "${KOKKOS_THREADS_ARG}=2" "--kernel-type" "cardinalcubicbspline")
     SET_TESTS_PROPERTIES(GMLS_Device_Dim3_QR_CardinalCubicBSpline PROPERTIES LABELS "IntegrationTest;integration;kokkos;bspline" TIMEOUT 10)
 
-    # Device views tests for GMLS - LU solver
-    ADD_TEST(NAME GMLS_Device_Dim3_LU COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "--p" "4" "--nt" "200" "--d" "3" "--solver" "LU" "${KOKKOS_THREADS_ARG}=2")
-    SET_TESTS_PROPERTIES(GMLS_Device_Dim3_LU PROPERTIES LABELS "IntegrationTest;integration;kokkos" TIMEOUT 10)
+    # Device views tests for GMLS - Cholesky solver
+    ADD_TEST(NAME GMLS_Device_Dim3_CHOL COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Device_Test "--p" "4" "--nt" "200" "--d" "3" "--solver" "CHOL" "${KOKKOS_THREADS_ARG}=2")
+    SET_TESTS_PROPERTIES(GMLS_Device_Dim3_CHOL PROPERTIES LABELS "IntegrationTest;integration;kokkos" TIMEOUT 10)
 
-    # Device views tests with Neumann BC for GMLS - LU solver
-    ADD_TEST(NAME GMLS_NeumannGradScalar_Dim3_LU COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_NeumannGradScalar_Test "--p" "3" "--nt" "200" "--d" "3" "--solver" "LU" "--constraint" "NEUMANN_GRAD_SCALAR" "${KOKKOS_THREADS_ARG}=2")
-    SET_TESTS_PROPERTIES(GMLS_NeumannGradScalar_Dim3_LU PROPERTIES LABELS "IntegrationTest;integration;kokkos" TIMEOUT 10)
+    # Device views tests with Neumann BC for GMLS - Cholesky solver
+    ADD_TEST(NAME GMLS_NeumannGradScalar_Dim3_CHOL COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_NeumannGradScalar_Test "--p" "3" "--nt" "200" "--d" "3" "--solver" "CHOL" "--constraint" "NEUMANN_GRAD_SCALAR" "${KOKKOS_THREADS_ARG}=2")
+    SET_TESTS_PROPERTIES(GMLS_NeumannGradScalar_Dim3_CHOL PROPERTIES LABELS "IntegrationTest;integration;kokkos" TIMEOUT 10)
 
     # Device views tests with Neumann BC for STAGGERED GMLS
     ADD_TEST(NAME GMLS_StaggeredNeumannGradScalar_Dim3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered "--p" "3" "--nt" "200" "--d" "3" "${KOKKOS_THREADS_ARG}=2")
@@ -88,9 +88,9 @@ if (Compadre_EXAMPLES)
     ADD_TEST(NAME GMLS_Vector_Dim1_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Vector_Test "--p" "3" "--nt" "20" "--d" "1" "${KOKKOS_THREADS_ARG}=2")
     SET_TESTS_PROPERTIES(GMLS_Vector_Dim1_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos;vector" TIMEOUT 10)
 
-    # Device views tests for GMLS (vector basis) with LU
-    ADD_TEST(NAME GMLS_Vector_Dim3_LU COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Vector_Test "--p" "3" "--nt" "200" "--d" "3" "--solver" "LU" "${KOKKOS_THREADS_ARG}=2")
-    SET_TESTS_PROPERTIES(GMLS_Vector_Dim3_LU PROPERTIES LABELS "IntegrationTest;integration;kokkos;vector" TIMEOUT 10)
+    # Device views tests for GMLS (vector basis) with Cholesky
+    ADD_TEST(NAME GMLS_Vector_Dim3_CHOL COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Vector_Test "--p" "3" "--nt" "200" "--d" "3" "--solver" "CHOL" "${KOKKOS_THREADS_ARG}=2")
+    SET_TESTS_PROPERTIES(GMLS_Vector_Dim3_CHOL PROPERTIES LABELS "IntegrationTest;integration;kokkos;vector" TIMEOUT 10)
 
     # Device views tests for small batch GMLS, reusing GMLS class object
     ADD_TEST(NAME GMLS_SmallBatchReuse_Device_Dim2_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_SmallBatchReuse_Device_Test "--p" "4" "--nt" "200" "--d" "2" "${KOKKOS_THREADS_ARG}=2")
@@ -159,9 +159,9 @@ if (Compadre_EXAMPLES)
               $<TARGET_FILE:GMLS_Manifold_Test>
       )
 
-      # Python driven test of a C++ executable (Python changes command line arguments given to executable) - calling LU solver
-      ADD_TEST(NAME GMLS_Manifold_Refinement_Study_LU COMMAND ${Python_EXECUTABLE} "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" "--porder=3" "--grids=4" "--solver-type=LU")
-      SET_TESTS_PROPERTIES(GMLS_Manifold_Refinement_Study_LU
+      # Python driven test of a C++ executable (Python changes command line arguments given to executable) - calling Cholesky solver
+      ADD_TEST(NAME GMLS_Manifold_Refinement_Study_CHOL COMMAND ${Python_EXECUTABLE} "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" "--porder=3" "--grids=4" "--solver-type=CHOL")
+      SET_TESTS_PROPERTIES(GMLS_Manifold_Refinement_Study_CHOL
           PROPERTIES
             LABELS "ConvergenceTest;convergence;manifold" 
             TIMEOUT 20

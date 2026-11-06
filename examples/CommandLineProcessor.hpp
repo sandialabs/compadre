@@ -25,7 +25,7 @@ struct CommandLineProcessor {
         number_of_batches = 1; 
     
         constraint_name = "NO_CONSTRAINT"; // "NEUMANN_GRAD_SCALAR"
-        solver_name = "QR"; // LU
+        solver_name = "QR"; // or CHOL
         problem_name = "STANDARD"; // MANIFOLD
         kernel_type = Compadre::GMLS::translateWeightingType("POWER");
         curvature_kernel_type = Compadre::GMLS::translateWeightingType("POWER");
