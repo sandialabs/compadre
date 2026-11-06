@@ -163,9 +163,17 @@ struct EvaluateStandardTargets {
                 + TO_GLOBAL(local_index)*TO_GLOBAL(_data.P_target_row_dim_0*_data.P_target_row_dim_1), 
                     _data.P_target_row_dim_0, _data.P_target_row_dim_1);
 
-        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
+        //scratch_vector_type ws(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
+        //                 _data.this_num_cols + _data.thread_workspace_dim);
+        //scratch_vector_type delta(ws.data(),
+        //        _data.this_num_cols);
+        //scratch_vector_type thread_workspace(ws.data() + _data.this_num_cols,
+        //        _data.thread_workspace_dim);
+        //scratch_vector_type ws(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
+        //                 _data.this_num_cols + _data.thread_workspace_dim);
+        scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)),
                 _data.this_num_cols);
-        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
+        scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)),
                 _data.thread_workspace_dim);
 
         /*
@@ -414,11 +422,35 @@ struct AssembleStandardPsqrtW {
                 + TO_GLOBAL(local_index)*TO_GLOBAL(_data.max_num_rows), 
                     _data.max_num_rows);
     
+        //auto & thread_ptr = teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0));
+        //scratch_vector_type delta(thread_ptr, _data.this_num_cols);
+        //scratch_vector_type thread_workspace(thread_ptr, _data.thread_workspace_dim);
         // delta, used for each thread
         scratch_vector_type delta(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.this_num_cols);
         scratch_vector_type thread_workspace(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
                 _data.thread_workspace_dim);
+        
+        //compadre_kernel_assert_release(delta.data() != thread_workspace.data()
+        //    && "overlapped");
+        //scratch_vector_type delta(NULL,
+        //        _data.this_num_cols);
+        //scratch_vector_type thread_workspace(NULL,
+        //        _data.thread_workspace_dim);
+
+//auto a0 = delta.data();
+//auto a1 = delta.data() + delta.extent(0);
+//auto b0 = thread_workspace.data();
+//auto b1 = thread_workspace.data() + thread_workspace.extent(0);
+//
+//compadre_kernel_assert_release(a1 <= b0 || b1 <= a0);
+        //scratch_vector_type ws(teamMember.thread_scratch(_data._pm.getThreadScratchLevel(0)), 
+        //                 _data.this_num_cols + _data.thread_workspace_dim);
+        //scratch_vector_type delta(ws.data(),
+        //        _data.this_num_cols);
+        //scratch_vector_type thread_workspace(ws.data() + _data.this_num_cols,
+        //        _data.thread_workspace_dim);
+
     
         /*
          *    Assemble P*sqrt(W) and sqrt(w)*Identity
@@ -429,32 +461,46 @@ struct AssembleStandardPsqrtW {
                 _data._poly_order, true /*weight_p*/, NULL /*&V*/, _data._reconstruction_space, 
                 _data._polynomial_sampling_functional);
     
-        if ((_data._constraint_type == ConstraintType::NO_CONSTRAINT) && (_data._dense_solver_type != DenseSolverType::LU)) {
+        if ((_data._constraint_type == ConstraintType::NO_CONSTRAINT) && (_data._dense_solver_type != DenseSolverType::CHOL)) {
             // fill in RHS with Identity * sqrt(weights)
             double * rhs_data = RHS.data();
             Kokkos::parallel_for(Kokkos::TeamVectorRange(teamMember, this_num_rows), [&] (const int i) {
-                rhs_data[i] = std::sqrt(w(i));
+                rhs_data[i] = Kokkos::sqrt(w(i));
             });
         } else {
+            const int m = this_num_rows;        // rows to use
+            const int n = _data.this_num_cols;  // cols to use
+            
+            auto PsqrtW_active = Kokkos::subview(PsqrtW,
+                                                 std::pair<int,int>(0, m),
+                                                 std::pair<int,int>(0, n));
+
             // create global memory for matrix M = PsqrtW^T*PsqrtW
             // don't need to cast into device_unmanaged_matrix_left_type since the matrix is symmetric
             device_unmanaged_matrix_right_type M(_data.RHS_data
                     + TO_GLOBAL(local_index)*TO_GLOBAL(_data.RHS_dim_0*_data.RHS_dim_1), 
                         _data.RHS_dim_0, _data.RHS_dim_1);
+            
+            // M is n x n (or larger, but you should pass an n x n view too)
+            auto M_active = Kokkos::subview(M,
+                                            std::pair<int,int>(0, n),
+                                            std::pair<int,int>(0, n));
+
             KokkosBatched::TeamVectorGemm<member_type,KokkosBatched::Trans::Transpose,KokkosBatched::Trans::NoTranspose,KokkosBatched::Algo::Gemm::Unblocked>
     	      ::invoke(teamMember,
     	    	   1.0,
-    	    	   PsqrtW,
-    	    	   PsqrtW,
+    	    	   PsqrtW_active,
+    	    	   PsqrtW_active,
     	    	   0.0,
-    	    	   M);
+    	    	   M_active);
             teamMember.team_barrier();
-    
+
             // Multiply PsqrtW with sqrt(W) to get PW
-            Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, _data.max_num_rows), [&] (const int i) {
-                for (int j=0; j < _data.this_num_cols; j++) {
-                     PsqrtW(i,j) = PsqrtW(i,j)*std::sqrt(w(i));
-                }
+            Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, this_num_rows), [&](int i) {
+              const double swi = Kokkos::sqrt(w(i));
+              Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, _data.this_num_cols), [&](int j) {
+                PsqrtW(i,j) *= swi;
+              });
             });
             teamMember.team_barrier();
     
@@ -599,7 +645,7 @@ struct AssembleCurvaturePsqrtW {
 
         // CurvaturePsqrtW is sized according to max_num_rows x this_num_cols of which in this case
         // we are only using this_num_neighbors x manifold_NP
-        if (_data._dense_solver_type != DenseSolverType::LU) {
+        if (_data._dense_solver_type != DenseSolverType::CHOL) {
             // fill in RHS with Identity * sqrt(weights)
             double * rhs_data = RHS.data();
             Kokkos::parallel_for(Kokkos::TeamVectorRange(teamMember, this_num_neighbors), [&] (const int i) {
@@ -962,7 +1008,7 @@ struct AssembleManifoldPsqrtW {
                 _data._poly_order, true /* weight with W*/, &T, _data._reconstruction_space, 
                 _data._polynomial_sampling_functional);
 
-        if (_data._dense_solver_type != DenseSolverType::LU) {
+        if (_data._dense_solver_type != DenseSolverType::CHOL) {
             // fill in RHS with Identity * sqrt(weights)
             double * Q_data = Q.data();
             Kokkos::parallel_for(Kokkos::TeamVectorRange(teamMember,this_num_rows), [&] (const int i) {

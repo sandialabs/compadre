@@ -9,9 +9,57 @@
 #include "Compadre_LinearAlgebra_Definitions.hpp"
 
 #include "KokkosBatched_UTV_Decl.hpp"
+#include "KokkosBatched_Trsm_Decl.hpp"
 #include "KokkosBatched_SolveUTV_Decl_Compadre.hpp"
+#include "KokkosBatched_Trsm_TeamVector_Impl.hpp"
+#include <cstdlib>
 
 using namespace KokkosBatched;
+
+
+template<class MemberType, class AViewType>
+KOKKOS_INLINE_FUNCTION
+int team_chol_lower_inplace(const MemberType& member, const AViewType& A, const int n) {
+  for (int j=0; j<n; ++j) {
+
+    // A(j,j) -= sum_{k<j} A(j,k)^2
+    typename AViewType::non_const_value_type s = 0;
+    Kokkos::parallel_reduce(Kokkos::ThreadVectorRange(member, j), [&](int k, auto& lsum) {
+      lsum += A(j,k)*A(j,k);
+    }, s);
+    member.team_barrier();
+
+    if (member.team_rank() == 0) {
+      using value_type = typename AViewType::non_const_value_type;
+      const value_type a_jj = A(j,j);
+      const value_type pivot = a_jj - s;
+      // A = (P*sqrt(W))^T*(P*sqrt(W)) is positive definite only if P*sqrt(W) has full column rank.
+      // A pivot that vanishes relative to its original diagonal entry (or is negative or NaN) means
+      // the problem is rank deficient, and continuing would silently produce NaN or meaningless weights.
+      if (!(pivot > 10 * n * Kokkos::ArithTraits<value_type>::epsilon() * a_jj)) {
+        Kokkos::abort("Compadre: CHOL solver failed because P^T*W*P is not positive definite, i.e. the "
+                      "GMLS problem is rank deficient for at least one target. Either:\n"
+                      "  a.) provide more neighbors for each target, or\n"
+                      "  b.) change the sampling operator, as it may have a null space over the reconstruction\n"
+                      "      space (e.g. sampling a gradient cannot recover a constant), or\n"
+                      "  c.) use the QR solver, which handles rank deficient problems.\n");
+      }
+      A(j,j) = Kokkos::sqrt(pivot);
+    }
+    member.team_barrier();
+
+    // For i=j+1..n-1: A(i,j) = (A(i,j) - sum_{k<j} A(i,k)A(j,k))/A(j,j)
+    Kokkos::parallel_for(Kokkos::TeamThreadRange(member, j+1, n), [&](int i) {
+      typename AViewType::non_const_value_type t = 0;
+      for (int k=0; k<j; ++k) t += A(i,k)*A(j,k);
+      A(i,j) = (A(i,j) - t)/A(j,j);
+    });
+    member.team_barrier();
+  }
+
+  // we do not zero the upper triangle
+  return 0;
+}
 
 namespace Compadre{
 namespace GMLS_LinearAlgebra {
@@ -80,7 +128,7 @@ namespace GMLS_LinearAlgebra {
 
       if (std::is_same<typename MatrixViewType_B::array_layout, layout_left>::value) {
         scratch_matrix_right_type tmp(ww_slow.data(), _N, _NRHS);
-        // coming from LU
+        // coming from CHOL
         // then copy B to W, then back to B
         auto bb_left = 
             device_unmanaged_matrix_left_type(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
@@ -148,6 +196,7 @@ namespace GMLS_LinearAlgebra {
         }
         });
       }
+
       TeamVectorSolveUTVCompadre<MemberType,AlgoTagType>
         ::invoke(member, matrix_rank, _M, _N, _NRHS, uu, aa, vv, pp, bb, xx, ww_slow, ww_fast, _implicit_RHS);
       member.team_barrier();
@@ -180,6 +229,12 @@ namespace GMLS_LinearAlgebra {
       pm.setTeamScratchSize(1, scratch_size);
 
       auto tp = pm.TeamPolicyThreadsAndVectors(_a.extent(0));
+      // optionally solve each matrix serially (1 thread, 1 vector lane) when N < $QR_SERIAL_BELOW_N
+      if (const char* qr_serial_below_n = std::getenv("QR_SERIAL_BELOW_N")) {
+        if (_N < std::atoi(qr_serial_below_n)) {
+          tp = pm.TeamPolicyThreadsAndVectors(_a.extent(0), 1, 1);
+        }
+      }
       Kokkos::parallel_for("BatchedTeamVectorSolveUTV", tp, *this);
       Kokkos::fence();
 
@@ -189,33 +244,225 @@ namespace GMLS_LinearAlgebra {
 
 
 
-template <typename A_layout, typename B_layout, typename X_layout>
-void batchQRPivotingSolve(ParallelManager pm, double *A, int lda, int nda, double *B, int ldb, int ndb, int M, int N, int NRHS, const int num_matrices, const bool implicit_RHS) {
+  template<typename DeviceType,
+           typename AlgoTagType,
+           typename MatrixViewType_A,
+           typename MatrixViewType_B,
+           typename MatrixViewType_X>
+  struct Functor_TestBatchedTeamVectorSolveCholesky {
+    MatrixViewType_A _a;
+    MatrixViewType_B _b;
+
+    int _M, _N, _NRHS;
+
+    KOKKOS_INLINE_FUNCTION
+    Functor_TestBatchedTeamVectorSolveCholesky(
+                      const int M,
+                      const int N,
+                      const int NRHS,
+                      const MatrixViewType_A &a,
+                      const MatrixViewType_B &b)
+      : _a(a), _b(b), _M(M), _N(N), _NRHS(NRHS) {}
+
+    template<typename MemberType>
+    KOKKOS_INLINE_FUNCTION
+    void operator()(const MemberType &member) const {
+
+      const int k = member.league_rank();
+
+      device_unmanaged_matrix_right_type aa(_a.data() + TO_GLOBAL(k)*TO_GLOBAL(_a.extent(1))*TO_GLOBAL(_a.extent(2)), 
+              _a.extent(1), _a.extent(2));
+      device_unmanaged_matrix_right_type bb(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
+              _b.extent(1), _b.extent(2));
+      device_unmanaged_matrix_right_type xx(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
+              _b.extent(1), _b.extent(2));
+
+      auto a_small = Kokkos::subview(aa,
+                              std::make_pair<size_t,size_t>(0, _M),
+                              std::make_pair<size_t,size_t>(0, _N));
+
+      auto x_small = Kokkos::subview(xx,
+                              std::make_pair<size_t,size_t>(0, _N),
+                              std::make_pair<size_t,size_t>(0, _NRHS));
+
+      int info = team_chol_lower_inplace(member, a_small, _N);
+      member.team_barrier();
+
+      using Trsmty = KokkosBatched::TeamVectorTrsm<
+          MemberType,
+          KokkosBatched::Side::Left,
+          KokkosBatched::Uplo::Lower,
+          KokkosBatched::Trans::NoTranspose,
+          KokkosBatched::Diag::NonUnit,
+          AlgoTagType>;
+      
+      Trsmty::invoke(member, 1.0, a_small, x_small);
+      member.team_barrier();
+      
+      using TrsmT = KokkosBatched::TeamVectorTrsm<
+          MemberType,
+          KokkosBatched::Side::Left,
+          KokkosBatched::Uplo::Lower,
+          KokkosBatched::Trans::Transpose,
+          KokkosBatched::Diag::NonUnit,
+          AlgoTagType>;
+      
+      TrsmT::invoke(member, 1.0, a_small, x_small);
+      member.team_barrier();
+
+    }
+
+    inline
+    void run(ParallelManager pm) {
+      typedef typename MatrixViewType_A::non_const_value_type value_type;
+      std::string name_region("KokkosBatched::Test::TeamVectorSolveCholesky");
+      std::string name_value_type = ( std::is_same<value_type,float>::value ? "::Float" :
+                                      std::is_same<value_type,double>::value ? "::Double" :
+                                      std::is_same<value_type,Kokkos::complex<float> >::value ? "::ComplexFloat" :
+                                      std::is_same<value_type,Kokkos::complex<double> >::value ? "::ComplexDouble" : "::UnknownValueType" );
+      std::string name = name_region + name_value_type;
+      Kokkos::Profiling::pushRegion( name.c_str() );
+
+      pm.clearScratchSizes();
+      auto tp = pm.TeamPolicyThreadsAndVectors(_a.extent(0));
+      // optionally solve each matrix serially (1 thread, 1 vector lane) when N < $CHOL_SERIAL_BELOW_N
+      if (const char* chol_serial_below_n = std::getenv("CHOL_SERIAL_BELOW_N")) {
+        if (_N < std::atoi(chol_serial_below_n)) {
+          tp = pm.TeamPolicyThreadsAndVectors(_a.extent(0), 1, 1);
+        }
+      }
+      Kokkos::parallel_for("BatchedTeamVectorSolveCholesky", tp, *this);
+      Kokkos::fence();
+
+      Kokkos::Profiling::popRegion();
+    }
+  };
+
+
+
+  /*! \brief Transpose a matrix of original shape N x M (padded). Result will be M x N.
+      \param M       [in] - number of rows in the result
+      \param N       [in] - number of columns in the result
+      \param b   [in/out] - in as rank 3 matrix (num_matrices * N * M), out as rank 3 matrix (num_matrices * M * N)
+  */
+  template<typename DeviceType,
+           typename MatrixViewType>
+  struct Functor_Transpose {
+    MatrixViewType _b;
+    int _M, _N;
+    int _pm_getTeamScratchLevel_1;
+
+    KOKKOS_INLINE_FUNCTION
+    Functor_Transpose(
+                      const int M,
+                      const int N,
+                      const MatrixViewType &b)
+      : _b(b), _M(M), _N(N) {}
+
+    template<typename MemberType>
+    KOKKOS_INLINE_FUNCTION
+    void operator()(const MemberType &member) const {
+
+      const int k = member.league_rank();
+
+      // workspace vector
+      scratch_vector_type ww_slow(member.team_scratch(_pm_getTeamScratchLevel_1), _M*_N);
+      device_unmanaged_matrix_right_type bb(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
+              _b.extent(1), _b.extent(2));
+
+      scratch_matrix_right_type tmp(ww_slow.data(), _M, _N);
+      // coming from CHOL
+      // then copy B to W, then back to B
+      auto bb_left = 
+          device_unmanaged_matrix_left_type(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
+                  _b.extent(1), _b.extent(2));
+      Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_M),[&](const int &i) {
+        Kokkos::parallel_for(Kokkos::ThreadVectorRange(member,0,_N),[&](const int &j) {
+            tmp(i,j) = bb_left(i,j);
+        });
+      });
+      member.team_barrier();
+      Kokkos::parallel_for(Kokkos::TeamThreadRange(member,0,_M),[&](const int &i) {
+        Kokkos::parallel_for(Kokkos::ThreadVectorRange(member,0,_N),[&](const int &j) {
+            bb(i,j) = tmp(i,j);
+        });
+      });
+      member.team_barrier();
+    }
+
+    inline
+    void run(ParallelManager pm) {
+      typedef typename MatrixViewType::non_const_value_type value_type;
+      std::string name_region("KokkosBatched::Test::Transpose");
+      std::string name_value_type = ( std::is_same<value_type,float>::value ? "::Float" :
+                                      std::is_same<value_type,double>::value ? "::Double" :
+                                      std::is_same<value_type,Kokkos::complex<float> >::value ? "::ComplexFloat" :
+                                      std::is_same<value_type,Kokkos::complex<double> >::value ? "::ComplexDouble" : "::UnknownValueType" );
+      std::string name = name_region + name_value_type;
+      Kokkos::Profiling::pushRegion( name.c_str() );
+
+      _pm_getTeamScratchLevel_1 = pm.getTeamScratchLevel(1);
+      
+      size_t scratch_size = scratch_vector_type::shmem_size(_M*_N); 
+
+      pm.clearScratchSizes();
+      pm.setTeamScratchSize(1, scratch_size);
+
+      // set up number of threads and vectors based on size
+      auto tp = pm.TeamPolicyThreadsAndVectors(_b.extent(0));
+      Kokkos::parallel_for("BatchedTeamVectorTranspose", tp, *this);
+      Kokkos::fence();
+
+      Kokkos::Profiling::popRegion();
+    }
+  };
+
+void batchSolve(ParallelManager pm, DenseSolverType dst, double *A, int lda, int nda, bool transpose_A, double *B, int ldb, int ndb, bool transpose_B, int M, int N, int NRHS, const int num_matrices, const bool implicit_RHS, const bool rank_full) {
 
     typedef Algo::UTV::Unblocked algo_tag_type;
-    typedef Kokkos::View<double***, A_layout, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
+    typedef Kokkos::View<double***, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
                     MatrixViewType_A;
-    typedef Kokkos::View<double***, B_layout, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
+    typedef Kokkos::View<double***, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
                     MatrixViewType_B;
-    typedef Kokkos::View<double***, X_layout, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
+    typedef Kokkos::View<double***, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
                     MatrixViewType_X;
+
 
     MatrixViewType_A mat_A(A, num_matrices, lda, nda);
     MatrixViewType_B mat_B(B, num_matrices, ldb, ndb);
 
-    Functor_TestBatchedTeamVectorSolveUTV
-      <device_execution_space, algo_tag_type, MatrixViewType_A, MatrixViewType_B, MatrixViewType_X>(M,N,NRHS,mat_A,mat_B,implicit_RHS).run(pm);
+    // an implicit RHS stores the diagonal of sqrt(W) as a vector, so it cannot be transposed
+    compadre_assert_debug((!(transpose_B && implicit_RHS)) && "transpose_B is not supported when implicit_RHS is true.");
+
+    // important: A and B are rank 3, with potential padding around their 2nd and 3rd rank
+    // so it is not necessarily tru that lda or nda == M, for instance
+    //
+    // sizes given to tranpose are w.r.t. the desired, post tranpose layout
+    if (transpose_A) {
+        // so e.g., N is related to lda and M is related to nda
+        mat_A = MatrixViewType_A(A, num_matrices, nda, lda);
+        Functor_Transpose
+          <device_execution_space, MatrixViewType_A>(M,N,mat_A).run(pm);
+    }
+    if (transpose_B) {
+        // so e.g., N is related to lda and M is related to nda
+        // B is P, but we need P^T
+        mat_B = MatrixViewType_B(B, num_matrices, ndb, ldb);
+        Functor_Transpose
+          <device_execution_space, MatrixViewType_B>(N,NRHS,mat_B).run(pm);
+    }
+
+    if (dst==DenseSolverType::CHOL && rank_full) {
+        Functor_TestBatchedTeamVectorSolveCholesky
+          <device_execution_space, algo_tag_type, MatrixViewType_A, MatrixViewType_B, MatrixViewType_X>(M,N,NRHS,mat_A,mat_B).run(pm);
+    } else {
+        Functor_TestBatchedTeamVectorSolveUTV
+          <device_execution_space, algo_tag_type, MatrixViewType_A, MatrixViewType_B, MatrixViewType_X>(M,N,NRHS,mat_A,mat_B,implicit_RHS).run(pm);
+    }
+    Kokkos::fence();
 
 }
 
-template void batchQRPivotingSolve<layout_right, layout_right, layout_right>(ParallelManager,double*,int,int,double*,int,int,int,int,int,const int,const bool);
-template void batchQRPivotingSolve<layout_right, layout_right, layout_left >(ParallelManager,double*,int,int,double*,int,int,int,int,int,const int,const bool);
-template void batchQRPivotingSolve<layout_right, layout_left , layout_right>(ParallelManager,double*,int,int,double*,int,int,int,int,int,const int,const bool);
-template void batchQRPivotingSolve<layout_right, layout_left , layout_left >(ParallelManager,double*,int,int,double*,int,int,int,int,int,const int,const bool);
-template void batchQRPivotingSolve<layout_left , layout_right, layout_right>(ParallelManager,double*,int,int,double*,int,int,int,int,int,const int,const bool);
-template void batchQRPivotingSolve<layout_left , layout_right, layout_left >(ParallelManager,double*,int,int,double*,int,int,int,int,int,const int,const bool);
-template void batchQRPivotingSolve<layout_left , layout_left , layout_right>(ParallelManager,double*,int,int,double*,int,int,int,int,int,const int,const bool);
-template void batchQRPivotingSolve<layout_left , layout_left , layout_left >(ParallelManager,double*,int,int,double*,int,int,int,int,int,const int,const bool);
 
 } // GMLS_LinearAlgebra
 } // Compadre

@@ -146,7 +146,7 @@ private:
     //! actual rank of reconstruction basis
     int _reconstruction_space_rank;
 
-    //! solver type for GMLS problem - can be QR, SVD or LU
+    //! solver type for GMLS problem - can be QR or CHOL
     DenseSolverType _dense_solver_type;
 
     //! problem type for GMLS problem, can also be set to STANDARD for normal or MANIFOLD for manifold problems <br>
@@ -343,10 +343,11 @@ private:
     static DenseSolverType parseSolverType(const std::string& dense_solver_type) {
         std::string solver_type_to_lower = dense_solver_type;
         transform(solver_type_to_lower.begin(), solver_type_to_lower.end(), solver_type_to_lower.begin(), ::tolower);
-        if (solver_type_to_lower == "lu") {
-            return DenseSolverType::LU;
-        } else {
+        if (solver_type_to_lower == "qr") {
             return DenseSolverType::QR;
+        } else {
+            // "chol", and "lu" (deprecated alias for "chol")
+            return DenseSolverType::CHOL;
         }
     }
 
@@ -470,7 +471,7 @@ public:
         const SamplingFunctional data_sampling_strategy,
         const int poly_order,
         const int dimensions = 3,
-        const std::string dense_solver_type = std::string("QR"),
+        const std::string dense_solver_type = std::string("CHOL"),
         const std::string problem_type = std::string("STANDARD"),
         const std::string constraint_type = std::string("NO_CONSTRAINT"),
         const int manifold_curvature_poly_order = 2)
@@ -480,7 +481,7 @@ public:
     //! sampling functional. Only case anticipated is staggered Laplacian.
     GMLS(const int poly_order,
          const int dimensions = 3,
-         const std::string dense_solver_type = std::string("QR"),
+         const std::string dense_solver_type = std::string("CHOL"),
          const std::string problem_type = std::string("STANDARD"),
          const std::string constraint_type = std::string("NO_CONSTRAINT"),
          const int manifold_curvature_poly_order = 2)
@@ -492,7 +493,7 @@ public:
          SamplingFunctional dual_sampling_strategy,
          const int poly_order,
          const int dimensions = 3,
-         const std::string dense_solver_type = std::string("QR"),
+         const std::string dense_solver_type = std::string("CHOL"),
          const std::string problem_type = std::string("STANDARD"),
          const std::string constraint_type = std::string("NO_CONSTRAINT"),
          const int manifold_curvature_poly_order = 2)
@@ -648,7 +649,7 @@ public:
         compadre_assert_release(_store_PTWP_inv_PTW
                 && "generateAlphas() called with keep_coefficients set to false.");
         host_managed_local_index_type sizes("sizes", 2);
-        if ((_constraint_type == ConstraintType::NO_CONSTRAINT) && (_dense_solver_type != DenseSolverType::LU)) {
+        if ((_constraint_type == ConstraintType::NO_CONSTRAINT) && (_dense_solver_type != DenseSolverType::CHOL)) {
             getRHSDims(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, M_by_N[1], M_by_N[0], sizes(0), sizes(1));
         } else {
             getPDims(_dense_solver_type, _constraint_type, _reconstruction_space, _dimensions, M_by_N[1], M_by_N[0], sizes(1), sizes(0));
@@ -783,7 +784,7 @@ public:
                 && "Entire batch not computed at once, so getFullPolynomialCoefficientsBasis() can not be called.");
         compadre_assert_release(_store_PTWP_inv_PTW
                 && "generateAlphas() called with keep_coefficients set to false.");
-        if ((_constraint_type == ConstraintType::NO_CONSTRAINT) && (_dense_solver_type != DenseSolverType::LU)) {
+        if ((_constraint_type == ConstraintType::NO_CONSTRAINT) && (_dense_solver_type != DenseSolverType::CHOL)) {
             return _RHS; 
         } else {
             return _P; 
