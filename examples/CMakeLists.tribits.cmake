@@ -242,8 +242,8 @@ if (${testName}_CREATED)
     ) # end set_tests_properties
 endif() # test created
 
-# Device views tests for GMLS - LU solver
-set(testName GMLS_Device_Dim3_LU)
+# Device views tests for GMLS - Cholesky solver
+set(testName GMLS_Device_Dim3_CHOL)
 tribits_add_test(
   GMLS_Device_Test
   NAME
@@ -251,7 +251,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "--p 4 --nt 200 --d 3 --solver LU --kokkos-num-threads=2"
+    "--p 4 --nt 200 --d 3 --solver CHOL --kokkos-num-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -265,8 +265,8 @@ if (${testName}_CREATED)
     ) # end set_tests_properties
 endif() # test created
 
-# Device views tests with Neumann BC for GMLS - LU solver
-set(testName GMLS_NeumannGradScalar_Dim3_LU)
+# Device views tests with Neumann BC for GMLS - Cholesky solver
+set(testName GMLS_NeumannGradScalar_Dim3_CHOL)
 tribits_add_test(
   GMLS_NeumannGradScalar_Test
   NAME
@@ -274,7 +274,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "--p 3 --nt 200 --d 3 --solver LU --constraint NEUMANN_GRAD_SCALAR --kokkos-num-threads=2"
+    "--p 3 --nt 200 --d 3 --solver CHOL --constraint NEUMANN_GRAD_SCALAR --kokkos-num-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -378,8 +378,8 @@ if (${testName}_CREATED)
     ) # end set_tests_properties
 endif() # test created
 
-# Device views tests for GMLS (vector basis) with LU
-set(testName GMLS_Vector_Dim3_LU)
+# Device views tests for GMLS (vector basis) with Cholesky
+set(testName GMLS_Vector_Dim3_CHOL)
 tribits_add_test(
   GMLS_Vector_Test
   NAME
@@ -387,7 +387,7 @@ tribits_add_test(
   COMM serial mpi
   NUM_MPI_PROCS 1
   ARGS
-    "--p 3 --nt 200 --d 3 --solver LU --kokkos-num-threads=2"
+    "--p 3 --nt 200 --d 3 --solver CHOL --kokkos-num-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
   ) # end tribits_add_test
 if (${testName}_CREATED)
@@ -668,11 +668,11 @@ if (Python3_EXECUTABLE)
   endif() # test created
   
   # Python driven test of a C++ executable (Python changes command line
-  # arguments given to executable) - calling LU solver
-  set(testName GMLS_Manifold_Refinement_Study_LU)
+  # arguments given to executable) - calling Cholesky solver
+  set(testName GMLS_Manifold_Refinement_Study_CHOL)
   TRIBITS_ADD_ADVANCED_TEST(
     ${testName}
-    TEST_0 CMND ${Python3_EXECUTABLE} ARGS ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py --porder=3 --grids=4 --solver-type=LU --in-trilinos=True
+    TEST_0 CMND ${Python3_EXECUTABLE} ARGS ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py --porder=3 --grids=4 --solver-type=CHOL --in-trilinos=True
     PASS_REGULAR_EXPRESSION "Passed."
     COMM mpi serial
     ADDED_TEST_NAME_OUT ${testName}_CREATED

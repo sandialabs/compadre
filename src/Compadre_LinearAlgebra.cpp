@@ -12,7 +12,7 @@
 #include "KokkosBatched_Trsm_Decl.hpp"
 #include "KokkosBatched_SolveUTV_Decl_Compadre.hpp"
 #include "KokkosBatched_Trsm_TeamVector_Impl.hpp"
-#include <iostream>
+#include <cstdlib>
 
 using namespace KokkosBatched;
 
@@ -30,9 +30,21 @@ int team_chol_lower_inplace(const MemberType& member, const AViewType& A, const 
     member.team_barrier();
 
     if (member.team_rank() == 0) {
-      A(j,j) = A(j,j) - s;
-      if (A(j,j) <= 0) { /* not SPD */ }
-      A(j,j) = Kokkos::sqrt(A(j,j));
+      using value_type = typename AViewType::non_const_value_type;
+      const value_type a_jj = A(j,j);
+      const value_type pivot = a_jj - s;
+      // A = (P*sqrt(W))^T*(P*sqrt(W)) is positive definite only if P*sqrt(W) has full column rank.
+      // A pivot that vanishes relative to its original diagonal entry (or is negative or NaN) means
+      // the problem is rank deficient, and continuing would silently produce NaN or meaningless weights.
+      if (!(pivot > 10 * n * Kokkos::ArithTraits<value_type>::epsilon() * a_jj)) {
+        Kokkos::abort("Compadre: CHOL solver failed because P^T*W*P is not positive definite, i.e. the "
+                      "GMLS problem is rank deficient for at least one target. Either:\n"
+                      "  a.) provide more neighbors for each target, or\n"
+                      "  b.) change the sampling operator, as it may have a null space over the reconstruction\n"
+                      "      space (e.g. sampling a gradient cannot recover a constant), or\n"
+                      "  c.) use the QR solver, which handles rank deficient problems.\n");
+      }
+      A(j,j) = Kokkos::sqrt(pivot);
     }
     member.team_barrier();
 
@@ -116,7 +128,7 @@ namespace GMLS_LinearAlgebra {
 
       if (std::is_same<typename MatrixViewType_B::array_layout, layout_left>::value) {
         scratch_matrix_right_type tmp(ww_slow.data(), _N, _NRHS);
-        // coming from LU
+        // coming from CHOL
         // then copy B to W, then back to B
         auto bb_left = 
             device_unmanaged_matrix_left_type(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
@@ -217,8 +229,9 @@ namespace GMLS_LinearAlgebra {
       pm.setTeamScratchSize(1, scratch_size);
 
       auto tp = pm.TeamPolicyThreadsAndVectors(_a.extent(0));
-      if (const char* qr_threshold = std::getenv("QR_THRESHOLD")) {
-        if (_N < std::atoi(qr_threshold)) {
+      // optionally solve each matrix serially (1 thread, 1 vector lane) when N < $QR_SERIAL_BELOW_N
+      if (const char* qr_serial_below_n = std::getenv("QR_SERIAL_BELOW_N")) {
+        if (_N < std::atoi(qr_serial_below_n)) {
           tp = pm.TeamPolicyThreadsAndVectors(_a.extent(0), 1, 1);
         }
       }
@@ -228,12 +241,6 @@ namespace GMLS_LinearAlgebra {
       Kokkos::Profiling::popRegion();
     }
   };
-
-
-
-
-
-
 
 
 
@@ -318,8 +325,9 @@ namespace GMLS_LinearAlgebra {
 
       pm.clearScratchSizes();
       auto tp = pm.TeamPolicyThreadsAndVectors(_a.extent(0));
-      if (const char* qr_threshold = std::getenv("LU_THRESHOLD")) {
-        if (_N < std::atoi(qr_threshold)) {
+      // optionally solve each matrix serially (1 thread, 1 vector lane) when N < $CHOL_SERIAL_BELOW_N
+      if (const char* chol_serial_below_n = std::getenv("CHOL_SERIAL_BELOW_N")) {
+        if (_N < std::atoi(chol_serial_below_n)) {
           tp = pm.TeamPolicyThreadsAndVectors(_a.extent(0), 1, 1);
         }
       }
@@ -332,10 +340,10 @@ namespace GMLS_LinearAlgebra {
 
 
 
-  /*! \brief Tranpose a matrix of original shape M x N (padded). Result will be N x M.
-      \param M       [in] - Kokkos::TeamPolicy member type (created by parallel_for)
-      \param N       [in] - dimension * dimension Kokkos View
-      \param b   [in/out] - in as rank 3 matrix (num_matrices * M * N), out as rank 3 matrix (num_matrices * N * M)
+  /*! \brief Transpose a matrix of original shape N x M (padded). Result will be M x N.
+      \param M       [in] - number of rows in the result
+      \param N       [in] - number of columns in the result
+      \param b   [in/out] - in as rank 3 matrix (num_matrices * N * M), out as rank 3 matrix (num_matrices * M * N)
   */
   template<typename DeviceType,
            typename MatrixViewType>
@@ -363,7 +371,7 @@ namespace GMLS_LinearAlgebra {
               _b.extent(1), _b.extent(2));
 
       scratch_matrix_right_type tmp(ww_slow.data(), _M, _N);
-      // coming from LU
+      // coming from CHOL
       // then copy B to W, then back to B
       auto bb_left = 
           device_unmanaged_matrix_left_type(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
@@ -409,24 +417,22 @@ namespace GMLS_LinearAlgebra {
     }
   };
 
-template <typename A_layout, typename B_layout, typename X_layout>
 void batchSolve(ParallelManager pm, DenseSolverType dst, double *A, int lda, int nda, bool transpose_A, double *B, int ldb, int ndb, bool transpose_B, int M, int N, int NRHS, const int num_matrices, const bool implicit_RHS, const bool rank_full) {
 
     typedef Algo::UTV::Unblocked algo_tag_type;
-    typedef Kokkos::View<double***, A_layout, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
+    typedef Kokkos::View<double***, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
                     MatrixViewType_A;
-    typedef Kokkos::View<double***, B_layout, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
+    typedef Kokkos::View<double***, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
                     MatrixViewType_B;
-    typedef Kokkos::View<double***, X_layout, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
+    typedef Kokkos::View<double***, layout_right, Kokkos::MemoryTraits<Kokkos::Unmanaged> >
                     MatrixViewType_X;
 
 
     MatrixViewType_A mat_A(A, num_matrices, lda, nda);
     MatrixViewType_B mat_B(B, num_matrices, ldb, ndb);
 
-    // requires c++17
-    compadre_assert_release((std::is_same_v<A_layout, B_layout>));
-    compadre_assert_release((std::is_same_v<B_layout, X_layout>));
+    // an implicit RHS stores the diagonal of sqrt(W) as a vector, so it cannot be transposed
+    compadre_assert_debug((!(transpose_B && implicit_RHS)) && "transpose_B is not supported when implicit_RHS is true.");
 
     // important: A and B are rank 3, with potential padding around their 2nd and 3rd rank
     // so it is not necessarily tru that lda or nda == M, for instance
@@ -446,7 +452,7 @@ void batchSolve(ParallelManager pm, DenseSolverType dst, double *A, int lda, int
           <device_execution_space, MatrixViewType_B>(N,NRHS,mat_B).run(pm);
     }
 
-    if (dst==DenseSolverType::LU && rank_full) {
+    if (dst==DenseSolverType::CHOL && rank_full) {
         Functor_TestBatchedTeamVectorSolveCholesky
           <device_execution_space, algo_tag_type, MatrixViewType_A, MatrixViewType_B, MatrixViewType_X>(M,N,NRHS,mat_A,mat_B).run(pm);
     } else {
@@ -457,7 +463,6 @@ void batchSolve(ParallelManager pm, DenseSolverType dst, double *A, int lda, int
 
 }
 
-template void batchSolve<layout_right, layout_right, layout_right>(ParallelManager,DenseSolverType,double*,int,int,bool,double*,int,int,bool,int,int,int,const int,const bool, const bool);
 
 } // GMLS_LinearAlgebra
 } // Compadre

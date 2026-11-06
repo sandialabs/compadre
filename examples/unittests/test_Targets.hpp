@@ -186,8 +186,10 @@ TEST_F (TargetTest, EvalBernsteinBasis1D) {
 
     SetUp(dimension);
 
+    // this test checks basis evaluation only; neighbors on the support boundary have zero weight,
+    // leaving the problem rank deficient, so use QR (CHOL requires a full rank problem)
     GMLS gmls(BernsteinPolynomial, VectorPointSample,
-                 order, dimension);
+                 order, dimension, "QR");
 
     gmls.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
 
@@ -295,8 +297,10 @@ TEST_F (TargetTest, EvalBernsteinBasis2D) {
 
     SetUp(dimension);
 
+    // this test checks basis evaluation only; neighbors on the support boundary have zero weight,
+    // leaving the problem rank deficient, so use QR (CHOL requires a full rank problem)
     GMLS gmls(BernsteinPolynomial, VectorPointSample,
-                 order, dimension);
+                 order, dimension, "QR");
 
     gmls.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
 

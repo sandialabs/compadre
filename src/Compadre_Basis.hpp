@@ -912,7 +912,6 @@ void createWeightsAndP(const BasisData& data, const member_type& teamMember, scr
 
         compadre_kernel_assert_release(a1 <= b0 || b1 <= a0);
 
-
         ///for (int j = 0; j < delta.extent_int(0); ++j) {
         ///    delta(j) = 0;
         ///}

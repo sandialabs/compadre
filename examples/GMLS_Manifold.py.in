@@ -16,7 +16,7 @@ import argparse
 parser = argparse.ArgumentParser(description='convert files by adding cell centroids and ID (for cubed-sphere)')
 parser.add_argument('--porder', dest='porder', type=int, default=3, help='polynomial degree for basis')
 parser.add_argument('--grids', dest='grids', type=int, default=2, help='number of grids for refinement sequence')
-parser.add_argument('--solver-type', dest='solver_type', type=str, default='QR', help='solver type {QR,LU}')
+parser.add_argument('--solver-type', dest='solver_type', type=str, default='QR', help='solver type {QR,CHOL}')
 parser.add_argument('--in-trilinos', dest='in_trilinos', type=str, default='false', help='whether being called from inside of Trilinos')
 args = parser.parse_args()
 

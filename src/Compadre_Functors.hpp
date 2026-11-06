@@ -461,7 +461,7 @@ struct AssembleStandardPsqrtW {
                 _data._poly_order, true /*weight_p*/, NULL /*&V*/, _data._reconstruction_space, 
                 _data._polynomial_sampling_functional);
     
-        if ((_data._constraint_type == ConstraintType::NO_CONSTRAINT) && (_data._dense_solver_type != DenseSolverType::LU)) {
+        if ((_data._constraint_type == ConstraintType::NO_CONSTRAINT) && (_data._dense_solver_type != DenseSolverType::CHOL)) {
             // fill in RHS with Identity * sqrt(weights)
             double * rhs_data = RHS.data();
             Kokkos::parallel_for(Kokkos::TeamVectorRange(teamMember, this_num_rows), [&] (const int i) {
@@ -645,7 +645,7 @@ struct AssembleCurvaturePsqrtW {
 
         // CurvaturePsqrtW is sized according to max_num_rows x this_num_cols of which in this case
         // we are only using this_num_neighbors x manifold_NP
-        if (_data._dense_solver_type != DenseSolverType::LU) {
+        if (_data._dense_solver_type != DenseSolverType::CHOL) {
             // fill in RHS with Identity * sqrt(weights)
             double * rhs_data = RHS.data();
             Kokkos::parallel_for(Kokkos::TeamVectorRange(teamMember, this_num_neighbors), [&] (const int i) {
@@ -1008,7 +1008,7 @@ struct AssembleManifoldPsqrtW {
                 _data._poly_order, true /* weight with W*/, &T, _data._reconstruction_space, 
                 _data._polynomial_sampling_functional);
 
-        if (_data._dense_solver_type != DenseSolverType::LU) {
+        if (_data._dense_solver_type != DenseSolverType::CHOL) {
             // fill in RHS with Identity * sqrt(weights)
             double * Q_data = Q.data();
             Kokkos::parallel_for(Kokkos::TeamVectorRange(teamMember,this_num_rows), [&] (const int i) {
