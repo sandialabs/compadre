@@ -234,7 +234,11 @@ if (Compadre_EXAMPLES)
 
       ADD_TEST(NAME PyCOMPADRE_Tests COMMAND "${Python_EXECUTABLE}" "-m" "unittest" "discover" "-s" "${PYTHON_LIBRARY_PREFIX}/pycompadre/examples")
       SET_TESTS_PROPERTIES(PyCOMPADRE_Tests PROPERTIES ENVIRONMENT PYTHONPATH=${PYTHON_LIBRARY_PREFIX})
-      SET_TESTS_PROPERTIES(PyCOMPADRE_Tests PROPERTIES LABELS "pycompadre" TIMEOUT 30)
+      if (NOT Compadre_DEBUG)
+        SET_TESTS_PROPERTIES(PyCOMPADRE_Tests PROPERTIES LABELS "pycompadre" TIMEOUT 30)
+      else()
+        SET_TESTS_PROPERTIES(PyCOMPADRE_Tests PROPERTIES LABELS "pycompadre" TIMEOUT 60)
+      endif()
 
     endif()
 
