@@ -13,7 +13,7 @@ parser.add_argument('--in-trilinos', dest='in_trilinos', type=str, default='fals
 args = parser.parse_args()
 
 def check_bounds(porder, rate):
-    if (porder=="1"):
+    if (porder==1):
         if rate<3 and rate>.9:
             return True
         else:

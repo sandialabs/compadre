@@ -169,6 +169,28 @@ if (Compadre_EXAMPLES)
               $<TARGET_FILE:GMLS_Manifold_Test>
       )
 
+      # Python driven test of a C++ executable - curvature order above the main order, so the
+      # curvature basis is larger than the main basis (buffers sized for the larger one) - calling QR solver
+      ADD_TEST(NAME GMLS_Manifold_Refinement_Study_Curvature_Order_QR COMMAND ${Python_EXECUTABLE} "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" "--porder=2" "--curvature-porder=3" "--grids=4" "--solver-type=QR")
+      SET_TESTS_PROPERTIES(GMLS_Manifold_Refinement_Study_Curvature_Order_QR
+          PROPERTIES
+            LABELS "ConvergenceTest;convergence;manifold"
+            TIMEOUT 20
+            REQUIRED_FILES
+              $<TARGET_FILE:GMLS_Manifold_Test>
+      )
+
+      # Python driven test of a C++ executable - curvature order above the main order, so the
+      # curvature basis is larger than the main basis (buffers sized for the larger one) - calling CHOL solver
+      ADD_TEST(NAME GMLS_Manifold_Refinement_Study_Curvature_Order_CHOL COMMAND ${Python_EXECUTABLE} "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py" "--porder=2" "--curvature-porder=3" "--grids=4" "--solver-type=CHOL")
+      SET_TESTS_PROPERTIES(GMLS_Manifold_Refinement_Study_Curvature_Order_CHOL
+          PROPERTIES
+            LABELS "ConvergenceTest;convergence;manifold"
+            TIMEOUT 20
+            REQUIRED_FILES
+              $<TARGET_FILE:GMLS_Manifold_Test>
+      )
+
       # Python driven test of a C++ executable (Python changes command line arguments given to executable)
       CONFIGURE_FILE("${CMAKE_CURRENT_SOURCE_DIR}/GMLS_Staggered_Manifold.py.in" "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py" @ONLY)
       ADD_TEST(NAME GMLS_Staggered_Manifold_Refinement_Study COMMAND ${Python_EXECUTABLE} "${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered_Manifold.py" "--porder=3" "--grids=4")

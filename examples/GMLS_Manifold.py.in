@@ -15,13 +15,14 @@ import argparse
 
 parser = argparse.ArgumentParser(description='convert files by adding cell centroids and ID (for cubed-sphere)')
 parser.add_argument('--porder', dest='porder', type=int, default=3, help='polynomial degree for basis')
+parser.add_argument('--curvature-porder', dest='curvature_porder', type=int, default=-1, help='polynomial degree for curvature (default: same as porder)')
 parser.add_argument('--grids', dest='grids', type=int, default=2, help='number of grids for refinement sequence')
 parser.add_argument('--solver-type', dest='solver_type', type=str, default='QR', help='solver type {QR,CHOL}')
 parser.add_argument('--in-trilinos', dest='in_trilinos', type=str, default='false', help='whether being called from inside of Trilinos')
 args = parser.parse_args()
 
 def check_bounds(porder, rate):
-    if (porder=="1"):
+    if (porder==1):
         if rate<3 and rate>.9:
             return True
         else:
@@ -51,6 +52,8 @@ for grid_num in range(grids):
         else:
             exe_name = "@CMAKE_CURRENT_BINARY_DIR@/GMLS_Manifold_Test"
         output_commands = [exe_name,"--p","%d"%porder,"--nt","%d"%num_target_sites,"--d","3","--ns","%d"%(20*num_target_sites*pow(4,grid_num)),"--solver",str(solver_type),"--problem","MANIFOLD","@KOKKOS_THREADS_ARG@=4"]
+        if args.curvature_porder >= 0:
+            output_commands += ["--curvature-order", "%d"%args.curvature_porder]
         print(output_commands)
         output = subprocess.check_output(output_commands, stderr=devnull)
         #print(output)

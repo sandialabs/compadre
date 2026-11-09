@@ -690,6 +690,52 @@ if (Python3_EXECUTABLE)
     )
   endif() # test created
 
+  # Python driven test of a C++ executable - curvature order above the main order, so the
+  # curvature basis is larger than the main basis - calling QR solver
+  set(testName GMLS_Manifold_Refinement_Study_Curvature_Order_QR)
+  TRIBITS_ADD_ADVANCED_TEST(
+    ${testName}
+    TEST_0 CMND ${Python3_EXECUTABLE} ARGS ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py --porder=2 --curvature-porder=3 --grids=4 --solver-type=QR --in-trilinos=True
+    PASS_REGULAR_EXPRESSION "Passed."
+    COMM mpi serial
+    ADDED_TEST_NAME_OUT ${testName}_CREATED
+  )
+  if (${testName}_CREATED)
+    set_tests_properties(
+      ${${testName}_CREATED}
+      PROPERTIES
+        LABELS
+          "ConvergenceTest;convergence;manifold"
+        TIMEOUT
+          60
+        REQUIRED_FILES
+          $<TARGET_FILE:Compadre_GMLS_Manifold_Test>
+    )
+  endif() # test created
+
+  # Python driven test of a C++ executable - curvature order above the main order, so the
+  # curvature basis is larger than the main basis - calling CHOL solver
+  set(testName GMLS_Manifold_Refinement_Study_Curvature_Order_CHOL)
+  TRIBITS_ADD_ADVANCED_TEST(
+    ${testName}
+    TEST_0 CMND ${Python3_EXECUTABLE} ARGS ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Manifold.py --porder=2 --curvature-porder=3 --grids=4 --solver-type=CHOL --in-trilinos=True
+    PASS_REGULAR_EXPRESSION "Passed."
+    COMM mpi serial
+    ADDED_TEST_NAME_OUT ${testName}_CREATED
+  )
+  if (${testName}_CREATED)
+    set_tests_properties(
+      ${${testName}_CREATED}
+      PROPERTIES
+        LABELS
+          "ConvergenceTest;convergence;manifold"
+        TIMEOUT
+          60
+        REQUIRED_FILES
+          $<TARGET_FILE:Compadre_GMLS_Manifold_Test>
+    )
+  endif() # test created
+
   # Python driven test of a C++ executable (Python changes command line
   # arguments given to executable) - calling QR solver
   configure_file(

@@ -866,6 +866,12 @@ void createWeightsAndP(const BasisData& data, const member_type& teamMember, scr
     int storage_size = GMLS::getNP(polynomial_order, dimension, reconstruction_space);
     storage_size *= data._basis_multiplier;
     auto thread_scratch_level = data._pm.getThreadScratchLevel(0);
+    // delta and thread_workspace come from uninitialized thread scratch, and the basis evaluate
+    // functions read delta before writing it (delta = w_orig*delta + w_new*value), so zero them
+    Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, delta.extent_int(0)),
+        [&](int j){ delta(j) = 0.0; });
+    Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, thread_workspace.extent_int(0)),
+        [&](int j){ thread_workspace(j) = 0.0; });
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, my_num_neighbors),
             [&] (const int i) {
 
@@ -1004,12 +1010,12 @@ void createWeightsAndPForCurvature(const BasisData& data, const member_type& tea
 
     const int target_index = data._initial_index_for_batch + teamMember.league_rank();
     int storage_size = only_specific_order ? GMLS::getNP(1, dimension)-GMLS::getNP(0, dimension) : GMLS::getNP(data._curvature_poly_order, dimension);
-    for (int j = 0; j < delta.extent_int(0); ++j) {
-        delta(j) = 0;
-    }
-    for (int j = 0; j < thread_workspace.extent_int(0); ++j) {
-        thread_workspace(j) = 0;
-    }
+    // delta and thread_workspace come from uninitialized thread scratch, and the basis evaluate
+    // functions read delta before writing it (delta = w_orig*delta + w_new*value), so zero them
+    Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, delta.extent_int(0)),
+        [&](int j){ delta(j) = 0.0; });
+    Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, thread_workspace.extent_int(0)),
+        [&](int j){ thread_workspace(j) = 0.0; });
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember,data._pc._nla.getNumberOfNeighborsDevice(target_index)),
             [&] (const int i) {
 

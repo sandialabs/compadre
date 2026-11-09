@@ -363,14 +363,17 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
             auto functor_assemble_manifold_psqrtw = AssembleManifoldPsqrtW(gmls_basis_data);
             Kokkos::parallel_for("AssembleManifoldPsqrtW", tp, functor_assemble_manifold_psqrtw);
 
+            // the main solve only involves the main basis; the buffers are wider when the curvature
+            // basis is larger, and those extra columns of P are zero
+            const int main_num_cols = _basis_multiplier*_NP;
             // solves P*sqrt(weights) against sqrt(weights)*Identity, stored in RHS
             if (_dense_solver_type == DenseSolverType::CHOL) {
                 Kokkos::Profiling::pushRegion("Manifold Cholesky Factorization");
-                GMLS_LinearAlgebra::batchSolve(_pm, _dense_solver_type, _RHS.data(), RHS_dim_0, RHS_dim_1, false, _P.data(), P_dim_0, P_dim_1, true, this_num_cols, this_num_cols, max_num_rows, this_batch_size, implicit_RHS, true);
+                GMLS_LinearAlgebra::batchSolve(_pm, _dense_solver_type, _RHS.data(), RHS_dim_0, RHS_dim_1, false, _P.data(), P_dim_0, P_dim_1, true, main_num_cols, main_num_cols, max_num_rows, this_batch_size, implicit_RHS, true);
                 Kokkos::Profiling::popRegion();
             } else {
                 Kokkos::Profiling::pushRegion("Manifold QR+Pivoting Factorization");
-                GMLS_LinearAlgebra::batchSolve(_pm, _dense_solver_type, _P.data(), P_dim_0, P_dim_1, false, _RHS.data(), RHS_dim_0, RHS_dim_1, false, max_num_rows, this_num_cols, max_num_rows, this_batch_size, implicit_RHS, true);
+                GMLS_LinearAlgebra::batchSolve(_pm, _dense_solver_type, _P.data(), P_dim_0, P_dim_1, false, _RHS.data(), RHS_dim_0, RHS_dim_1, false, max_num_rows, main_num_cols, max_num_rows, this_batch_size, implicit_RHS, true);
                 Kokkos::Profiling::popRegion();
             }
             Kokkos::fence();
@@ -507,12 +510,20 @@ const GMLSSolutionData GMLS::extractSolutionData() const {
     // extra argument to applyTargetsToCoefficients)
     data.this_num_cols = gmls._basis_multiplier*gmls._NP;
 
+    // The coefficient and target buffers were laid out in generatePolynomialCoefficients with
+    // the larger of the main and curvature basis widths (for manifolds), so their strides must
+    // use that width, while applyTargetsToCoefficients only sums over the main basis width
+    int buffer_cols = data.this_num_cols;
+    if (gmls._problem_type == ProblemType::MANIFOLD) {
+        const int manifold_NP = GMLS::getNP(gmls._curvature_poly_order, gmls._dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
+        buffer_cols = gmls._basis_multiplier*((manifold_NP > gmls._NP) ? manifold_NP : gmls._NP);
+    }
     int RHS_dim_0, RHS_dim_1;
     getRHSDims(gmls._dense_solver_type, gmls._constraint_type, gmls._reconstruction_space, 
-            gmls._dimensions, max_num_rows, data.this_num_cols, RHS_dim_0, RHS_dim_1);
+            gmls._dimensions, max_num_rows, buffer_cols, RHS_dim_0, RHS_dim_1);
     int P_dim_0, P_dim_1;
     getPDims(gmls._dense_solver_type, gmls._constraint_type, gmls._reconstruction_space, 
-            gmls._dimensions, max_num_rows, data.this_num_cols, P_dim_0, P_dim_1);
+            gmls._dimensions, max_num_rows, buffer_cols, P_dim_0, P_dim_1);
 
     if ((gmls._constraint_type == ConstraintType::NO_CONSTRAINT) && (gmls._dense_solver_type != DenseSolverType::CHOL)) {
         data.Coeffs_data = gmls._RHS.data();
@@ -525,7 +536,7 @@ const GMLSSolutionData GMLS::extractSolutionData() const {
     }
 
     data.P_target_row_dim_0 = gmls._d_ss._total_alpha_values*gmls._d_ss._max_evaluation_sites_per_target;
-    data.P_target_row_dim_1 = data.this_num_cols;
+    data.P_target_row_dim_1 = buffer_cols;
     data.P_target_row_data = gmls._Z.data();
 
     data.operations_size = gmls._operations.size();

@@ -11,7 +11,7 @@
 
 struct CommandLineProcessor {
 
-    int order, dimension, number_target_coords, number_source_coords, number_of_batches;
+    int order, curvature_order, dimension, number_target_coords, number_source_coords, number_of_batches;
     std::string constraint_name, solver_name, problem_name;
 
     Compadre::WeightingFunctionType kernel_type, curvature_kernel_type;
@@ -19,6 +19,7 @@ struct CommandLineProcessor {
     CommandLineProcessor(int argc, char* args[], const bool print=true) {
 
         order = 2;
+        curvature_order = -1; // defaults to order
         dimension = 3;
         number_target_coords = 200; 
         number_source_coords = -1; 
@@ -34,6 +35,8 @@ struct CommandLineProcessor {
             if (i + 1 < argc) { // not at end
                 if (std::string(args[i]) == "--p") {
                    order = atoi(args[i+1]); 
+                } else if (std::string(args[i]) == "--curvature-order") {
+                   curvature_order = atoi(args[i+1]);
                 } else if (std::string(args[i]) == "--d") {
                    dimension = atoi(args[i+1]); 
                 } else if (std::string(args[i]) == "--nt") {
@@ -56,9 +59,11 @@ struct CommandLineProcessor {
             }
         }
 
+        if (curvature_order < 0) curvature_order = order;
+
         if (print) {
             std::cout << "************************************************************************" << std::endl;
-            std::cout << "order: " << order << ", dimension: " << dimension << ", number_target_coords: " << number_target_coords << std::endl;
+            std::cout << "order: " << order << ", curvature order: " << curvature_order << ", dimension: " << dimension << ", number_target_coords: " << number_target_coords << std::endl;
             std::cout << "solver: " << solver_name << ", problem: " << problem_name << ", constraint: " << constraint_name << std::endl;
             std::cout << "************************************************************************" << std::endl;
 

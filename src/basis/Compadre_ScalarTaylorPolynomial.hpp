@@ -48,12 +48,15 @@ namespace ScalarTaylorPolynomialBasis {
     */
     KOKKOS_INLINE_FUNCTION
     void evaluate(const member_type& teamMember, double* delta, double* workspace, const int dimension, const int max_degree, const double h, const double x, const double y, const double z, const int starting_order = 0, const double weight_of_original_value = 0.0, const double weight_of_new_value = 1.0) {
-        //Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-            // max degree is 15
-            static constexpr double factorial[15] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800, 39916800, 479001600, 6227020800, 87178291200};
-            double x_over_h_to_i[16];// = {};
-            double y_over_h_to_i[16];// = {};
-            double z_over_h_to_i[16];// = {};
+        // one vector lane computes the basis, since every lane would otherwise write the same delta
+        Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
+            // sized for max_degree <= 10: GMLS requires polynomial orders < 11, but that check is
+            // compiled out of Release builds, so guard here against overrunning the arrays below
+            if (max_degree > 10) Kokkos::abort("ScalarTaylorPolynomialBasis::evaluate: polynomial order > 10 is not supported.");
+            static constexpr double factorial[11] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800};
+            double x_over_h_to_i[11];
+            double y_over_h_to_i[11];
+            double z_over_h_to_i[11];
             if (dimension==3) {
                 x_over_h_to_i[0] = 1;
                 y_over_h_to_i[0] = 1;
@@ -119,7 +122,7 @@ namespace ScalarTaylorPolynomialBasis {
                     *(delta+i) = weight_of_original_value * *(delta+i) + weight_of_new_value * x_over_h_to_i[i]/factorial[i];
                 }
             }
-        //});
+        });
     }
 
     /*! \brief Evaluates the first partial derivatives of scalar Taylor polynomial basis

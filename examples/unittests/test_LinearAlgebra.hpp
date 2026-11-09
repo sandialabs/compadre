@@ -452,7 +452,6 @@ TEST_F (LinearAlgebraTest, Square_FullRank_batchQRPivotingSolve_Same_LDA_NDA_Lar
     int lda=3, nda=3;
     int ldb=4, ndb=3;
     SetUp(lda, nda, ldb, ndb, M, N, NRHS, num_matrices, rank, true/*A is T*/, true/*B is T*/);
-    // LU expects layout left B, so ndb and ldb reverse ordered
     GMLS_LinearAlgebra::batchSolve(pm, DenseSolverType::QR, A_d.data(), lda, nda, true, B_d.data(), ldb, ndb, true, M, N, NRHS, num_matrices, false);
     Kokkos::deep_copy(B, B_d);
     Kokkos::fence();
