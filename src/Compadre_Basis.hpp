@@ -91,7 +91,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
                 polynomial_sampling_functional == VaryingManifoldVectorPointSample) &&
                     (reconstruction_space == VectorTaylorPolynomial)) {
 
-        const int dimension_offset = GMLS::getNP(data._poly_order, dimension, reconstruction_space);
+        const int dimension_offset = GMLS::getNP(poly_order, dimension, reconstruction_space);
         double cutoff_p = data._epsilons(target_index);
         const int start_index = specific_order_only ? poly_order : 0; // only compute specified order if requested
 
@@ -904,16 +904,18 @@ void createWeightsAndP(const BasisData& data, const member_type& teamMember, scr
         auto b0 = thread_workspace.data();
         auto b1 = thread_workspace.data() + thread_workspace.extent(0);
         
-        int basis_powers_space_multiplier = (data._reconstruction_space == BernsteinPolynomial) ? 2 : 1;
-        auto cmp_size = (data._poly_order+1)*data._global_dimensions*basis_powers_space_multiplier;
+        int basis_powers_space_multiplier = (reconstruction_space == BernsteinPolynomial) ? 2 : 1;
+        auto cmp_size = (polynomial_order+1)*data._global_dimensions*basis_powers_space_multiplier;
         //printf("t1: %i, t2: %i\n", data.thread_workspace_dim, cmp_size);
         //printf("t3: %i, t4: %i\n", data.this_num_cols, storage_size);
         //printf("a0: %p, b0: %p, a1: %p, b1: %p\n", a0, b0, a1, b1);
 
-        compadre_kernel_assert_release(data.this_num_cols == storage_size &&
+        // the buffers are sized for the largest basis in use (for manifolds, the larger of the main
+        // and curvature bases), so they only need to be at least as large as this basis requires
+        compadre_kernel_assert_release(delta.extent_int(0) >= storage_size &&
           "delta allocation smaller than storage_size needed by calcPij");
 
-        compadre_kernel_assert_release(data.thread_workspace_dim == cmp_size &&
+        compadre_kernel_assert_release(thread_workspace.extent_int(0) >= cmp_size &&
           "thread_workspace allocation smaller than needed by calcPij");
 
         compadre_kernel_assert_release(a1 <= b0 || b1 <= a0);
