@@ -382,6 +382,16 @@ else() # Raw CMake Project
   set(KOKKOS_THREADS_ARG "--kokkos-num-threads")
 
   MESSAGE(STATUS "Compadre_USE_CUDA: ${Compadre_USE_CUDA}")
+  if(Compadre_USE_CUDA)
+    find_package(CUDAToolkit REQUIRED)
+    if(CUDAToolkit_LIBRARY_DIR)
+      list(APPEND CMAKE_BUILD_RPATH "${CUDAToolkit_LIBRARY_DIR}")
+      list(APPEND CMAKE_INSTALL_RPATH "${CUDAToolkit_LIBRARY_DIR}")
+    elseif(DEFINED ENV{CUDA_HOME})
+      list(APPEND CMAKE_BUILD_RPATH "$ENV{CUDA_HOME}/lib64")
+      list(APPEND CMAKE_INSTALL_RPATH "$ENV{CUDA_HOME}/lib64")
+    endif()
+  endif()
   MESSAGE(STATUS "Compadre_USE_HIP: ${Compadre_USE_HIP}")
 
   if (KOKKOSKERNELS_IN_TRILINOS)
@@ -596,7 +606,15 @@ else() # Raw CMake Project
         OUTPUT_VARIABLE nanobind_DIR
     )
     find_package(nanobind CONFIG REQUIRED)
-    nanobind_add_module(_pycompadre NB_DOMAIN "pycompadre_domain" pycompadre/pycompadre.cpp)
+    set(PYCOMPADRE_NANOBIND_OPTIONS)
+    if(Compadre_USE_CUDA OR Compadre_USE_HIP)
+      list(APPEND PYCOMPADRE_NANOBIND_OPTIONS NOMINSIZE)
+    endif()
+    nanobind_add_module(_pycompadre
+      NB_DOMAIN "pycompadre_domain"
+      ${PYCOMPADRE_NANOBIND_OPTIONS}
+      pycompadre/pycompadre.cpp
+    )
     target_link_libraries(_pycompadre PRIVATE compadre)
     if (PYTHON_CALLING_BUILD)
       configure_file("${CMAKE_CURRENT_SOURCE_DIR}/pycompadre/__init__.py" "${CMAKE_CURRENT_BINARY_DIR}/__init__.py" COPYONLY)
