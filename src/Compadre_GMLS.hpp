@@ -683,6 +683,10 @@ public:
     //! Get basis order used for reconstruction
     int getPolynomialOrder() const { return _poly_order; }
 
+    //! Polynomial order requested at construction or with setPolynomialOrder (getPolynomialOrder() can be
+    //! one higher once coefficients are generated, for sampling functionals that raise the order internally)
+    int getRequestedPolynomialOrder() const { return _requested_poly_order; }
+
     //! Get basis order used for curvature reconstruction
     int getCurvaturePolynomialOrder() const { return _curvature_poly_order; }
 

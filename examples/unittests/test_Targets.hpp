@@ -276,7 +276,7 @@ TEST_F (TargetTest, EvalBernsteinBasis1D) {
             }
             ASSERT_TRUE(!found_negative);
             ASSERT_DOUBLE_EQ (sum, 1.0);
-        // e==5 is additional site at right bounds (given r=1), should sum to 1.0 and have no negatives
+        // e==6 is additional site at right bounds (given r=1), should sum to 1.0 and have no negatives
         } else if (e==6) {
             bool found_negative = false;
             double sum = 0.0;
@@ -386,7 +386,7 @@ TEST_F (TargetTest, EvalBernsteinBasis2D) {
             }
             ASSERT_TRUE(!found_negative);
             ASSERT_DOUBLE_EQ (sum, 1.0);
-        // e==5 is additional site at left bounds (given r=1), should sum to 1.0 and have no negatives
+        // e==5 is additional site (1,1), inside the square [-h,h]^2 the basis is defined on (h=sqrt(2)+1e-10), should sum to 1.0 and have no negatives
         } else if (e==5) {
             bool found_negative = false;
             double sum = 0.0;
@@ -396,7 +396,7 @@ TEST_F (TargetTest, EvalBernsteinBasis2D) {
             }
             ASSERT_TRUE(!found_negative);
             ASSERT_DOUBLE_EQ (sum, 1.0);
-        // e==5 is additional site at right bounds (given r=1), should sum to 1.0 and have no negatives
+        // e==6 is additional site (1,-1), inside the square [-h,h]^2 the basis is defined on (h=sqrt(2)+1e-10), should sum to 1.0 and have no negatives
         } else if (e==6) {
             bool found_negative = false;
             double sum = 0.0;

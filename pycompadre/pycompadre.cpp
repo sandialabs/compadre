@@ -1161,7 +1161,9 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             auto rs   = gmls.getReconstructionSpace();
             auto psf  = gmls.getPolynomialSamplingFunctional();
             auto dsf  = gmls.getDataSamplingFunctional();
-            auto po   = gmls.getPolynomialOrder();
+            // the requested order, not getPolynomialOrder(): some sampling functionals raise the order
+            // internally, and restoring from the raised order would raise it again on the next generateAlphas
+            auto po   = gmls.getRequestedPolynomialOrder();
             auto gdim = gmls.getGlobalDimensions();
             auto dst  = gmls.getDenseSolverType();
             auto pt   = gmls.getProblemType();

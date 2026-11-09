@@ -505,6 +505,33 @@ class TestPyCOMPADRE(KokkosTestCase):
         for i in range(len(state)):
             self.assertEqual(state[i], new_state[i])
 
+    def test_pickle_staggered_order(self):
+        # StaggeredEdgeAnalyticGradientIntegralSample uses one order higher internally; pickling must save
+        # the requested order, otherwise each restore followed by generateAlphas raises it again
+        polynomial_order = 2
+        dim = 2
+        x, y = np.meshgrid(np.linspace(0.0, 1.0, 9), np.linspace(0.0, 1.0, 9))
+        source_sites = np.ascontiguousarray(np.column_stack([x.ravel(), y.ravel()]))
+        target_sites = np.array([[0.5, 0.5], [0.375, 0.625]], dtype='f8')
+
+        gmls_obj = pycompadre.GMLS(pycompadre.ReconstructionSpace.ScalarTaylorPolynomial,
+                                   pycompadre.SamplingFunctionals["StaggeredEdgeAnalyticGradientIntegralSample"],
+                                   polynomial_order, dim, "QR", "STANDARD", "NO_CONSTRAINT", 0)
+        gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+        gmls_helper.generateKDTree(source_sites)
+        # neighbors sized for the raised internal order
+        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_sites, polynomial_order+1, dim, 1.8)
+        gmls_obj.addTargets(pycompadre.TargetOperation.GradientOfScalarPointEvaluation)
+
+        gmls_obj.generateAlphas(1, False)
+        gmls_obj.generateAlphas(1, False)
+        # the saved order is the requested one, even after the order was raised internally (twice)
+        self.assertEqual(gmls_obj.__getstate__()[3], polynomial_order)
+
+        new_gmls_obj = pickle.loads(pickle.dumps(gmls_obj))
+        new_gmls_obj.generateAlphas(1, False)
+        self.assertEqual(new_gmls_obj.__getstate__()[3], polynomial_order)
+
     def test_pickle_gmls(self):
 
         source_sites = np.array([2.0,3.0,5.0,6.0,7.0], dtype='f8')
