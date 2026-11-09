@@ -125,6 +125,10 @@ private:
     //! order of basis for polynomial reconstruction
     int _poly_order; 
 
+    //! order of basis requested by the user (_poly_order can be raised internally for some
+    //! sampling functionals, see generatePolynomialCoefficients)
+    int _requested_poly_order;
+
     //! order of basis for curvature reconstruction
     int _curvature_poly_order;
 
@@ -397,6 +401,7 @@ public:
         const ConstraintType constraint_type,
         const int manifold_curvature_poly_order) : 
             _poly_order(poly_order),
+            _requested_poly_order(poly_order),
             _curvature_poly_order(manifold_curvature_poly_order),
             _dimensions(dimensions),
             _reconstruction_space(reconstruction_space),
@@ -1218,6 +1223,7 @@ public:
     void setPolynomialOrder(const int poly_order) {
         compadre_assert_release(poly_order<11 && "Unsupported polynomial order (>=11).");
         _poly_order = poly_order;
+        _requested_poly_order = poly_order;
         _NP = this->getNP(_poly_order, _dimensions, _reconstruction_space);
         this->resetCoefficientData();
     }

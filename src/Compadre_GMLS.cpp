@@ -122,8 +122,11 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     // special case for using a higher order for sampling from a polynomial space that are gradients of a scalar polynomial
     if (_polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) {
         // if the reconstruction is being made with a gradient of a basis, then we want that basis to be one order higher so that
-        // the gradient is consistent with the convergence order expected.
-        _poly_order += 1;
+        // the gradient is consistent with the convergence order expected. Basis evaluation supports orders up to 10, so the
+        // requested order can be at most 9. The order is set from the requested order (rather than incremented) so that
+        // repeated calls do not raise it again.
+        compadre_assert_release(_requested_poly_order <= 9 && "StaggeredEdgeAnalyticGradientIntegralSample supports polynomial orders up to 9, since it uses one order higher internally.");
+        _poly_order = _requested_poly_order + 1;
         _NP = this->getNP(_poly_order, _dimensions, _reconstruction_space);
     }
 
