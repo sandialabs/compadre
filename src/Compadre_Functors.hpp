@@ -442,8 +442,8 @@ struct AssembleStandardPsqrtW {
             const int n = _data.this_num_cols;  // cols to use
             
             auto PsqrtW_active = Kokkos::subview(PsqrtW,
-                                                 std::pair<int,int>(0, m),
-                                                 std::pair<int,int>(0, n));
+                                                 Kokkos::make_pair(0, m),
+                                                 Kokkos::make_pair(0, n));
 
             // create global memory for matrix M = PsqrtW^T*PsqrtW
             // don't need to cast into device_unmanaged_matrix_left_type since the matrix is symmetric
@@ -453,8 +453,8 @@ struct AssembleStandardPsqrtW {
             
             // M is n x n (or larger, but you should pass an n x n view too)
             auto M_active = Kokkos::subview(M,
-                                            std::pair<int,int>(0, n),
-                                            std::pair<int,int>(0, n));
+                                            Kokkos::make_pair(0, n),
+                                            Kokkos::make_pair(0, n));
 
             KokkosBatched::TeamVectorGemm<member_type,KokkosBatched::Trans::Transpose,KokkosBatched::Trans::NoTranspose,KokkosBatched::Algo::Gemm::Unblocked>
     	      ::invoke(teamMember,
@@ -631,9 +631,9 @@ struct AssembleCurvaturePsqrtW {
             // largest neighbor count and the wider of the main and curvature bases, but the
             // curvature solve uses this_num_neighbors x manifold_NP (the rest of P is zero)
             auto CurvaturePsqrtW_active = Kokkos::subview(CurvaturePsqrtW,
-                    std::pair<int,int>(0, this_num_neighbors), std::pair<int,int>(0, _data.manifold_NP));
+                    Kokkos::make_pair(0, this_num_neighbors), Kokkos::make_pair(0, _data.manifold_NP));
             auto M_active = Kokkos::subview(M,
-                    std::pair<int,int>(0, _data.manifold_NP), std::pair<int,int>(0, _data.manifold_NP));
+                    Kokkos::make_pair(0, _data.manifold_NP), Kokkos::make_pair(0, _data.manifold_NP));
             KokkosBatched::TeamVectorGemm<member_type,KokkosBatched::Trans::Transpose,
                 KokkosBatched::Trans::NoTranspose,KokkosBatched::Algo::Gemm::Unblocked>
               ::invoke(teamMember,
@@ -1002,9 +1002,9 @@ struct AssembleManifoldPsqrtW {
             // columns, which is all the main solve uses (the rest of P is zero)
             const int main_num_cols = _data._basis_multiplier*_data._NP;
             auto PsqrtW_active = Kokkos::subview(PsqrtW,
-                    std::pair<int,int>(0, this_num_rows), std::pair<int,int>(0, main_num_cols));
+                    Kokkos::make_pair(0, this_num_rows), Kokkos::make_pair(0, main_num_cols));
             auto M_active = Kokkos::subview(M,
-                    std::pair<int,int>(0, main_num_cols), std::pair<int,int>(0, main_num_cols));
+                    Kokkos::make_pair(0, main_num_cols), Kokkos::make_pair(0, main_num_cols));
             KokkosBatched::TeamVectorGemm<member_type,KokkosBatched::Trans::Transpose,KokkosBatched::Trans::NoTranspose,KokkosBatched::Algo::Gemm::Unblocked>
               ::invoke(teamMember,
                    1.0,

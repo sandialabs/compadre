@@ -278,12 +278,12 @@ namespace GMLS_LinearAlgebra {
               _b.extent(1), _b.extent(2));
 
       auto a_small = Kokkos::subview(aa,
-                              std::make_pair<size_t,size_t>(0, _M),
-                              std::make_pair<size_t,size_t>(0, _N));
+                              Kokkos::make_pair<size_t,size_t>(0, _M),
+                              Kokkos::make_pair<size_t,size_t>(0, _N));
 
       auto x_small = Kokkos::subview(xx,
-                              std::make_pair<size_t,size_t>(0, _N),
-                              std::make_pair<size_t,size_t>(0, _NRHS));
+                              Kokkos::make_pair<size_t,size_t>(0, _N),
+                              Kokkos::make_pair<size_t,size_t>(0, _NRHS));
 
       int info = team_chol_lower_inplace(member, a_small, _N);
       member.team_barrier();
