@@ -62,20 +62,15 @@ namespace ScalarTaylorPolynomialBasis {
                 y_over_h_to_i[0] = 1;
                 z_over_h_to_i[0] = 1;
                 for (int i=1; i<=max_degree; ++i) {
-                //Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, 1, max_degree+1),
-                //        [&] (const int i) {
                     x_over_h_to_i[i] = x_over_h_to_i[i-1]*(x/h);
                     y_over_h_to_i[i] = y_over_h_to_i[i-1]*(y/h);
                     z_over_h_to_i[i] = z_over_h_to_i[i-1]*(z/h);
-                //});
                 }
                 // (in 3D) \sum_{p=0}^{p=P} \sum_{k1+k2+k3=n} (x/h)^k1*(y/h)^k2*(z/h)^k3 / (k1!k2!k3!)
                 int alphax, alphay, alphaz;
                 double alphaf;
                 int i=0, s=0;
                 for (int n = starting_order; n <= max_degree; n++){
-                //Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, starting_order, max_degree+1),
-                //        [&] (const int n) {
                     for (alphaz = 0; alphaz <= n; alphaz++){
                         s = n - alphaz;
                         for (alphay = 0; alphay <= s; alphay++){
@@ -85,32 +80,25 @@ namespace ScalarTaylorPolynomialBasis {
                             i++;
                         }
                     }
-                //});
                 }
             } else if (dimension==2) {
                 x_over_h_to_i[0] = 1;
                 y_over_h_to_i[0] = 1;
                 for (int i=1; i<=max_degree; ++i) {
-                //Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, 1, max_degree+1),
-                //        [&] (const int i) {
                     x_over_h_to_i[i] = x_over_h_to_i[i-1]*(x/h);
                     y_over_h_to_i[i] = y_over_h_to_i[i-1]*(y/h);
                 }
-                //});
                 // (in 2D) \sum_{n=0}^{n=P} \sum_{k=0}^{k=n} (x/h)^(n-k)*(y/h)^k / ((n-k)!k!)
                 int alphax, alphay;
                 double alphaf;
                 int i = 0;
                 for (int n = starting_order; n <= max_degree; n++){
-                //Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, starting_order, max_degree+1),
-                //        [&] (const int n) {
                     for (alphay = 0; alphay <= n; alphay++){
                         alphax = n - alphay;
                         alphaf = factorial[alphax]*factorial[alphay];
                         *(delta+i) = weight_of_original_value * *(delta+i) + weight_of_new_value * x_over_h_to_i[alphax]*y_over_h_to_i[alphay]/alphaf;
                         i++;
                     }
-                //});
                 }
             } else {
                 x_over_h_to_i[0] = 1;

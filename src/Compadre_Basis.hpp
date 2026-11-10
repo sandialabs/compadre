@@ -868,7 +868,18 @@ void createWeightsAndP(const BasisData& data, const member_type& teamMember, scr
     // storage_size needs to change based on the size of the basis
     int storage_size = GMLS::getNP(polynomial_order, dimension, reconstruction_space);
     storage_size *= data._basis_multiplier;
-    auto thread_scratch_level = data._pm.getThreadScratchLevel(0);
+    // the buffers are sized for the largest basis in use (for manifolds, the larger of the main
+    // and curvature bases), so they only need to be at least as large as this basis requires
+    int basis_powers_space_multiplier = (reconstruction_space == BernsteinPolynomial) ? 2 : 1;
+    auto cmp_size = (polynomial_order+1)*data._global_dimensions*basis_powers_space_multiplier;
+    compadre_kernel_assert_release(delta.extent_int(0) >= storage_size &&
+      "delta allocation smaller than storage_size needed by calcPij");
+    compadre_kernel_assert_release(thread_workspace.extent_int(0) >= cmp_size &&
+      "thread_workspace allocation smaller than needed by calcPij");
+    // delta and thread_workspace must not overlap
+    compadre_kernel_assert_release(delta.data() + delta.extent(0) <= thread_workspace.data()
+            || thread_workspace.data() + thread_workspace.extent(0) <= delta.data());
+
     // delta and thread_workspace come from uninitialized thread scratch, and the basis evaluate
     // functions read delta before writing it (delta = w_orig*delta + w_new*value), so zero them
     Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, delta.extent_int(0)),
@@ -877,59 +888,6 @@ void createWeightsAndP(const BasisData& data, const member_type& teamMember, scr
         [&](int j){ thread_workspace(j) = 0.0; });
     Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, my_num_neighbors),
             [&] (const int i) {
-
-        //auto sh = teamMember.thread_scratch(thread_scratch_level);
-        //////auto const& sh = teamMember.thread_scratch(thread_scratch_level);
-        //////double* p = reinterpret_cast<double*>(sh.data());
-        //////scratch_vector_type delta(p,
-        //////        data.this_num_cols);
-        //////scratch_vector_type thread_workspace(p + data.this_num_cols,
-        //////        data.thread_workspace_dim);
- 
-        //// allocate raw memory from the scratch handle
-        //double* delta_ptr = reinterpret_cast<double*>(
-        //    sh.get_shmem(sizeof(double) * data.this_num_cols));
-        //
-        //double* ws_ptr = reinterpret_cast<double*>(
-        //    sh.get_shmem(sizeof(double) * data.thread_workspace_dim));
-
-        //delta=scratch_vector_type(delta_ptr,
-        //        data.this_num_cols);
-        //thread_workspace=scratch_vector_type(ws_ptr,
-        //        data.thread_workspace_dim);
-        //scratch_vector_type delta(teamMember.thread_scratch(data._pm.getThreadScratchLevel(0)),
-        //         data.this_num_cols);
-        //scratch_vector_type thread_workspace(teamMember.thread_scratch(data._pm.getThreadScratchLevel(0)), 
-        //         data.thread_workspace_dim);
-
-        auto a0 = delta.data();
-        auto a1 = delta.data() + delta.extent(0);
-        auto b0 = thread_workspace.data();
-        auto b1 = thread_workspace.data() + thread_workspace.extent(0);
-        
-        int basis_powers_space_multiplier = (reconstruction_space == BernsteinPolynomial) ? 2 : 1;
-        auto cmp_size = (polynomial_order+1)*data._global_dimensions*basis_powers_space_multiplier;
-        //printf("t1: %i, t2: %i\n", data.thread_workspace_dim, cmp_size);
-        //printf("t3: %i, t4: %i\n", data.this_num_cols, storage_size);
-        //printf("a0: %p, b0: %p, a1: %p, b1: %p\n", a0, b0, a1, b1);
-
-        // the buffers are sized for the largest basis in use (for manifolds, the larger of the main
-        // and curvature bases), so they only need to be at least as large as this basis requires
-        compadre_kernel_assert_release(delta.extent_int(0) >= storage_size &&
-          "delta allocation smaller than storage_size needed by calcPij");
-
-        compadre_kernel_assert_release(thread_workspace.extent_int(0) >= cmp_size &&
-          "thread_workspace allocation smaller than needed by calcPij");
-
-        compadre_kernel_assert_release(a1 <= b0 || b1 <= a0);
-
-        ///for (int j = 0; j < delta.extent_int(0); ++j) {
-        ///    delta(j) = 0;
-        ///}
-        ///for (int j = 0; j < thread_workspace.extent_int(0); ++j) {
-        ///    thread_workspace(j) = 0;
-        ///}
-
         for (int d=0; d<data._sampling_multiplier; ++d) {
             // in 2d case would use distance between SVD coordinates
 
@@ -956,36 +914,16 @@ void createWeightsAndP(const BasisData& data, const member_type& teamMember, scr
 
             calcPij<BasisData>(data, teamMember, delta.data(), thread_workspace.data(), target_index, i + d*my_num_neighbors, 0 /*alpha*/, dimension, polynomial_order, false /*bool on only specific order*/, V, reconstruction_space, polynomial_sampling_functional);
 
-            //if (weight_p) {
-                //for (int j = 0; j < storage_size; ++j) {
-                Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, storage_size),
-                        [&] (const int j) {
-                    // no need to convert offsets to global indices because the sum will never be large
-                    P(i+my_num_neighbors*d, j) = delta[j] * sq_w;
-                    compadre_kernel_assert_extreme_debug(delta[j]==delta[j] && "NaN in sqrt(W)*P matrix.");
-                });
-                //}
-            //} else {
-            //    //for (int j = 0; j < storage_size; ++j) {
-            //    Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, storage_size),
-            //            [&] (const int j) {
-            //        // no need to convert offsets to global indices because the sum will never be large
-            //        P(i+my_num_neighbors*d, j) = delta[j];
-
-            //        compadre_kernel_assert_extreme_debug(delta[j]==delta[j] && "NaN in P matrix.");
-            //    });
-            //    //}
-            //}
+            // sq_w is 1 when weight_p is false, so this fills either P*sqrt(W) or P
+            Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, storage_size),
+                    [&] (const int j) {
+                // no need to convert offsets to global indices because the sum will never be large
+                P(i+my_num_neighbors*d, j) = delta[j] * sq_w;
+                compadre_kernel_assert_extreme_debug(delta[j]==delta[j] && "NaN in sqrt(W)*P matrix.");
+            });
         }
     });
     teamMember.team_barrier();
-//    Kokkos::single(Kokkos::PerTeam(teamMember), [=] () {
-//        for (int k=0; k<data._pc._nla.getNumberOfNeighborsDevice(target_index); k++) {
-//            for (int l=0; l<_NP; l++) {
-//                printf("%i %i %0.16f\n", k, l, P(k,l) );// << " " << l << " " << R(k,l) << std::endl;
-//            }
-//        }
-//    });
 }
 
 /*! \brief Fills the _P matrix with P*sqrt(w) for use in solving for curvature
