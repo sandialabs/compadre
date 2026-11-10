@@ -311,12 +311,15 @@ class TestPyCOMPADRE(KokkosTestCase):
         target_site = np.reshape(point, shape=(1,dim))
 
         # not enough neighbors will be found
-        # can only succeed if verify_unisolvency is set to False
-        gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5,
-                                                             max_search_radius=0.0,
-                                                             scale_k_neighbor_radius=True,
-                                                             scale_num_neighbors=False,
-                                                             verify_unisolvency=False)
+        # the search can only succeed if verify_unisolvency is set to False, but GMLS still
+        # refuses the resulting neighbor lists (the lists are set before the check, so they
+        # can be inspected below)
+        with self.assertRaisesRegex(Exception, "smallest neighborhood has 4 neighbors"):
+            gmls_helper.generateNeighborListsFromKNNSearchAndSet(target_site, polynomial_order, dim, 1.5,
+                                                                 max_search_radius=0.0,
+                                                                 scale_k_neighbor_radius=True,
+                                                                 scale_num_neighbors=False,
+                                                                 verify_unisolvency=False)
         nl = gmls_helper.getNeighborLists()
         nl.computeMinNumNeighbors()
         nl.computeMaxNumNeighbors()
@@ -504,6 +507,31 @@ class TestPyCOMPADRE(KokkosTestCase):
         self.assertEqual(len(state), len(new_state))
         for i in range(len(state)):
             self.assertEqual(state[i], new_state[i])
+
+    def test_too_few_neighbors(self):
+        # fewer samples than unknowns makes each local least-squares problem underdetermined;
+        # generateAlphas must refuse rather than return meaningless weights
+        polynomial_order = 2  # 6 unknowns in 2D
+        dim = 2
+        x, y = np.meshgrid(np.linspace(0.0, 1.0, 9), np.linspace(0.0, 1.0, 9))
+        source_sites = np.ascontiguousarray(np.column_stack([x.ravel(), y.ravel()]))
+        target_sites = np.array([[0.5, 0.5], [0.375, 0.625]], dtype='f8')
+        for solver in ("QR", "CHOL"):
+            gmls_obj = pycompadre.GMLS(polynomial_order, dim, solver, "STANDARD")
+            gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+            gmls_helper.generateKDTree(source_sites)
+            gmls_helper.setTargetSites(target_sites)
+            neighbors = np.array([[3, 0, 1, 2], [3, 3, 4, 5]], dtype='i4')  # 3 neighbors each
+            # checked when the neighbor lists are set, not in generateAlphas
+            with self.assertRaisesRegex(Exception, "smallest neighborhood has 3 neighbors"):
+                gmls_helper.setNeighbors(neighbors)
+            # an explicit opt-out is passed through to GMLS and accepts the same lists
+            gmls_helper.setNeighbors(neighbors, verify_unisolvency=False)
+            # an object set up with the opt-out can be pickled and restored
+            gmls_helper.setWindowSizes(np.array([1.0, 1.0]))
+            restored = pickle.loads(pickle.dumps(gmls_obj))
+            self.assertEqual(pycompadre.ParticleHelper(restored).getNeighborLists().getMaxNumNeighbors(), 3)
+            del gmls_helper, gmls_obj
 
     def test_pickle_staggered_order(self):
         # StaggeredEdgeAnalyticGradientIntegralSample uses one order higher internally; pickling must save

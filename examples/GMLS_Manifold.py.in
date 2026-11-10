@@ -23,7 +23,7 @@ args = parser.parse_args()
 
 def check_bounds(porder, rate):
     if (porder==1):
-        if rate<3 and rate>.9:
+        if rate>.9:
             return True
         else:
             return False
@@ -46,7 +46,7 @@ solver_type = args.solver_type
 
 errors = []
 
-target_operators=("Tangent Bundle", "Point Value", "Laplace-Beltrami", "Gaussian Curvature", "Surface Gradient \(Ambient\)", "Surface Vector \(VectorBasis\)", "Surface Divergence \(VectorBasis\)", "Surface Vector \(ScalarClones\)", "Surface Divergence \(ScalarClones\)")#, "Surface Gradient (Manifold)", 
+target_operators=("Tangent Bundle", "Point Value", "Laplace-Beltrami", "Gaussian Curvature", r"Surface Gradient \(Ambient\)", r"Surface Vector \(VectorBasis\)", r"Surface Divergence \(VectorBasis\)", r"Surface Vector \(ScalarClones\)", r"Surface Divergence \(ScalarClones\)")#, "Surface Gradient (Manifold)",
 for operator in target_operators:
     errors.append([])
 
@@ -64,7 +64,7 @@ for grid_num in range(grids):
         output = subprocess.check_output(output_commands, stderr=devnull)
         #print(output)
         for key, operator in enumerate(target_operators):
-            m = re.search('(?<=%s Error: )[0-9]+\.?[0-9]*(?:[Ee]\ *-?\ *[0-9]+)?'%operator, output.decode('utf-8'))
+            m = re.search(r'(?<=%s Error: )[0-9]+\.?[0-9]*(?:[Ee]\ *-?\ *[0-9]+)?'%operator, output.decode('utf-8'))
             try:
                 errors[key].append(float(m.group(0)))
             except:

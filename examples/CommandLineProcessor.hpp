@@ -19,7 +19,7 @@ struct CommandLineProcessor {
     CommandLineProcessor(int argc, char* args[], const bool print=true) {
 
         order = 2;
-        curvature_order = -1; // defaults to order
+        curvature_order = -1; // defaults to max(order, 2)
         dimension = 3;
         number_target_coords = 200; 
         number_source_coords = -1; 
@@ -59,7 +59,9 @@ struct CommandLineProcessor {
             }
         }
 
-        if (curvature_order < 0) curvature_order = order;
+        // default curvature order is at least 2: a linear (order 1) curvature fit gives a tangent plane
+        // accurate only to O(h), with an error that varies irregularly with the neighbor arrangement
+        if (curvature_order < 0) curvature_order = (order > 2) ? order : 2;
 
         if (print) {
             std::cout << "************************************************************************" << std::endl;

@@ -17,6 +17,9 @@
 #include "Compadre_LinearAlgebra_Definitions.hpp"
 #include "Compadre_ParallelManager.hpp"
 #include "Compadre_Quadrature.hpp"
+
+#include <stdexcept>
+#include <string>
 #include "Compadre_SolutionSet.hpp"
 #include "Compadre_ScalarTaylorPolynomial.hpp"
 #include "Compadre_DivergenceFreePolynomial.hpp"
@@ -379,6 +382,41 @@ private:
         } else {
             return ConstraintType::NO_CONSTRAINT;
         }
+    }
+
+    //! Each target's local least-squares problem must have at least as many samples as unknowns;
+    //! otherwise it is underdetermined and the solvers return meaningless weights (QR silently, via a
+    //! minimum norm solution). Run when neighbor lists or orders are set (checked in every build type),
+    //! using the smallest neighborhood, which is computed along with the neighbor lists. Skipped when
+    //! verify_unisolvency is false.
+    void checkNeighborCounts(const bool verify_unisolvency = true) {
+        if (!verify_unisolvency) return;
+        if (_pc._nla.getNumberOfTargets() == 0) return; // no neighbor lists yet
+        if (_pc._nla.getMinNumNeighbors() < 0) _pc._nla.computeMaxNumNeighbors(); // computes the minimum too
+        const int min_num_neighbors = _pc._nla.getMinNumNeighbors();
+        // These sizes mirror the ones generatePolynomialCoefficients computes on every call; consolidate
+        // the two once that static setup moves out of generatePolynomialCoefficients.
+        const int basis_multiplier = calculateBasisMultiplier(_reconstruction_space, _local_dimensions);
+        const int sampling_multiplier = calculateSamplingMultiplier(_reconstruction_space, _data_sampling_functional, _local_dimensions);
+        const int poly_order = _requested_poly_order
+            + ((_polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample) ? 1 : 0);
+        const int basis_dimensions = (_problem_type == ProblemType::MANIFOLD) ? _dimensions-1 : _dimensions;
+        const int NP = GMLS::getNP(poly_order, basis_dimensions, _reconstruction_space);
+        auto check_enough_samples = [&](const int samples_per_neighbor, const int unknowns, const std::string& which) {
+            const int samples = samples_per_neighbor*min_num_neighbors;
+            if (samples < unknowns) {
+                const int needed = (unknowns + samples_per_neighbor - 1) / samples_per_neighbor;
+                throw std::logic_error("GMLS: the smallest neighborhood has " + std::to_string(min_num_neighbors)
+                        + " neighbors, giving " + std::to_string(samples) + " samples for the " + which + ", which has "
+                        + std::to_string(unknowns) + " unknowns. Provide at least " + std::to_string(needed)
+                        + " neighbors per target.");
+            }
+        };
+        if (_problem_type == ProblemType::MANIFOLD) {
+            const int manifold_NP = GMLS::getNP(_curvature_poly_order, _dimensions-1, ReconstructionSpace::ScalarTaylorPolynomial);
+            check_enough_samples(1, manifold_NP, "curvature fit");
+        }
+        check_enough_samples(sampling_multiplier, basis_multiplier*NP, "polynomial fit");
     }
 
 ///@}
@@ -882,8 +920,9 @@ public:
             view_type_1 neighbor_lists,
             view_type_2 source_coordinates,
             view_type_3 target_coordinates,
-            view_type_4 epsilons) {
-        this->setNeighborLists<view_type_1>(neighbor_lists);
+            view_type_4 epsilons,
+            bool verify_unisolvency = true) {
+        this->setNeighborLists<view_type_1>(neighbor_lists, verify_unisolvency);
         this->setSourceSites<view_type_2>(source_coordinates);
         this->setTargetSites<view_type_3>(target_coordinates);
         this->setWindowSizes<view_type_4>(epsilons);
@@ -896,8 +935,9 @@ public:
             view_type_1 number_of_neighbors_list,
             view_type_2 source_coordinates,
             view_type_3 target_coordinates,
-            view_type_4 epsilons) {
-        this->setNeighborLists<view_type_1>(cr_neighbor_lists, number_of_neighbors_list);
+            view_type_4 epsilons,
+            bool verify_unisolvency = true) {
+        this->setNeighborLists<view_type_1>(cr_neighbor_lists, number_of_neighbors_list, verify_unisolvency);
         this->setSourceSites<view_type_2>(source_coordinates);
         this->setTargetSites<view_type_3>(target_coordinates);
         this->setWindowSizes<view_type_4>(epsilons);
@@ -926,17 +966,18 @@ public:
     //! Sets neighbor list information from compressed row neighborhood lists data (if same view_type).
     template <typename view_type>
     typename std::enable_if<view_type::rank==1&&std::is_same<neighbor_lists_type::internal_view_type,view_type>::value==1, void>::type 
-            setNeighborLists(view_type neighbor_lists, view_type number_of_neighbors_list) {
+            setNeighborLists(view_type neighbor_lists, view_type number_of_neighbors_list, bool verify_unisolvency = true) {
 
         auto nla = NeighborLists<view_type>(neighbor_lists, number_of_neighbors_list);
         this->resetCoefficientData();
         _pc.setNeighborLists(nla);
+        this->checkNeighborCounts(verify_unisolvency);
     }
 
     //! Sets neighbor list information from compressed row neighborhood lists data (if different view_type).
     template <typename view_type>
     typename std::enable_if<view_type::rank==1&&std::is_same<neighbor_lists_type::internal_view_type,view_type>::value==0, void>::type 
-            setNeighborLists(view_type neighbor_lists, view_type number_of_neighbors_list) {
+            setNeighborLists(view_type neighbor_lists, view_type number_of_neighbors_list, bool verify_unisolvency = true) {
 
         typedef neighbor_lists_type::internal_view_type gmls_view_type;
         gmls_view_type d_neighbor_lists("compressed row neighbor lists data", neighbor_lists.extent(0));
@@ -947,16 +988,18 @@ public:
         auto nla = NeighborLists<gmls_view_type>(d_neighbor_lists, d_number_of_neighbors_list);
         this->resetCoefficientData();
         _pc.setNeighborLists(nla);
+        this->checkNeighborCounts(verify_unisolvency);
     }
 
     //! Sets neighbor list information. Should be # targets x maximum number of neighbors for any target + 1.
     //! first entry in ever row should be the number of neighbors for the corresponding target.
     template <typename view_type>
-    typename std::enable_if<view_type::rank==2, void>::type setNeighborLists(view_type neighbor_lists) {
+    typename std::enable_if<view_type::rank==2, void>::type setNeighborLists(view_type neighbor_lists, bool verify_unisolvency = true) {
     
         auto nla = Convert2DToCompressedRowNeighborLists<decltype(neighbor_lists), Kokkos::View<int*> >(neighbor_lists);
         this->resetCoefficientData();
         _pc.setNeighborLists(nla);
+        this->checkNeighborCounts(verify_unisolvency);
     }
 
     //! Sets source coordinate information. Rows of this 2D-array should correspond to neighbor IDs contained in the entries
@@ -1223,20 +1266,24 @@ public:
         this->resetCoefficientData();
     }
 
-    //! Sets basis order to be used when reconstructing any function
-    void setPolynomialOrder(const int poly_order) {
+    //! Sets basis order to be used when reconstructing any function (with verify_unisolvency, checks that
+    //! existing neighbor lists give enough samples per target for the new order)
+    void setPolynomialOrder(const int poly_order, const bool verify_unisolvency = true) {
         compadre_assert_release(poly_order<11 && "Unsupported polynomial order (>=11).");
         _poly_order = poly_order;
         _requested_poly_order = poly_order;
         _NP = this->getNP(_poly_order, _dimensions, _reconstruction_space);
         this->resetCoefficientData();
+        this->checkNeighborCounts(verify_unisolvency);
     }
 
-    //! Sets basis order to be used when reconstruction curvature
-    void setCurvaturePolynomialOrder(const int curvature_poly_order) {
+    //! Sets basis order to be used when reconstruction curvature (with verify_unisolvency, checks that
+    //! existing neighbor lists give enough samples per target for the new order)
+    void setCurvaturePolynomialOrder(const int curvature_poly_order, const bool verify_unisolvency = true) {
         compadre_assert_release(curvature_poly_order<11 && "Unsupported curvature polynomial order (>=11).");
         _curvature_poly_order = curvature_poly_order;
         this->resetCoefficientData();
+        this->checkNeighborCounts(verify_unisolvency);
     }
 
     //! Parameter for weighting kernel for GMLS problem

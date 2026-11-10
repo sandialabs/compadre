@@ -179,6 +179,25 @@ public:
     }
 };
 
+TEST_F (TargetTest, NeighborCountCheck) {
+    // the 1D fixture gives each target 3 neighbors: enough for an order 2 basis (3 unknowns), not order 3
+    int dimension = 1;
+    SetUp(dimension);
+    // neighbor lists set after construction
+    GMLS gmls(ScalarTaylorPolynomial, PointSample, 2, dimension, "QR");
+    EXPECT_NO_THROW(gmls.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device));
+    // order raised after the neighbor lists are set
+    EXPECT_THROW(gmls.setPolynomialOrder(3), std::logic_error);
+    // neighbor lists set when the order is already too high
+    GMLS gmls_3(ScalarTaylorPolynomial, PointSample, 3, dimension, "QR");
+    EXPECT_THROW(gmls_3.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device), std::logic_error);
+    // an explicit opt-out accepts the lists, here and in later order changes
+    GMLS gmls_opt_out(ScalarTaylorPolynomial, PointSample, 3, dimension, "QR");
+    EXPECT_NO_THROW(gmls_opt_out.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device, false /*verify_unisolvency*/));
+    EXPECT_NO_THROW(gmls_opt_out.setPolynomialOrder(4, false /*verify_unisolvency*/));
+    EXPECT_THROW(gmls_opt_out.setPolynomialOrder(4), std::logic_error);
+}
+
 TEST_F (TargetTest, EvalBernsteinBasis1D) {
 
     int order = 2;

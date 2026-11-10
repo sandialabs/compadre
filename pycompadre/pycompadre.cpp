@@ -452,7 +452,7 @@ public:
         return gmls_object;
     }
 
-    void setNeighbors(nb::ndarray<nb::numpy, local_index_type> input) {
+    void setNeighbors(nb::ndarray<nb::numpy, local_index_type> input, bool verify_unisolvency = true) {
 
 #ifdef COMPADRE_DEBUG
         if (input.ndim() != 2) {
@@ -465,7 +465,7 @@ public:
         // set values from Kokkos View
         compadre_assert_release(gmls_object!=nullptr &&
                 "ParticleHelper used without an internal GMLS object set");
-        gmls_object->setNeighborLists(neighbor_lists);
+        gmls_object->setNeighborLists(neighbor_lists, verify_unisolvency);
     }
 
     GMLS::neighbor_lists_type getNeighborLists() {
@@ -1029,8 +1029,9 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             nb::arg("target_sites"), nb::arg("poly_order"), nb::arg("dimension") = 3, nb::arg("epsilon_multiplier") = 1.6, 
             nb::arg("max_search_radius") = 0.0, nb::arg("scale_k_neighbor_radius") = true, 
             nb::arg("scale_num_neighbors") = false, nb::arg("verify_unisolvency") = true)
-    .def("setNeighbors", &ParticleHelper::setNeighbors, nb::arg("neighbor_lists"), 
-            "Sets neighbor lists from 2D array where first column is number of neighbors for corresponding row's target site.")
+    .def("setNeighbors", &ParticleHelper::setNeighbors, nb::arg("neighbor_lists"), nb::arg("verify_unisolvency") = true,
+            "Sets neighbor lists from 2D array where first column is number of neighbors for corresponding row's target site. "
+            "With verify_unisolvency (default), raises if a target has fewer samples than unknowns.")
     .def("setGMLSObject", &ParticleHelper::setGMLSObject, nb::arg("gmls_object"))
     .def("getGMLSObject", &ParticleHelper::getGMLSObject, nb::rv_policy::reference_internal)
     .def("getAdditionalEvaluationIndices", &ParticleHelper::getAdditionalEvaluationIndices, nb::rv_policy::reference_internal)
@@ -1152,7 +1153,9 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             auto k_a_es  = convert_np_to_kokkos_2d(a_es);
             
             gmls->setAdditionalEvaluationSitesData(k_a_cr, k_a_nnl, k_a_es);
-            gmls->setProblemData(k_cr, k_nnl, k_ss, k_ts, k_ws);
+            // restores a state that was already accepted when it was created (possibly with
+            // verify_unisolvency=False), so it is not checked again
+            gmls->setProblemData(k_cr, k_nnl, k_ss, k_ts, k_ws, false /*verify_unisolvency*/);
 
             nb::inst_mark_ready(self);
         })

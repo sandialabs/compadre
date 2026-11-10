@@ -105,12 +105,12 @@ if (Compadre_EXAMPLES)
 
     # Staggered scheme test for GMLS on non-manifold
     # Note: Using even polynomial order may cause this test to fail
-    ADD_TEST(NAME GMLS_Staggered_Dim3_QR COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Staggered "--p" "3" "--nt" "100" "--d" "3" "${KOKKOS_THREADS_ARG}=4")
+    ADD_TEST(NAME GMLS_Staggered_Dim3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered "--p" "3" "--nt" "100" "--d" "3" "${KOKKOS_THREADS_ARG}=4")
     SET_TESTS_PROPERTIES(GMLS_Staggered_Dim3_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos;staggered" TIMEOUT 60)
 
     # Staggered scheme test for GMLS on non-manifold
     # Note: Using even polynomial order may cause this test to fail
-    ADD_TEST(NAME GMLS_Staggered_Dim2_QR COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Staggered "--p" "3" "--nt" "200" "--d" "2" "${KOKKOS_THREADS_ARG}=2")
+    ADD_TEST(NAME GMLS_Staggered_Dim2_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Staggered "--p" "3" "--nt" "200" "--d" "2" "${KOKKOS_THREADS_ARG}=2")
     SET_TESTS_PROPERTIES(GMLS_Staggered_Dim2_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos;staggered" TIMEOUT 20)
 
     if (NOT Compadre_DEBUG)
@@ -134,12 +134,12 @@ if (Compadre_EXAMPLES)
       # Divergence-free basis test for GMLS on non-manifold
       ADD_TEST(NAME GMLS_DivergenceFree_Dim3_P3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "--p" "3" "--nt" "200" "--d" "3" "${KOKKOS_THREADS_ARG}=2")
       SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim3_P3_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos;divergencefree;qr;batched" TIMEOUT 60)
-      #ADD_TEST(NAME GMLS_DivergenceFree_Dim3_P2_QR COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "2" "200" "3" "0" "0" "0" "${KOKKOS_THREADS_ARG}=2")
+      #ADD_TEST(NAME GMLS_DivergenceFree_Dim3_P2_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "2" "200" "3" "0" "0" "0" "${KOKKOS_THREADS_ARG}=2")
       #SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim3_P2_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos;divergencefree;qr" TIMEOUT 60)
 
       ADD_TEST(NAME GMLS_DivergenceFree_Dim2_P3_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "--p" "3" "--nt" "200" "--d" "2" "${KOKKOS_THREADS_ARG}=2")
       SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim2_P3_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos;divergencefree;qr;batched" TIMEOUT 60)
-      #ADD_TEST(NAME GMLS_DivergenceFree_Dim2_P2_QR COMMAND ${CMAKD_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "2" "200" "2" "0" "0" "0" "${KOKKOS_THREADS_ARG}=2")
+      #ADD_TEST(NAME GMLS_DivergenceFree_Dim2_P2_QR COMMAND ${CMAKE_CURRENT_BINARY_DIR}/GMLS_Divergence_Test "2" "200" "2" "0" "0" "0" "${KOKKOS_THREADS_ARG}=2")
       #SET_TESTS_PROPERTIES(GMLS_DivergenceFree_Dim2_P2_QR PROPERTIES LABELS "IntegrationTest;integration;kokkos;divergencefree;qr" TIMEOUT 60)
     endif()
 

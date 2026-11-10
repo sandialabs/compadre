@@ -107,6 +107,24 @@ struct GMLSSolutionData {
 
 };
 
+//! Computes the lower triangle (including the diagonal) of C = A^T*A, which is all the Cholesky
+//! solver reads (team_chol_lower_inplace and the lower triangular solves). The thread/vector layout
+//! and summation order match KokkosBatched::TeamVectorGemm (Unblocked), so every lower entry is
+//! bit-for-bit what the full product gives; the upper triangle is not written.
+template <typename MemberType, typename AViewType, typename CViewType>
+KOKKOS_INLINE_FUNCTION
+void lowerTriangleOfTransposeProduct(const MemberType& teamMember, const AViewType& A, const CViewType& C) {
+    const int m = A.extent_int(0);
+    const int n = A.extent_int(1);
+    Kokkos::parallel_for(Kokkos::TeamThreadRange(teamMember, n), [&] (const int i) {
+        Kokkos::parallel_for(Kokkos::ThreadVectorRange(teamMember, i+1), [&] (const int j) {
+            typename CViewType::non_const_value_type c = 0;
+            for (int p = 0; p < m; ++p) c += A(p,i)*A(p,j);
+            C(i,j) = c;
+        });
+    });
+}
+
 /** @name Functors
  *  Member functions that perform operations on the entire batch
  */
@@ -456,13 +474,14 @@ struct AssembleStandardPsqrtW {
                                             Kokkos::make_pair(0, n),
                                             Kokkos::make_pair(0, n));
 
-            KokkosBatched::TeamVectorGemm<member_type,KokkosBatched::Trans::Transpose,KokkosBatched::Trans::NoTranspose,KokkosBatched::Algo::Gemm::Unblocked>
-    	      ::invoke(teamMember,
-    	    	   1.0,
-    	    	   PsqrtW_active,
-    	    	   PsqrtW_active,
-    	    	   0.0,
-    	    	   M_active);
+            // Cholesky reads only the lower triangle; constrained problems solve the augmented M with QR
+            // (rank_full = false in generatePolynomialCoefficients), which needs all of it
+            if (_data._constraint_type == ConstraintType::NO_CONSTRAINT) {
+                lowerTriangleOfTransposeProduct(teamMember, PsqrtW_active, M_active);
+            } else {
+                KokkosBatched::TeamVectorGemm<member_type,KokkosBatched::Trans::Transpose,KokkosBatched::Trans::NoTranspose,KokkosBatched::Algo::Gemm::Unblocked>
+                  ::invoke(teamMember, 1.0, PsqrtW_active, PsqrtW_active, 0.0, M_active);
+            }
             teamMember.team_barrier();
 
             // Multiply PsqrtW with sqrt(W) to get PW
@@ -634,14 +653,8 @@ struct AssembleCurvaturePsqrtW {
                     Kokkos::make_pair(0, this_num_neighbors), Kokkos::make_pair(0, _data.manifold_NP));
             auto M_active = Kokkos::subview(M,
                     Kokkos::make_pair(0, _data.manifold_NP), Kokkos::make_pair(0, _data.manifold_NP));
-            KokkosBatched::TeamVectorGemm<member_type,KokkosBatched::Trans::Transpose,
-                KokkosBatched::Trans::NoTranspose,KokkosBatched::Algo::Gemm::Unblocked>
-              ::invoke(teamMember,
-                   1.0,
-                   CurvaturePsqrtW_active,
-                   CurvaturePsqrtW_active,
-                   0.0,
-                   M_active);
+            // Cholesky reads only the lower triangle
+            lowerTriangleOfTransposeProduct(teamMember, CurvaturePsqrtW_active, M_active);
             teamMember.team_barrier();
 
             // Multiply PsqrtW with sqrt(W) to get PW
@@ -1005,13 +1018,8 @@ struct AssembleManifoldPsqrtW {
                     Kokkos::make_pair(0, this_num_rows), Kokkos::make_pair(0, main_num_cols));
             auto M_active = Kokkos::subview(M,
                     Kokkos::make_pair(0, main_num_cols), Kokkos::make_pair(0, main_num_cols));
-            KokkosBatched::TeamVectorGemm<member_type,KokkosBatched::Trans::Transpose,KokkosBatched::Trans::NoTranspose,KokkosBatched::Algo::Gemm::Unblocked>
-              ::invoke(teamMember,
-                   1.0,
-                   PsqrtW_active,
-                   PsqrtW_active,
-                   0.0,
-                   M_active);
+            // Cholesky reads only the lower triangle
+            lowerTriangleOfTransposeProduct(teamMember, PsqrtW_active, M_active);
             teamMember.team_barrier();
 
             // Multiply PsqrtW with sqrt(W) to get PW
