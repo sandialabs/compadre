@@ -39,9 +39,7 @@ void calcPij(const BasisData& data, const member_type& teamMember, double* delta
     const int my_num_neighbors = data._pc._nla.getNumberOfNeighborsDevice(target_index);
     
     // store precalculated factorials for speedup; indices never exceed poly_order, so this is sized for
-    // orders <= 10. GMLS requires orders < 11, but that check is compiled out of Release builds, so
-    // guard here against reading past the end of the table
-    if (poly_order > 10) Kokkos::abort("calcPij: polynomial order > 10 is not supported.");
+    // orders <= 10 (enforced when orders are set, see GMLS::checkSupportedOrders)
     static constexpr double factorial[11] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800};
 
     int component = 0;

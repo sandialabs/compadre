@@ -20,6 +20,9 @@ using namespace KokkosBatched;
 template<class MemberType, class AViewType>
 KOKKOS_INLINE_FUNCTION
 int team_chol_lower_inplace(const MemberType& member, const AViewType& A, const int n) {
+  using value_type = typename AViewType::non_const_value_type;
+  // a pivot at or below this fraction of its original diagonal entry means A is not positive definite
+  const value_type relative_pivot_tolerance = 10 * n * Kokkos::ArithTraits<value_type>::epsilon();
   for (int j=0; j<n; ++j) {
 
     // A(j,j) -= sum_{k<j} A(j,k)^2
@@ -30,13 +33,14 @@ int team_chol_lower_inplace(const MemberType& member, const AViewType& A, const 
     member.team_barrier();
 
     if (member.team_rank() == 0) {
-      using value_type = typename AViewType::non_const_value_type;
       const value_type a_jj = A(j,j);
       const value_type pivot = a_jj - s;
       // A = (P*sqrt(W))^T*(P*sqrt(W)) is positive definite only if P*sqrt(W) has full column rank.
-      // A pivot that vanishes relative to its original diagonal entry (or is negative or NaN) means
-      // the problem is rank deficient, and continuing would silently produce NaN or meaningless weights.
-      if (!(pivot > 10 * n * Kokkos::ArithTraits<value_type>::epsilon() * a_jj)) {
+      // A pivot that vanishes relative to its original diagonal entry (or is negative or NaN, for which
+      // the comparison is false) means the problem is rank deficient.
+      if (pivot > relative_pivot_tolerance * a_jj) {
+        A(j,j) = Kokkos::sqrt(pivot);
+      } else {
         Kokkos::abort("Compadre: CHOL solver failed because P^T*W*P is not positive definite, i.e. the "
                       "GMLS problem is rank deficient for at least one target. Either:\n"
                       "  a.) provide more neighbors for each target, or\n"
@@ -44,7 +48,6 @@ int team_chol_lower_inplace(const MemberType& member, const AViewType& A, const 
                       "      space (e.g. sampling a gradient cannot recover a constant), or\n"
                       "  c.) use the QR solver, which handles rank deficient problems.\n");
       }
-      A(j,j) = Kokkos::sqrt(pivot);
     }
     member.team_barrier();
 

@@ -50,9 +50,7 @@ namespace ScalarTaylorPolynomialBasis {
     void evaluate(const member_type& teamMember, double* delta, double* workspace, const int dimension, const int max_degree, const double h, const double x, const double y, const double z, const int starting_order = 0, const double weight_of_original_value = 0.0, const double weight_of_new_value = 1.0) {
         // one vector lane computes the basis, since every lane would otherwise write the same delta
         Kokkos::single(Kokkos::PerThread(teamMember), [&] () {
-            // sized for max_degree <= 10: GMLS requires polynomial orders < 11, but that check is
-            // compiled out of Release builds, so guard here against overrunning the arrays below
-            if (max_degree > 10) Kokkos::abort("ScalarTaylorPolynomialBasis::evaluate: polynomial order > 10 is not supported.");
+            // sized for max_degree <= 10 (enforced when orders are set, see GMLS::checkSupportedOrders)
             static constexpr double factorial[11] = {1, 1, 2, 6, 24, 120, 720, 5040, 40320, 362880, 3628800};
             double x_over_h_to_i[11];
             double y_over_h_to_i[11];

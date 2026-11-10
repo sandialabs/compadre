@@ -384,6 +384,21 @@ private:
         }
     }
 
+    //! Throws (in every build type) if an order exceeds what basis evaluation supports: its tables are
+    //! sized for orders up to 10, and StaggeredEdgeAnalyticGradientIntegralSample uses one order higher
+    //! internally. Checked when orders are set, so basis evaluation itself does not check.
+    void checkSupportedOrders(const int poly_order, const int curvature_poly_order) const {
+        if (poly_order > 10) {
+            throw std::logic_error("Unsupported polynomial order (>=11).");
+        }
+        if (curvature_poly_order > 10) {
+            throw std::logic_error("Unsupported curvature polynomial order (>=11).");
+        }
+        if (_polynomial_sampling_functional == StaggeredEdgeAnalyticGradientIntegralSample && poly_order > 9) {
+            throw std::logic_error("StaggeredEdgeAnalyticGradientIntegralSample supports polynomial orders up to 9, since it uses one order higher internally.");
+        }
+    }
+
     //! Each target's local least-squares problem must have at least as many samples as unknowns;
     //! otherwise it is underdetermined and the solvers return meaningless weights (QR silently, via a
     //! minimum norm solution). Run when neighbor lists or orders are set (checked in every build type),
@@ -452,8 +467,7 @@ public:
                         && (data_sampling_strategy == VectorPointSample)) ? ManifoldVectorPointSample : data_sampling_strategy)
             {
 
-        compadre_assert_release(poly_order<11 && "Unsupported polynomial order (>=11).");
-        compadre_assert_release(manifold_curvature_poly_order<11 && "Unsupported curvature polynomial order (>=11).");
+        this->checkSupportedOrders(poly_order, manifold_curvature_poly_order);
         _NP = this->getNP(_poly_order, dimensions, _reconstruction_space);
         Kokkos::fence();
 
@@ -1269,7 +1283,7 @@ public:
     //! Sets basis order to be used when reconstructing any function (with verify_unisolvency, checks that
     //! existing neighbor lists give enough samples per target for the new order)
     void setPolynomialOrder(const int poly_order, const bool verify_unisolvency = true) {
-        compadre_assert_release(poly_order<11 && "Unsupported polynomial order (>=11).");
+        this->checkSupportedOrders(poly_order, _curvature_poly_order);
         _poly_order = poly_order;
         _requested_poly_order = poly_order;
         _NP = this->getNP(_poly_order, _dimensions, _reconstruction_space);
@@ -1280,7 +1294,7 @@ public:
     //! Sets basis order to be used when reconstruction curvature (with verify_unisolvency, checks that
     //! existing neighbor lists give enough samples per target for the new order)
     void setCurvaturePolynomialOrder(const int curvature_poly_order, const bool verify_unisolvency = true) {
-        compadre_assert_release(curvature_poly_order<11 && "Unsupported curvature polynomial order (>=11).");
+        this->checkSupportedOrders(_requested_poly_order, curvature_poly_order);
         _curvature_poly_order = curvature_poly_order;
         this->resetCoefficientData();
         this->checkNeighborCounts(verify_unisolvency);

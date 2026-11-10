@@ -179,6 +179,35 @@ public:
     }
 };
 
+TEST_F (TargetTest, SupportedOrders) {
+    // orders are checked (in every build type) when set, since basis evaluation does not check them
+    EXPECT_NO_THROW(GMLS(ScalarTaylorPolynomial, PointSample, 10, 2, "QR"));
+    EXPECT_THROW(GMLS(ScalarTaylorPolynomial, PointSample, 11, 2, "QR"), std::logic_error);
+    EXPECT_THROW(GMLS(ScalarTaylorPolynomial, PointSample, PointSample, 2, 3, "QR", "MANIFOLD", "NO_CONSTRAINT", 11), std::logic_error);
+    // StaggeredEdgeAnalyticGradientIntegralSample uses one order higher internally
+    EXPECT_NO_THROW(GMLS(ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample, 9, 2, "QR"));
+    EXPECT_THROW(GMLS(ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample, 10, 2, "QR"), std::logic_error);
+    // setters check before changing anything
+    GMLS gmls(ScalarTaylorPolynomial, PointSample, 2, 2, "QR");
+    EXPECT_THROW(gmls.setPolynomialOrder(11), std::logic_error);
+    EXPECT_EQ(gmls.getPolynomialOrder(), 2);
+    EXPECT_THROW(gmls.setCurvaturePolynomialOrder(11), std::logic_error);
+    GMLS gmls_staggered(ScalarTaylorPolynomial, StaggeredEdgeAnalyticGradientIntegralSample, 2, 2, "QR");
+    EXPECT_THROW(gmls_staggered.setPolynomialOrder(10), std::logic_error);
+}
+
+TEST_F (TargetTest, RankDeficientQR) {
+    // the 1D fixture has 3 neighbors (enough for order 2), but the outer two lie on the support boundary
+    // and get zero weight, so P^T*W*P is singular; QR solves it (CHOL aborts, which cannot be tested here)
+    int order = 2;
+    int dimension = 1;
+    SetUp(dimension);
+    GMLS gmls(ScalarTaylorPolynomial, PointSample, order, dimension, "QR");
+    gmls.setProblemData(neighbor_lists_device, source_coords_device, target_coords_device, epsilon_device);
+    gmls.addTargets(ScalarPointEvaluation);
+    EXPECT_NO_THROW(gmls.generateAlphas());
+}
+
 TEST_F (TargetTest, NeighborCountCheck) {
     // the 1D fixture gives each target 3 neighbors: enough for an order 2 basis (3 unknowns), not order 3
     int dimension = 1;
