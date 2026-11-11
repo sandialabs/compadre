@@ -923,7 +923,7 @@ public:
 
     void resetCoefficientData() {
         if (_RHS.extent(0) > 0)
-            _RHS = Kokkos::View<double*>("RHS",0);
+            _RHS = Kokkos::View<double*>(); // releases without allocating (see clear_cache)
         _h_ss._contains_valid_alphas = false;
         _d_ss._contains_valid_alphas = false;
     }

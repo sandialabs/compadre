@@ -450,24 +450,25 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
     } // end of batch loops
 
     if (clear_cache) {
-        // deallocate _P and _w
-        _w = Kokkos::View<double*>("w",0);
-        _Z = Kokkos::View<double*>("Z",0);
+        // deallocate _P and _w; a default-constructed View releases the buffer without allocating
+        // an empty one (a labeled View allocates a tracking record even when its size is 0)
+        _w = Kokkos::View<double*>();
+        _Z = Kokkos::View<double*>();
         if (number_of_batches > 1) { // no reason to keep coefficients if they aren't all in memory
-            _RHS = Kokkos::View<double*>("RHS",0);
-            _P = Kokkos::View<double*>("P",0);
+            _RHS = Kokkos::View<double*>();
+            _P = Kokkos::View<double*>();
             _entire_batch_computed_at_once = false;
         } else {
             if (_constraint_type != ConstraintType::NO_CONSTRAINT) {
-                _RHS = Kokkos::View<double*>("RHS", 0);
-                if (!keep_coefficients) _P = Kokkos::View<double*>("P", 0);
+                _RHS = Kokkos::View<double*>();
+                if (!keep_coefficients) _P = Kokkos::View<double*>();
             } else {
                 if (_dense_solver_type != DenseSolverType::CHOL) {
-                    _P = Kokkos::View<double*>("P", 0);
-                    if (!keep_coefficients) _RHS = Kokkos::View<double*>("RHS", 0);
+                    _P = Kokkos::View<double*>();
+                    if (!keep_coefficients) _RHS = Kokkos::View<double*>();
                 } else {
-                    _RHS = Kokkos::View<double*>("RHS", 0);
-                    if (!keep_coefficients) _P = Kokkos::View<double*>("P", 0);
+                    _RHS = Kokkos::View<double*>();
+                    if (!keep_coefficients) _P = Kokkos::View<double*>();
                 }
             }
             if (keep_coefficients) _store_PTWP_inv_PTW = true;

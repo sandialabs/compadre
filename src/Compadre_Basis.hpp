@@ -869,7 +869,8 @@ void createWeightsAndP(const BasisData& data, const member_type& teamMember, scr
     // the buffers are sized for the largest basis in use (for manifolds, the larger of the main
     // and curvature bases), so they only need to be at least as large as this basis requires
     int basis_powers_space_multiplier = (reconstruction_space == BernsteinPolynomial) ? 2 : 1;
-    auto cmp_size = (polynomial_order+1)*data._global_dimensions*basis_powers_space_multiplier;
+    // only used in assertions, which compile out in Release
+    [[maybe_unused]] auto cmp_size = (polynomial_order+1)*data._global_dimensions*basis_powers_space_multiplier;
     compadre_kernel_assert_release(delta.extent_int(0) >= storage_size &&
       "delta allocation smaller than storage_size needed by calcPij");
     compadre_kernel_assert_release(thread_workspace.extent_int(0) >= cmp_size &&
