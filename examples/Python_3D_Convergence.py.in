@@ -123,7 +123,8 @@ def test1(ND):
     
     return (l2_error, h1_seminorm_error)
 
-kokkos_obj=pycompadre.KokkosParser(sys.argv, True) # print state after initializing
+kokkos_obj=pycompadre.KokkosParser(sys.argv)
+print(pycompadre.KokkosParser.status()) # print state after initializing
 
 # of points in each dimension to run the test over
 ND = [5, 10, 20, 40]

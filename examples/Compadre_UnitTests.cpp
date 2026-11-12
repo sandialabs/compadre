@@ -14,6 +14,7 @@
 #include "unittests/test_LinearAlgebra.hpp"
 #include "unittests/test_Targets.hpp"
 #include "unittests/test_Quadrature.hpp"
+#include "unittests/test_KokkosParser.hpp"
 #ifdef COMPADRE_USE_MPI
 #include <mpi.h>
 #endif
