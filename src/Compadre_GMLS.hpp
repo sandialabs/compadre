@@ -11,6 +11,7 @@
 
 #include "Compadre_Config.h"
 #include "Compadre_Typedefs.hpp"
+#include "Compadre_KokkosParser.hpp"
 
 #include "Compadre_Misc.hpp"
 #include "Compadre_Operators.hpp"
@@ -56,6 +57,10 @@ public:
     typedef Kokkos::View<double**, layout_right> coordinates_type; 
 
 private:
+
+    //! keeps a Kokkos runtime started by a KokkosParser running while this object owns Kokkos memory;
+    //! declared first, so it is released after every View member (see KokkosParser::runtime)
+    std::shared_ptr<void> _kokkos_runtime = KokkosParser::runtime();
 
     // matrices that may be needed for matrix factorization on the device
     // supports batched matrix factorization dispatch
