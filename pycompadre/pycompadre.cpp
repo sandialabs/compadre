@@ -409,6 +409,41 @@ nb::ndarray<nb::numpy, typename T::value_type> convert_kokkos_to_np(T kokkos_arr
 }
 
 
+// Constructs a KokkosParser for Python (see KokkosParser): the Kokkos arguments always come from sys.orig_argv,
+// the command line given to the Python executable, so args, if given, must be sys.argv or sys.orig_argv.
+void initKokkosParserFromPython(KokkosParser* self, nb::handle args) {
+    nb::module_ sys = nb::module_::import_("sys");
+    nb::object argv = nb::getattr(sys, "argv", nb::none());
+    nb::object orig_argv = nb::getattr(sys, "orig_argv", nb::list());
+    if (!args.is_none()) {
+        const bool is_command_line = args.is(argv) || args.is(orig_argv)
+                || args.equal(argv) || args.equal(orig_argv);
+        if (!is_command_line) {
+            throw std::runtime_error("KokkosParser: args must be sys.argv or sys.orig_argv. Kokkos is always "
+                    "initialized from sys.orig_argv, the command line given to the Python executable, so this "
+                    "list would be ignored.");
+        }
+    }
+    auto command_line = nb::cast<std::vector<std::string>>(orig_argv);
+    if (command_line.empty() || Kokkos::is_initialized()) {
+        // embedded in a C++ program (sys.orig_argv is empty), or Kokkos is running: as KokkosParser() in C++
+        new (self) KokkosParser();
+    } else {
+        // run by the Python executable, and Kokkos is not initialized
+        new (self) KokkosParser(command_line);
+    }
+}
+
+// Quadrature as exposed to Python, holding the Kokkos runtime (see KokkosParser::runtime). The runtime is
+// held by a first base class so it is released after Quadrature's Views; Quadrature itself is copied into
+// device data, so it cannot hold a std::shared_ptr.
+struct HoldsKokkosRuntime {
+    std::shared_ptr<void> kokkos_runtime = KokkosParser::runtime();
+};
+struct PyQuadrature : HoldsKokkosRuntime, Quadrature {
+    using Quadrature::Quadrature;
+};
+
 class ParticleHelper {
 public:
 
@@ -418,6 +453,10 @@ public:
     typedef Kokkos::View<int*> int_1d_view_type_in_gmls;
 
 private:
+
+    // keeps a Kokkos runtime started by a KokkosParser running while this object owns Kokkos memory;
+    // declared first, so it is released after every other member (see KokkosParser::runtime)
+    std::shared_ptr<void> kokkos_runtime = KokkosParser::runtime();
 
     // gmls_object passed at instantiation 
     // or set after instantiation
@@ -886,27 +925,24 @@ PyCOMPADRE: Compadre Toolkit
 
 Important:
 Be sure to initialize Kokkos before setting up any objects from this library,
-by created a scoped KokkosParser object, i.e:
+by creating a KokkosParser object, i.e.:
 
 .. code-block:: python
 
     kp = pycompadre.KokkosParser()
 
-When `kp` goes out of scope, then Kokkos will be finalized.
+KokkosParser takes the Kokkos command-line arguments from sys.orig_argv (the
+command line given to the Python executable), together with the KOKKOS_*
+environment variables. If Kokkos is already initialized (by another
+KokkosParser, or by a C++ program embedding Python), it joins the running
+Kokkos. See KokkosParser for details.
 
-GMLS type objects are passed to ParticleHelper objects.
-Be sure to deallocate in reverse order, i.e.:
+Kokkos is finalized once `kp` (and any other KokkosParser) and every object
+using Kokkos memory (GMLS, ParticleHelper, Quadrature) are gone, so these can
+be released in any order.
 
-.. code-block:: python
-
-    >> kp = pycompadre.KokkosParser()
-    >> gmls_obj = GMLS(...)
-    >> gmls_helper = ParticleHelper(gmls_object)
-    ...
-    ...
-    >> del gmls_obj
-    >> del gmls_helper
-    >> del kp
+GMLS type objects are passed to ParticleHelper objects, which refer to them,
+so keep a GMLS object alive while a ParticleHelper uses it.
 
 Project details at:
 https://github.com/sandialabs/compadre
@@ -1240,7 +1276,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .def("getNeighbor", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getNeighborHost, nb::arg("target index"), nb::arg("local neighbor number"), "Get neighbor index from target index and local neighbor number.")
     .def("getTotalNeighborsOverAllLists", &NeighborLists<ParticleHelper::int_1d_view_type_in_gmls>::getTotalNeighborsOverAllListsHost, "Get total storage size of all neighbor lists combined.");
 
-    nb::class_<Quadrature>(m, "Quadrature")
+    nb::class_<PyQuadrature>(m, "Quadrature")
     .def(nb::init<int, int, std::string>(), nb::arg("order_of_quadrature_points"), nb::arg("dimension_of_quadrature_points"), 
          nb::arg("quadrature_type") = "LINE")
     .def("validQuadrature", &Quadrature::validQuadrature, "Has quadrature been generated.")
@@ -1248,10 +1284,10 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .def("getOrderOfQuadraturePoints", &Quadrature::getOrderOfQuadraturePoints)
     .def("getDimensionOfQuadraturePoints", &Quadrature::getDimensionOfQuadraturePoints)
     .def("getQuadratureType", &Quadrature::getQuadratureType)
-    .def("getWeights", [] (const Quadrature &quadrature) {
+    .def("getWeights", [] (const PyQuadrature &quadrature) {
         return convert_kokkos_to_np(quadrature.getWeights());
     })
-    .def("getSites", [] (const Quadrature &quadrature) {
+    .def("getSites", [] (const PyQuadrature &quadrature) {
         return convert_kokkos_to_np(quadrature.getSites());
     });
 
@@ -1285,12 +1321,36 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .def("status", &KokkosParser::status);
 
     nb::class_<KokkosParser>(m, "KokkosParser", R"pbdoc(
-        Class wrapping the functionality of Kokkos::ScopeGuard. Multiple instances can  
-        can be instantiated and go out of scope with only one instance initiating Kokkos
-        and the last instance finalizing Kokkos when it goes out of scope.
+        Initializes Kokkos from the command line, or joins the Kokkos already running.
+
+        The Kokkos arguments always come from sys.orig_argv (Python 3.10+), the
+        command line given to the Python executable, together with the KOKKOS_*
+        environment variables, so they cannot change during a run:
+
+        - Run by the Python executable (sys.orig_argv is not empty): joins the
+          running Kokkos if it is initialized, and otherwise initializes Kokkos
+          with sys.orig_argv.
+        - Embedded in a C++ program (sys.orig_argv is empty): joins the running
+          Kokkos if it is initialized (the C++ program should have initialized
+          it), and otherwise warns that command-line arguments are ignored and
+          initializes Kokkos from the KOKKOS_* environment variables only.
+
+        Any number of instances can be created; only the first initializes Kokkos.
+        Kokkos is finalized when the last instance, and the last object using
+        Kokkos memory (GMLS, ParticleHelper, Quadrature), are gone, in whatever
+        order. Kokkos cannot be initialized again once it is finalized, so creating
+        an instance after that raises RuntimeError.
     )pbdoc")
-    .def(nb::init<std::vector<std::string>,bool>(), nb::arg("args"), nb::arg("print") = false)
-    .def(nb::init<bool>(), nb::arg("print") = false)
+    .def("__init__", [](KokkosParser* self, nb::object args) { initKokkosParserFromPython(self, args); },
+            nb::arg("args").none(), R"pbdoc(
+        args must be sys.argv or sys.orig_argv (the same list or an equal one), and
+        is accepted so that KokkosParser(sys.argv) keeps working: the arguments
+        still come from sys.orig_argv. Any other list raises RuntimeError, since it
+        would be ignored.
+    )pbdoc")
+    .def("__init__", [](KokkosParser* self) { initKokkosParserFromPython(self, nb::none()); }, R"pbdoc(
+        Takes the arguments from sys.orig_argv, as described for KokkosParser.
+    )pbdoc")
     .def_static("status", &KokkosParser::status);
 
     m.def("getNP", &GMLS::getNP, R"pbdoc(
