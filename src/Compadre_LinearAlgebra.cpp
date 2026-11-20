@@ -302,7 +302,7 @@ namespace GMLS_LinearAlgebra {
                               Kokkos::make_pair<size_t,size_t>(0, _N),
                               Kokkos::make_pair<size_t,size_t>(0, _NRHS));
 
-      int info = team_chol_lower_inplace(member, a_small, _N);
+      team_chol_lower_inplace(member, a_small, _N);
       member.team_barrier();
 
       using Trsmty = KokkosBatched::TeamVectorTrsm<

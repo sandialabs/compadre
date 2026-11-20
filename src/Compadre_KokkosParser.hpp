@@ -87,7 +87,10 @@ public:
   // prints Kokkos configuration
   static std::string status();
 
-  // prohibit using the assignment constructor
+  // KokkosParser is not copyable. Deleting the copy constructor explicitly (not only the assignment)
+  // keeps it from being generated implicitly, e.g. by nanobind for pycompadre, which clang reports as
+  // deprecated (-Wdeprecated-copy) when a copy assignment operator is user-declared.
+  KokkosParser(const KokkosParser&) = delete;
   KokkosParser& operator=( const KokkosParser& ) = delete;
 
 };
