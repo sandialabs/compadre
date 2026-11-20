@@ -242,6 +242,29 @@ if (${testName}_CREATED)
     ) # end set_tests_properties
 endif() # test created
 
+# Device views test of CardinalCubicBSpline for GMLS
+set(testName GMLS_Device_Dim3_QR_CardinalCubicBSpline)
+tribits_add_test(
+  GMLS_Device_Test
+  NAME
+    ${testName}
+  COMM serial mpi
+  NUM_MPI_PROCS 1
+  ARGS
+    "--p 4 --nt 200 --d 3 --kokkos-num-threads=2 --kernel-type cardinalcubicbspline"
+  ADDED_TESTS_NAMES_OUT ${testName}_CREATED
+  ) # end tribits_add_test
+if (${testName}_CREATED)
+  set_tests_properties(
+    ${${testName}_CREATED}
+    PROPERTIES
+      LABELS
+        "IntegrationTest;integration;kokkos;bspline"
+      TIMEOUT
+        60
+    ) # end set_tests_properties
+endif() # test created
+
 # Device views tests for GMLS - Cholesky solver
 set(testName GMLS_Device_Dim3_CHOL)
 tribits_add_test(
@@ -288,28 +311,28 @@ if (${testName}_CREATED)
     ) # end set_tests_properties
 endif() # test created
 
-## Device views tests with Neumann BC for STAGGERED GMLS - QR solver
-#set(testName GMLS_StaggeredNeumannGradScalar_Dim3_QR)
-#tribits_add_test(
-#  GMLS_Staggered
-#  NAME
-#    ${testName}
-#  COMM serial mpi
-#  NUM_MPI_PROCS 1
-#  ARGS
-#    "3 200 3 0 0 1 --kokkos-num-threads=2"
-#  ADDED_TESTS_NAMES_OUT ${testName}_CREATED
-#  ) # end tribits_add_test
-#if (${testName}_CREATED)
-#  set_tests_properties(
-#    ${${testName}_CREATED}
-#    PROPERTIES
-#      LABELS
-#        "IntegrationTest;integration;kokkos;staggered"
-#      TIMEOUT
-#        60
-#    ) # end set_tests_properties
-#endif() # test created
+# Device views tests with Neumann BC for STAGGERED GMLS - QR solver
+set(testName GMLS_StaggeredNeumannGradScalar_Dim3_QR)
+tribits_add_test(
+  GMLS_Staggered
+  NAME
+    ${testName}
+  COMM serial mpi
+  NUM_MPI_PROCS 1
+  ARGS
+    "--p 3 --nt 200 --d 3 --kokkos-num-threads=2"
+  ADDED_TESTS_NAMES_OUT ${testName}_CREATED
+  ) # end tribits_add_test
+if (${testName}_CREATED)
+  set_tests_properties(
+    ${${testName}_CREATED}
+    PROPERTIES
+      LABELS
+        "IntegrationTest;integration;kokkos;staggered"
+      TIMEOUT
+        60
+    ) # end set_tests_properties
+endif() # test created
 
 # Device views tests for GMLS (vector basis)
 set(testName GMLS_Vector_Dim3_QR)
@@ -409,7 +432,6 @@ tribits_add_test(
     ${testName}
   COMM serial mpi
   NUM_MPI_PROCS 1
-  COMM serial mpi
   ARGS
     "--p 4 --nt 200 --d 2 --kokkos-num-threads=2"
   ADDED_TESTS_NAMES_OUT ${testName}_CREATED
