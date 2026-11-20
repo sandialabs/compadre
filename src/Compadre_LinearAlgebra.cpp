@@ -12,7 +12,21 @@
 #include "KokkosBatched_Trsm_Decl.hpp"
 #include "KokkosBatched_SolveUTV_Decl_Compadre.hpp"
 #include "KokkosBatched_Trsm_TeamVector_Impl.hpp"
+#include "KokkosKernels_config.h"
 #include <cstdlib>
+
+// Kokkos Kernels 5.0 moved ArithTraits from namespace Kokkos (Kokkos_ArithTraits.hpp)
+// to namespace KokkosKernels (KokkosKernels_ArithTraits.hpp). The old header only compiles
+// with KOKKOS_ENABLE_DEPRECATED_CODE_5.
+#if KOKKOSKERNELS_VERSION_MAJOR >= 5
+#include "KokkosKernels_ArithTraits.hpp"
+template <typename T>
+using CompadreArithTraits = KokkosKernels::ArithTraits<T>;
+#else
+#include "Kokkos_ArithTraits.hpp"
+template <typename T>
+using CompadreArithTraits = Kokkos::ArithTraits<T>;
+#endif
 
 using namespace KokkosBatched;
 
@@ -22,7 +36,7 @@ KOKKOS_INLINE_FUNCTION
 int team_chol_lower_inplace(const MemberType& member, const AViewType& A, const int n) {
   using value_type = typename AViewType::non_const_value_type;
   // a pivot at or below this fraction of its original diagonal entry means A is not positive definite
-  const value_type relative_pivot_tolerance = 10 * n * Kokkos::ArithTraits<value_type>::epsilon();
+  const value_type relative_pivot_tolerance = 10 * n * CompadreArithTraits<value_type>::epsilon();
   for (int j=0; j<n; ++j) {
 
     // A(j,j) -= sum_{k<j} A(j,k)^2
