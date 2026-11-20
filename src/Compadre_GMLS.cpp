@@ -166,7 +166,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
          */
 
         team_scratch_size_b += scratch_matrix_right_type::shmem_size(_dimensions, _dimensions); // PTP matrix
-        team_scratch_size_b += scratch_vector_type::shmem_size( (_dimensions-1)*max_num_neighbors ); // manifold_gradient
+        team_scratch_size_b += scratch_vector_type::shmem_size( TO_GLOBAL(_dimensions-1)*TO_GLOBAL(max_num_neighbors) ); // manifold_gradient
 
         thread_scratch_size_a += scratch_vector_type::shmem_size(this_num_cols); // delta, used for each thread
         thread_scratch_size_a += scratch_vector_type::shmem_size(
@@ -174,7 +174,7 @@ void GMLS::generatePolynomialCoefficients(const int number_of_batches, const boo
         if (_data_sampling_functional == VaryingManifoldVectorPointSample) {
             team_scratch_size_b += scratch_vector_type::shmem_size(max_num_neighbors); // t1 work vector for prestencils
             team_scratch_size_b += scratch_vector_type::shmem_size(max_num_neighbors); // t2 work vector for prestencils
-            thread_scratch_size_b += scratch_vector_type::shmem_size(_dimensions*_dimensions); // temporary tangent calculations, used for each thread
+            thread_scratch_size_b += scratch_vector_type::shmem_size(TO_GLOBAL(_dimensions)*TO_GLOBAL(_dimensions)); // temporary tangent calculations, used for each thread
         }
 
         // allocate data on the device (initialized to zero)

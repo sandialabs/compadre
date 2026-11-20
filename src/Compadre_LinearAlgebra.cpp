@@ -114,7 +114,7 @@ namespace GMLS_LinearAlgebra {
 
       // workspace vectors
       scratch_vector_type ww_fast(member.team_scratch(_pm_getTeamScratchLevel_0), 3*_M);
-      scratch_vector_type ww_slow(member.team_scratch(_pm_getTeamScratchLevel_1), _N*_NRHS);
+      scratch_vector_type ww_slow(member.team_scratch(_pm_getTeamScratchLevel_1), TO_GLOBAL(_N)*TO_GLOBAL(_NRHS));
 
       device_unmanaged_matrix_right_type aa(_a.data() + TO_GLOBAL(k)*TO_GLOBAL(_a.extent(1))*TO_GLOBAL(_a.extent(2)), 
               _a.extent(1), _a.extent(2));
@@ -236,7 +236,7 @@ namespace GMLS_LinearAlgebra {
       
       int scratch_size = scratch_matrix_right_type::shmem_size(_N, _N); // V
       scratch_size += scratch_matrix_right_type::shmem_size(_M, _N /* only N columns of U are filled, maximum */); // U
-      scratch_size += scratch_vector_type::shmem_size(_N*_NRHS); // W (for SolveUTV)
+      scratch_size += scratch_vector_type::shmem_size(TO_GLOBAL(_N)*TO_GLOBAL(_NRHS)); // W (for SolveUTV)
 
       int l0_scratch_size = scratch_vector_type::shmem_size(_N); // P (temporary)
       l0_scratch_size += scratch_vector_type::shmem_size(3*_M); // W (for UTV)
@@ -383,7 +383,7 @@ namespace GMLS_LinearAlgebra {
       const int k = member.league_rank();
 
       // workspace vector
-      scratch_vector_type ww_slow(member.team_scratch(_pm_getTeamScratchLevel_1), _M*_N);
+      scratch_vector_type ww_slow(member.team_scratch(_pm_getTeamScratchLevel_1), TO_GLOBAL(_M)*TO_GLOBAL(_N));
       device_unmanaged_matrix_right_type bb(_b.data() + TO_GLOBAL(k)*TO_GLOBAL(_b.extent(1))*TO_GLOBAL(_b.extent(2)), 
               _b.extent(1), _b.extent(2));
 
@@ -420,7 +420,7 @@ namespace GMLS_LinearAlgebra {
 
       _pm_getTeamScratchLevel_1 = pm.getTeamScratchLevel(1);
       
-      size_t scratch_size = scratch_vector_type::shmem_size(_M*_N); 
+      size_t scratch_size = scratch_vector_type::shmem_size(TO_GLOBAL(_M)*TO_GLOBAL(_N));
 
       pm.clearScratchSizes();
       pm.setTeamScratchSize(1, scratch_size);
