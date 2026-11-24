@@ -112,6 +112,10 @@ private:
 
     //! h supports determined through neighbor search (device)
     Kokkos::View<double*> _epsilons; 
+
+    //! optional, h supports determined through neighbor search (device)
+    //! which is only used in the kernel
+    Kokkos::View<double*> _epsilons_from_sources; 
     
     //! generated weights for nontraditional samples required to transform data into expected sampling 
     //! functional form (device). 
@@ -802,6 +806,10 @@ public:
     //! Get a view (device) of all window sizes
     decltype(_epsilons)* getWindowSizes() { return &_epsilons; }
 
+    //! Get a view (device) of all window sizes associated with source sites
+    //! (empty view if setWindowSizesFromSourceSites was not called)
+    decltype(_epsilons_from_sources)* getWindowSizesFromSourceSites() { return &_epsilons_from_sources; }
+
     //! Get a view (device) of all tangent direction bundles.
     decltype(_T)* getTangentDirections() { return &_T; }
 
@@ -1116,20 +1124,40 @@ public:
     //! Sets window sizes, also called the support of the kernel
     template<typename view_type>
     void setWindowSizes(view_type epsilons) {
-
         // allocate memory on device
         _epsilons = decltype(_epsilons)("device epsilons", epsilons.extent(0));
-
         // copy data from host to device
         Kokkos::deep_copy(_epsilons, epsilons);
         this->resetCoefficientData();
     }
 
     //! Sets window sizes, also called the support of the kernel (device)
-    template<typename view_type>
+    //! Non-template so that overload resolution selects it for a matching device view
+    //! (shallow copy, no allocation).
     void setWindowSizes(decltype(_epsilons) epsilons) {
-        // allocate memory on device
         _epsilons = epsilons;
+        this->resetCoefficientData();
+    }
+
+    //! (OPTIONAL)
+    //! Sets window sizes for each source site. When set, these are used only in the
+    //! weighting kernel (indexed by neighbor/source index) rather than the target window sizes.
+    //! Basis scaling and target operators continue to use the target window sizes.
+    //! Size is checked against the number of source sites in generatePolynomialCoefficients.
+    template<typename view_type>
+    void setWindowSizesFromSourceSites(view_type epsilons) {
+        // allocate memory on device
+        _epsilons_from_sources = decltype(_epsilons_from_sources)("device epsilons from source sites", epsilons.extent(0));
+        // copy data from host to device
+        Kokkos::deep_copy(_epsilons_from_sources, epsilons);
+        this->resetCoefficientData();
+    }
+
+    //! (OPTIONAL)
+    //! Sets window sizes for each source site (device). Non-template so that overload
+    //! resolution selects it for a matching device view (shallow copy, no allocation).
+    void setWindowSizesFromSourceSites(decltype(_epsilons_from_sources) epsilons) {
+        _epsilons_from_sources = epsilons;
         this->resetCoefficientData();
     }
 
@@ -1378,6 +1406,15 @@ public:
         result &= (_pc._source_coordinates.extent(0)>0||_pc._target_coordinates.extent(0)==0);
         compadre_assert_release((!assert_valid || result) &&
                 "Source coordinates not set in GMLS class before calling generatePolynomialCoefficients.");
+
+        // NOTE: new requirement that window sizes are sized to the number of target sites
+        result &= (_epsilons.extent(0)==_pc._target_coordinates.extent(0));
+        compadre_assert_release((!assert_valid || result) &&
+                "Number of window sizes (setWindowSizes) must match number of target sites.");
+
+        result &= (_epsilons_from_sources.extent(0)==0 || _epsilons_from_sources.extent(0)==_pc._source_coordinates.extent(0));
+        compadre_assert_release((!assert_valid || result) &&
+                "Number of window sizes from source sites (setWindowSizesFromSourceSites) must match number of source sites.");
         return result;
     }
 

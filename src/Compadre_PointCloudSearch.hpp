@@ -228,6 +228,23 @@ class PointCloudSearch {
             }
         }
 
+        //! Radius search about query_point with a user-provided nanoflann result set (callback).
+        //! Requires that generateKDTree() has been called. Thread-safe.
+        //! If sorted, result_set.sort() is called (for Compadre::RadiusResultSet, this moves the 
+        //! closest index to the front but does not move the distances).
+        template <typename result_set_type>
+        size_t radiusSearchCustomCallback(const double* query_point, result_set_type& result_set, const bool sorted = true) const {
+            nanoflann::SearchParams sp(32 /*ignored*/, 0 /*eps*/, sorted);
+            if (_dim==1) {
+                return _tree_1d->template radiusSearchCustomCallback<result_set_type>(query_point, result_set, sp);
+            } else if (_dim==2) {
+                return _tree_2d->template radiusSearchCustomCallback<result_set_type>(query_point, result_set, sp);
+            } else if (_dim==3) {
+                return _tree_3d->template radiusSearchCustomCallback<result_set_type>(query_point, result_set, sp);
+            }
+            return 0;
+        }
+
         /*! \brief Generates neighbor lists of 2D view by performing a radius search 
             where the radius to be searched is in the epsilons view.
             If uniform_radius is given, then this overrides the epsilons view radii sizes.
@@ -827,6 +844,177 @@ class PointCloudSearch {
             }
 
             return total_neighbors;
+        }
+
+        /*! \brief Generates compressed row neighbor lists where the support (window size) belongs to each
+            source site rather than to each target site, i.e., source site s is a neighbor of target site t
+            iff |x_t - x_s| < source_epsilons(s).
+
+            Intended for use with GMLS::setWindowSizesFromSourceSites (RKPM-style kernels), so that no
+            source site whose kernel is nonzero at a target is missing from that target's neighbor list.
+
+            Implementation swaps the roles of sources and targets: a kd-tree is built on the target sites,
+            a radius search of size source_epsilons(s) is performed about each source site s, and the
+            resulting source->target lists are transposed into target->source compressed row storage.
+
+            Ordering within each target's neighbor list: the closest source site is first (consistent with
+            the other searches in this class); the remaining sources are in ascending source index order.
+
+            The window size returned for each target site (epsilons) is the distance to the farthest source
+            site in that target's neighbor list. It is used for scaling the polynomial basis, not in the 
+            weighting kernel. If every neighbor is coincident with the target (distance 0), the largest 
+            source epsilon among its neighbors is used instead.
+
+            \param is_dry_run               [in] - whether to do a dry-run (find neighbors, but don't store)
+            \param trg_pts_view             [in] - target coordinates from which to seek neighbors
+            \param neighbor_lists           [out] - 1D view of neighbor lists to be populated from search
+            \param number_of_neighbors_list [in/out] - number of neighbors for each target site
+            \param epsilons                 [out] - window size for each target site (for basis scaling)
+            \param source_epsilons          [in] - window size (support) for each source site
+            \param neighbors_needed         [in] - minimum number of neighbors required for each target site (unisolvency)
+            \param max_search_radius        [in] - largest valid source epsilon (useful only for MPI jobs if halo size exists)
+            \param verify_unisolvency       [in] - verify at least neighbors_needed neighbors are found for each target site
+        */
+        template <typename trg_view_type, typename neighbor_lists_view_type, typename epsilons_view_type,
+                  typename source_epsilons_view_type>
+        size_t generateCRNeighborListsFromSourceRadiusSearch(bool is_dry_run, trg_view_type trg_pts_view, 
+                neighbor_lists_view_type neighbor_lists, neighbor_lists_view_type number_of_neighbors_list, 
+                epsilons_view_type epsilons, source_epsilons_view_type source_epsilons, 
+                const int neighbors_needed, double max_search_radius = 0.0, bool verify_unisolvency = true) {
+
+            compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename trg_view_type::memory_space>::accessible==1) &&
+                    "Target coordinates view passed to generateCRNeighborListsFromSourceRadiusSearch should be accessible from the host.");
+            compadre_assert_release((((int)trg_pts_view.extent(1))>=_dim) &&
+                    "Target coordinates view passed to generateCRNeighborListsFromSourceRadiusSearch must have \
+                    second dimension as large as _dim.");
+            compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename neighbor_lists_view_type::memory_space>::accessible==1) &&
+                    "Views passed to generateCRNeighborListsFromSourceRadiusSearch should be accessible from the host.");
+            compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename epsilons_view_type::memory_space>::accessible==1) &&
+                    "Views passed to generateCRNeighborListsFromSourceRadiusSearch should be accessible from the host.");
+            compadre_assert_release((Kokkos::SpaceAccessibility<host_execution_space, typename source_epsilons_view_type::memory_space>::accessible==1) &&
+                    "Views passed to generateCRNeighborListsFromSourceRadiusSearch should be accessible from the host.");
+            compadre_assert_release((neighbor_lists_view_type::rank==1) && "neighbor_lists must be a 1D Kokkos view.");
+
+            const int num_target_sites = trg_pts_view.extent(0);
+            const int num_source_sites = _src_pts_view.extent(0);
+
+            compadre_assert_release((number_of_neighbors_list.extent(0)==(size_t)num_target_sites)
+                        && "number_of_neighbors_list View does not have the correct dimension");
+            compadre_assert_release((epsilons.extent(0)==(size_t)num_target_sites)
+                        && "epsilons View does not have the correct dimension");
+            compadre_assert_release((source_epsilons.extent(0)==(size_t)num_source_sites)
+                        && "source_epsilons View does not have the correct dimension (number of source sites)");
+
+            // validate source window sizes once, here, rather than in the search loops
+            for (int s=0; s<num_source_sites; ++s) {
+                compadre_assert_release((source_epsilons(s) > 0) && "source_epsilons must be positive.");
+                compadre_assert_release((source_epsilons(s)<=max_search_radius || max_search_radius==0) 
+                        && "max_search_radius given (generally derived from the size of a halo region), and a source epsilon exceeds this max_search_radius.");
+            }
+
+            // kd-tree over target sites (roles of sources and targets swapped)
+            PointCloudSearch<trg_view_type> trg_search(trg_pts_view, _dim, _max_leaf);
+            trg_search.generateKDTree();
+
+            const int dim = _dim;
+            auto src_pts_view = _src_pts_view;
+
+            // part 1. count targets within the support of each source site
+            Kokkos::View<global_index_type*, host_memory_space> src_row_offsets("source row offsets", num_source_sites+1);
+            Kokkos::parallel_for("source radius search count", Kokkos::RangePolicy<host_execution_space>(0,num_source_sites), 
+                    [&](const int s) {
+                double this_source_coord[3] = {0,0,0};
+                for (int j=0; j<dim; ++j) this_source_coord[j] = src_pts_view(s,j);
+                // max_size of 0 means only counting is performed (no storage is written)
+                Compadre::RadiusResultSet<double> rrs(source_epsilons(s)*source_epsilons(s), nullptr, nullptr, 0);
+                src_row_offsets(s+1) = trg_search.radiusSearchCustomCallback(this_source_coord, rrs, false /*not sorted*/);
+            });
+            Kokkos::fence();
+            for (int s=0; s<num_source_sites; ++s) src_row_offsets(s+1) += src_row_offsets(s);
+            const global_index_type total_pairs = src_row_offsets(num_source_sites);
+
+            // part 2. store targets (and squared distances) within the support of each source site
+            Kokkos::View<size_t*, host_memory_space> src_to_trg("source to target lists", total_pairs);
+            Kokkos::View<double*, host_memory_space> src_to_trg_dist2("source to target squared distances", total_pairs);
+            Kokkos::parallel_for("source radius search fill", Kokkos::RangePolicy<host_execution_space>(0,num_source_sites), 
+                    [&](const int s) {
+                double this_source_coord[3] = {0,0,0};
+                for (int j=0; j<dim; ++j) this_source_coord[j] = src_pts_view(s,j);
+                const size_t this_count = src_row_offsets(s+1)-src_row_offsets(s);
+                Compadre::RadiusResultSet<double> rrs(source_epsilons(s)*source_epsilons(s), 
+                        src_to_trg_dist2.data()+src_row_offsets(s), src_to_trg.data()+src_row_offsets(s), this_count);
+                // not sorted, so that distances stay aligned with indices
+                const size_t neighbors_found = trg_search.radiusSearchCustomCallback(this_source_coord, rrs, false /*not sorted*/);
+                compadre_kernel_assert_debug((neighbors_found==this_count) 
+                        && "Number of targets found for a source site changed between counting and filling.");
+            });
+            Kokkos::fence();
+
+            // part 3. transpose source->target lists into target->source lists
+            // (serial over sources in ascending order, so each target's list is in ascending source order)
+            Kokkos::View<global_index_type*, host_memory_space> trg_count("target counts", num_target_sites);
+            for (global_index_type k=0; k<total_pairs; ++k) trg_count(src_to_trg(k))++;
+
+            if (is_dry_run) {
+                for (int t=0; t<num_target_sites; ++t) number_of_neighbors_list(t) = trg_count(t);
+            } else {
+                for (int t=0; t<num_target_sites; ++t) {
+                    compadre_assert_debug((trg_count(t)==(global_index_type)number_of_neighbors_list(t)) 
+                            && "Number of neighbors found changed since dry-run.");
+                }
+            }
+
+            // validate unisolvency requirement here, where the neighbors are determined
+            if (verify_unisolvency) {
+                for (int t=0; t<num_target_sites; ++t) {
+                    compadre_assert_release((trg_count(t)>=(global_index_type)neighbors_needed) 
+                            && "Source radius search failed to find number of neighbors needed for unisolvency (source_epsilons too small).");
+                }
+            }
+
+            typedef typename std::remove_pointer<typename std::remove_pointer<typename neighbor_lists_view_type::data_type>::type>::type neighbor_index_type;
+
+            // row offsets for target->source storage
+            Kokkos::View<global_index_type*, host_memory_space> trg_row_offsets("target row offsets", num_target_sites+1);
+            for (int t=0; t<num_target_sites; ++t) trg_row_offsets(t+1) = trg_row_offsets(t) + trg_count(t);
+            if (!is_dry_run) {
+                compadre_assert_release((neighbor_lists.extent(0)>=(size_t)trg_row_offsets(num_target_sites))
+                        && "neighbor_lists View is not large enough to hold all neighbors (dry-run result).");
+            }
+
+            // fill neighbor lists, track closest and farthest neighbor for each target
+            Kokkos::View<global_index_type*, host_memory_space> trg_cursor("target cursor", num_target_sites);
+            Kokkos::View<double*, host_memory_space> trg_min_dist2("target min dist2", num_target_sites);
+            Kokkos::View<global_index_type*, host_memory_space> trg_min_pos("target min position", num_target_sites);
+            Kokkos::View<double*, host_memory_space> trg_max_dist2("target max dist2", num_target_sites);
+            Kokkos::View<double*, host_memory_space> trg_max_src_eps("target max source epsilon", num_target_sites);
+            Kokkos::deep_copy(trg_min_dist2, std::numeric_limits<double>::max());
+            Kokkos::deep_copy(trg_max_dist2, 0.0);
+            Kokkos::deep_copy(trg_max_src_eps, 0.0);
+            for (int s=0; s<num_source_sites; ++s) {
+                for (global_index_type k=src_row_offsets(s); k<src_row_offsets(s+1); ++k) {
+                    const size_t t = src_to_trg(k);
+                    const double d2 = src_to_trg_dist2(k);
+                    const global_index_type pos = trg_row_offsets(t) + trg_cursor(t)++;
+                    if (!is_dry_run) neighbor_lists(pos) = static_cast<neighbor_index_type>(s);
+                    if (d2 < trg_min_dist2(t)) { trg_min_dist2(t) = d2; trg_min_pos(t) = pos; }
+                    if (d2 > trg_max_dist2(t)) trg_max_dist2(t) = d2;
+                    if (source_epsilons(s) > trg_max_src_eps(t)) trg_max_src_eps(t) = source_epsilons(s);
+                }
+            }
+
+            for (int t=0; t<num_target_sites; ++t) {
+                // closest neighbor first (same convention as RadiusResultSet::sort)
+                if (!is_dry_run && trg_count(t)>0 && trg_min_pos(t)!=trg_row_offsets(t)) {
+                    auto tmp = neighbor_lists(trg_row_offsets(t));
+                    neighbor_lists(trg_row_offsets(t)) = neighbor_lists(trg_min_pos(t));
+                    neighbor_lists(trg_min_pos(t)) = tmp;
+                }
+                // window size for basis scaling is the distance to the farthest neighbor
+                epsilons(t) = (trg_max_dist2(t) > 0) ? std::sqrt(trg_max_dist2(t)) : trg_max_src_eps(t);
+            }
+
+            return trg_row_offsets(num_target_sites);
         }
 }; // PointCloudSearch
 

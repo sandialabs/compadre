@@ -580,6 +580,29 @@ public:
         return convert_kokkos_to_np(*gmls_object->getWindowSizes());
     }
 
+    void setWindowSizesFromSourceSites(nb::ndarray<nb::numpy, double> input) {
+
+        if (input.ndim() != 1) {
+            throw std::runtime_error("Number of dimensions must be one");
+        }
+        
+        auto epsilon = convert_np_to_kokkos_1d<device_memory_space>(input);
+        
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
+        // set values from Kokkos View
+        gmls_object->setWindowSizesFromSourceSites(epsilon);
+    }
+ 
+    nb::ndarray<nb::numpy, double> getWindowSizesFromSourceSites() {
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
+        if (gmls_object->getWindowSizesFromSourceSites()->extent(0)<=0) {
+            throw std::runtime_error("getWindowSizesFromSourceSites() called, but window sizes from source sites were never set.");
+        }
+        return convert_kokkos_to_np(*gmls_object->getWindowSizesFromSourceSites());
+    }
+
     void setTangentBundle(nb::ndarray<nb::numpy, double> input) {
 
         if (input.ndim() != 3) {
@@ -722,6 +745,59 @@ public:
         // set these views in the GMLS object
         gmls_object->setNeighborLists(neighbor_lists, number_of_neighbors_list);
         gmls_object->setWindowSizes(epsilon);
+
+    }
+
+    void generateNeighborListsFromSourceRadiusSearchAndSet(nb::ndarray<nb::numpy, double> input, 
+            nb::ndarray<nb::numpy, double> source_window_sizes, int poly_order, int dimension = 3, 
+            double max_search_radius = 0.0, bool verify_unisolvency = true) {
+
+        compadre_assert_release(gmls_object!=nullptr &&
+                "ParticleHelper used without an internal GMLS object set");
+        compadre_assert_release(point_cloud_search!=nullptr &&
+                "generateKDTree(source_sites) must be called before generateNeighborListsFromSourceRadiusSearchAndSet");
+
+        if (input.ndim() != 2) {
+            throw std::runtime_error("Number of dimensions of target_sites must be two");
+        }
+        if (gmls_object->getGlobalDimensions()!=input.shape(1)) {
+            throw std::runtime_error("Second dimension of target_sites must be the same as GMLS spatial dimension");
+        }
+        if (source_window_sizes.ndim() != 1) {
+            throw std::runtime_error("Number of dimensions of source_window_sizes must be one");
+        }
+        if (gmls_object->getPointConnections()->_source_coordinates.extent(0)!=source_window_sizes.shape(0)) {
+            throw std::runtime_error("source_window_sizes must have one entry per source site");
+        }
+
+        int neighbors_needed = Compadre::GMLS::getNP(poly_order, dimension, gmls_object->getReconstructionSpace());
+
+        auto target_coords = convert_np_to_kokkos_2d<host_memory_space>(input);
+        auto source_epsilons = convert_np_to_kokkos_1d<host_memory_space>(source_window_sizes);
+        gmls_object->setTargetSites(target_coords);
+
+        int number_target_coords = target_coords.extent(0);
+        int_1d_view_type neighbor_lists("neighbor lists", 0);
+        int_1d_view_type number_of_neighbors_list("number of neighbors list", number_target_coords);
+        // window sizes for target sites (used for basis scaling)
+        double_1d_view_type epsilon("h supports", number_target_coords);
+
+        size_t total_storage = point_cloud_search->generateCRNeighborListsFromSourceRadiusSearch(true /* is a dry run*/, 
+                target_coords, neighbor_lists, number_of_neighbors_list, epsilon, source_epsilons, 
+                neighbors_needed, max_search_radius, verify_unisolvency);
+
+        Kokkos::resize(neighbor_lists, total_storage);
+        Kokkos::fence();
+
+        point_cloud_search->generateCRNeighborListsFromSourceRadiusSearch(false /* not a dry run*/, 
+                target_coords, neighbor_lists, number_of_neighbors_list, epsilon, source_epsilons, 
+                neighbors_needed, max_search_radius, verify_unisolvency);
+        Kokkos::fence();
+
+        // set these views in the GMLS object
+        gmls_object->setNeighborLists(neighbor_lists, number_of_neighbors_list, verify_unisolvency);
+        gmls_object->setWindowSizes(epsilon);
+        gmls_object->setWindowSizesFromSourceSites(source_epsilons);
 
     }
     
@@ -1065,6 +1141,15 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             nb::arg("target_sites"), nb::arg("poly_order"), nb::arg("dimension") = 3, nb::arg("epsilon_multiplier") = 1.6, 
             nb::arg("max_search_radius") = 0.0, nb::arg("scale_k_neighbor_radius") = true, 
             nb::arg("scale_num_neighbors") = false, nb::arg("verify_unisolvency") = true)
+    .def("generateNeighborListsFromSourceRadiusSearchAndSet", &ParticleHelper::generateNeighborListsFromSourceRadiusSearchAndSet, 
+            nb::arg("target_sites"), nb::arg("source_window_sizes"), nb::arg("poly_order"), nb::arg("dimension") = 3, 
+            nb::arg("max_search_radius") = 0.0, nb::arg("verify_unisolvency") = true, R"pbdoc(
+        Neighbor search where each source site has its own support (window size): source site s is a neighbor of
+        target site t iff |x_t - x_s| < source_window_sizes[s]. Sets target sites, neighbor lists, target window sizes
+        (distance to farthest neighbor, used for basis scaling), and window sizes from source sites (used in the kernel).
+        Requires a prior call to generateKDTree(source_sites). With verify_unisolvency (default), raises if a target
+        has fewer neighbors than unknowns.
+    )pbdoc")
     .def("setNeighbors", &ParticleHelper::setNeighbors, nb::arg("neighbor_lists"), nb::arg("verify_unisolvency") = true,
             "Sets neighbor lists from 2D array where first column is number of neighbors for corresponding row's target site. "
             "With verify_unisolvency (default), raises if a target has fewer samples than unknowns.")
@@ -1074,6 +1159,9 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
     .def("getNeighborLists", &ParticleHelper::getNeighborLists, nb::rv_policy::reference_internal)
     .def("setWindowSizes", &ParticleHelper::setWindowSizes, nb::arg("window_sizes"))
     .def("getWindowSizes", &ParticleHelper::getWindowSizes)
+    .def("setWindowSizesFromSourceSites", &ParticleHelper::setWindowSizesFromSourceSites, nb::arg("window_sizes"),
+            "Sets window sizes for each source site, used in the weighting kernel instead of the target window sizes.")
+    .def("getWindowSizesFromSourceSites", &ParticleHelper::getWindowSizesFromSourceSites)
     .def("getSourceSites", &ParticleHelper::getSourceSites)
     .def("setTargetSites", &ParticleHelper::setTargetSites, nb::arg("target_coordinates"))
     .def("getTargetSites", &ParticleHelper::getTargetSites)
@@ -1142,7 +1230,8 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
         gmls->setSourceExtraData(convert_np_to_kokkos_2d(extra_data));
     })
     .def("__setstate__", [](nb::handle self, nb::tuple t) { // __setstate__
-            if (t.size() != 24)
+            // 24 entries: states pickled before window sizes from source sites were supported
+            if (t.size() != 24 && t.size() != 25)
                 throw std::runtime_error("Invalid state!");
 
             GMLS *gmls = nb::inst_ptr<GMLS>(self);
@@ -1193,6 +1282,14 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             // verify_unisolvency=False), so it is not checked again
             gmls->setProblemData(k_cr, k_nnl, k_ss, k_ts, k_ws, false /*verify_unisolvency*/);
 
+            if (t.size() == 25) {
+                auto sws     = nb::cast<nb::ndarray<nb::numpy, double> >(t[24]);
+                if (sws.shape(0) > 0) {
+                    auto k_sws   = convert_np_to_kokkos_1d(sws);
+                    gmls->setWindowSizesFromSourceSites(k_sws);
+                }
+            }
+
             nb::inst_mark_ready(self);
         })
     .def("__getstate__", [](const GMLS &gmls) { // __getstate__
@@ -1241,6 +1338,10 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             auto ws     = nonconst_gmls.getWindowSizes();
             auto np_ws  = convert_kokkos_to_np(*ws);
 
+            // get all window sizes from source sites (empty if not set)
+            auto sws    = nonconst_gmls.getWindowSizesFromSourceSites();
+            auto np_sws = convert_kokkos_to_np(*sws);
+
             // get all neighbors
             auto nl     = nonconst_gmls.getNeighborLists();
             auto cr     = nl->getNeighborLists();
@@ -1263,7 +1364,7 @@ https://github.com/sandialabs/compadre/blob/master/pycompadre/pycompadre.cpp
             return std::make_tuple(rs, psf, dsf, po, gdim, dst, pt, ct, cpo, 
                                    wt, wp0, wp1, mwt, mwp0, mwp1, lro_list,
                                    np_ss, np_ts, np_ws, np_cr, np_nnl,
-                                   np_a_cr, np_a_nnl, np_a_es);
+                                   np_a_cr, np_a_nnl, np_a_es, np_sws);
         });
 
     nb::class_<NeighborLists<ParticleHelper::int_1d_view_type_in_gmls> >(m, "NeighborLists")
