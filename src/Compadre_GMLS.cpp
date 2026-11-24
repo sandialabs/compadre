@@ -556,10 +556,11 @@ const GMLSBasisData GMLS::extractBasisData() const {
     data._source_extra_data = gmls._source_extra_data;
     data._target_extra_data = gmls._target_extra_data;
     data._pc = gmls._pc;
-    data._epsilons  = gmls._epsilons ;
-    data._prestencil_weights  = gmls._prestencil_weights ;
+    data._epsilons  = gmls._epsilons;
+    data._epsilons_from_sources  = gmls._epsilons_from_sources;
+    data._prestencil_weights  = gmls._prestencil_weights;
     data._additional_pc = gmls._additional_pc;
-    data._poly_order  = gmls._poly_order ;
+    data._poly_order  = gmls._poly_order;
     data._curvature_poly_order = gmls._curvature_poly_order;
     data._NP = gmls._NP;
     data._global_dimensions = gmls._global_dimensions;

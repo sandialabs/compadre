@@ -818,6 +818,117 @@ def test_square_qr(self, space_sample_combo):
 
 #############################
 
+#
+# Begin Window Sizes From Source Sites Tests
+#
+# Support (window size) belongs to each source site rather than each target site (RKPM-style kernel).
+# Neighbor search swaps the role of sources and targets so that source s is a neighbor of target t
+# iff |x_t - x_s| < eps_s. Patch test: quadratic data must be reproduced exactly.
+#
+def source_window_sizes_patch_test(self, dimension, reconstruction_space, sampling_functional):
+
+    poly_order = 2
+    rng = np.random.default_rng(1234) # for consistent results
+
+    # jittered grid of source sites on [-1,1]^d
+    ND = [40, 20, 12][dimension-1]
+    h = 2.0/(ND-1)
+    axes = [np.linspace(-1, 1, ND)]*dimension
+    source_sites = np.stack(np.meshgrid(*axes, indexing='ij'), axis=-1).reshape(-1, dimension)
+    source_sites += rng.uniform(-0.25*h, 0.25*h, size=source_sites.shape)
+    source_sites = np.ascontiguousarray(source_sites, dtype='f8')
+
+    # target sites (fewer than sources, and not a subset of them)
+    NT = 20
+    target_sites = np.ascontiguousarray(rng.uniform(-0.7, 0.7, size=(NT, dimension)), dtype='f8')
+
+    # window sizes vary from source to source, so they cannot be matched by a single target radius
+    source_eps = np.ascontiguousarray((2.5 + 1.5*(1.0 + source_sites[:,0])/2.0)*h, dtype='f8')
+
+    def make_gmls():
+        gmls_obj = pycompadre.GMLS(reconstruction_space, sampling_functional, poly_order, dimension, "QR", "STANDARD")
+        gmls_obj.setWeightingParameter(4)
+        gmls_obj.setWeightingType("power")
+        gmls_obj.addTargets(pycompadre.TargetOperation.ScalarPointEvaluation)
+        gmls_obj.addTargets(pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+        return gmls_obj
+
+    gmls_obj = make_gmls()
+    gmls_helper = pycompadre.ParticleHelper(gmls_obj)
+    gmls_helper.generateKDTree(source_sites)
+    gmls_helper.generateNeighborListsFromSourceRadiusSearchAndSet(target_sites, source_eps, poly_order, dimension)
+
+    # neighbor lists match brute force: s is a neighbor of t iff |x_t - x_s| < eps_s
+    nl = gmls_helper.getNeighborLists()
+    epsilons = gmls_helper.getWindowSizes()
+    self.assertTrue(np.array_equal(gmls_helper.getWindowSizesFromSourceSites(), source_eps))
+    for t in range(NT):
+        dist = np.linalg.norm(source_sites - target_sites[t], axis=1)
+        expected = set(np.flatnonzero(dist < source_eps).tolist())
+        found = [nl.getNeighbor(t, k) for k in range(nl.getNumberOfNeighbors(t))]
+        self.assertEqual(len(found), len(set(found)))
+        self.assertEqual(set(found), expected)
+        # closest neighbor first, target window size is distance to farthest neighbor
+        self.assertEqual(found[0], min(expected, key=lambda s: dist[s]))
+        self.assertAlmostEqual(epsilons[t], max(dist[s] for s in expected), places=14)
+
+    gmls_obj.generateAlphas(1, False)
+
+    # patch test: quadratic is reproduced exactly (value and derivative)
+    data = np.array([exact(x, poly_order, dimension) for x in source_sites], dtype='f8')
+    value = gmls_helper.applyStencil(data.reshape(-1,1), pycompadre.TargetOperation.ScalarPointEvaluation)
+    dx = gmls_helper.applyStencil(data.reshape(-1,1), pycompadre.TargetOperation.PartialXOfScalarPointEvaluation)
+    value_err = max(abs(value[t] - exact(target_sites[t], poly_order, dimension)) for t in range(NT))
+    dx_err = max(abs(dx[t] - grad_exact(target_sites[t], 0, poly_order, dimension)) for t in range(NT))
+    self.assertTrue(value_err < 1e-12, "value error %g" % value_err)
+    self.assertTrue(dx_err < 1e-10, "derivative error %g" % dx_err)
+
+    # source window sizes are what the kernel uses: same neighbors, target window sizes only, give different
+    # stencils for non-polynomial data
+    rough = np.ascontiguousarray(np.sin(7*source_sites[:,0]) + np.cos(5*source_sites.sum(axis=1)), dtype='f8')
+    rough_value = gmls_helper.applyStencil(rough.reshape(-1,1), pycompadre.TargetOperation.ScalarPointEvaluation)
+    gmls_target_eps = make_gmls()
+    helper_target_eps = pycompadre.ParticleHelper(gmls_target_eps)
+    helper_target_eps.generateKDTree(source_sites)
+    helper_target_eps.setTargetSites(target_sites)
+    max_nn = max(nl.getNumberOfNeighbors(t) for t in range(NT))
+    nl_2d = np.zeros((NT, max_nn+1), dtype='i4')
+    for t in range(NT):
+        nl_2d[t,0] = nl.getNumberOfNeighbors(t)
+        nl_2d[t,1:nl_2d[t,0]+1] = [nl.getNeighbor(t, k) for k in range(nl_2d[t,0])]
+    helper_target_eps.setNeighbors(nl_2d)
+    helper_target_eps.setWindowSizes(epsilons)
+    gmls_target_eps.generateAlphas(1, False)
+    rough_target_eps = helper_target_eps.applyStencil(rough.reshape(-1,1), pycompadre.TargetOperation.ScalarPointEvaluation)
+    self.assertTrue(np.max(np.abs(rough_value - rough_target_eps)) > 1e-8)
+
+    # pickling keeps window sizes from source sites
+    new_gmls_obj = pickle.loads(pickle.dumps(gmls_obj))
+    new_helper = pycompadre.ParticleHelper(new_gmls_obj)
+    self.assertTrue(np.array_equal(new_helper.getWindowSizesFromSourceSites(), source_eps))
+    new_gmls_obj.generateAlphas(1, False)
+    new_rough_value = new_helper.applyStencil(rough.reshape(-1,1), pycompadre.TargetOperation.ScalarPointEvaluation)
+    self.assertTrue(np.array_equal(new_rough_value, rough_value))
+
+    # supports too small for unisolvency are caught where neighbors are determined
+    gmls_small = make_gmls()
+    helper_small = pycompadre.ParticleHelper(gmls_small)
+    helper_small.generateKDTree(source_sites)
+    with self.assertRaises(RuntimeError):
+        helper_small.generateNeighborListsFromSourceRadiusSearchAndSet(target_sites, 0.6*h*np.ones_like(source_eps), poly_order, dimension)
+
+for dim in (1,2,3):
+    for space_sample_combo in space_sample_combos.keys():
+        setattr(TestPyCOMPADRE, "test_source_window_sizes_%dd_"%dim+str(space_sample_combo),
+                partialmethod(source_window_sizes_patch_test, dimension=dim,
+                              reconstruction_space=space_sample_combos[space_sample_combo][0],
+                              sampling_functional=space_sample_combos[space_sample_combo][1]))
+#
+# End Window Sizes From Source Sites Tests
+#
+
+#############################
+
 #tc = TestPycompadre()
 #tc.test_additional_sites()
 #tc.test_3d_order1()
